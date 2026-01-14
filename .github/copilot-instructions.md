@@ -6,6 +6,7 @@
 - Keep files short and focused (ideally under 200 lines)
 - Avoid deeply nested JSX and logic
 - Prefer explicit code over clever code
+- Typescript types should be strict and explicit. Avoid using `any` or implicit `any`
 
 ---
 

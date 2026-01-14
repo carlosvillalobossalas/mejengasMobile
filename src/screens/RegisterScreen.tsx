@@ -16,11 +16,11 @@ import {
 } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import type { RootStackParamList } from '../navigation/types';
+import type { AuthStackParamList } from '../navigation/types';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { clearAuthError, registerWithEmail } from '../features/auth/authSlice';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
 export default function RegisterScreen({ navigation }: Props) {
   const theme = useTheme();

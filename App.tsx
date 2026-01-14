@@ -15,6 +15,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 
 import RootNavigator from './src/navigation/RootNavigator';
 import { store } from './src/app/store';
+import AuthBootstrapper from './src/features/auth/AuthBootstrapper';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -29,6 +30,7 @@ function App() {
         >
           <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <NavigationContainer>
+            <AuthBootstrapper />
             <RootNavigator />
           </NavigationContainer>
         </PaperProvider>

@@ -8,11 +8,11 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
+# Firebase (and some of its Swift pods) expect to be built as frameworks.
+# Using static frameworks keeps the app size/linking behavior reasonable and
+# avoids missing generated Swift headers like `FirebaseAuth-Swift.h`.
+use_frameworks! :linkage => :static
+$RNFirebaseAsStaticFramework = true
 
 target 'mejengasMobile' do
   config = use_native_modules!
@@ -30,5 +30,17 @@ target 'mejengasMobile' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Fix build failures like:
+    # `error: non-modular-include-in-framework-module`
+    # which can happen with Firebase/Google pods under modular headers.
+   installer.target_installation_results.pod_target_installation_results
+      .each do |pod_name, target_installation_result|
+      target_installation_result.resource_bundle_targets.each do |resource_bundle_target|
+        resource_bundle_target.build_configurations.each do |config|
+          config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+        end
+      end
+    end
   end
 end

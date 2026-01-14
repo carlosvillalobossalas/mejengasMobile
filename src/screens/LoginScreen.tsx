@@ -17,7 +17,7 @@ import {
 } from 'react-native-paper';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import type { RootStackParamList } from '../navigation/types';
+import type { AuthStackParamList } from '../navigation/types';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import {
   clearAuthError,
@@ -25,7 +25,7 @@ import {
   signInWithGoogle,
 } from '../features/auth/authSlice';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export default function LoginScreen({ navigation }: Props) {
   const theme = useTheme();
