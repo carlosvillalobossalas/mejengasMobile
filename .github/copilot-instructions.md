@@ -122,6 +122,7 @@
 
 ## Special instructions
 - Always write code and comments in English
+- Always write text labels in Spanish (UI)
 - Assume the project uses:
   - React / React Native
   - Redux Toolkit
