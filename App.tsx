@@ -12,6 +12,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { PaperProvider } from 'react-native-paper';
 import { Provider as ReduxProvider } from 'react-redux';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import RootNavigator from './src/navigation/RootNavigator';
 import { store } from './src/app/store';
@@ -22,19 +23,21 @@ function App() {
 
   return (
     <ReduxProvider store={store}>
-      <SafeAreaProvider>
-        <PaperProvider
-          settings={{
-            icon: props => <MaterialCommunityIcons {...props} />,
-          }}
-        >
-          <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-          <NavigationContainer>
-            <AuthBootstrapper />
-            <RootNavigator />
-          </NavigationContainer>
-        </PaperProvider>
-      </SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <PaperProvider
+            settings={{
+              icon: props => <MaterialCommunityIcons {...props} />,
+            }}
+          >
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+            <NavigationContainer>
+              <AuthBootstrapper />
+              <RootNavigator />
+            </NavigationContainer>
+          </PaperProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     </ReduxProvider>
   );
 }

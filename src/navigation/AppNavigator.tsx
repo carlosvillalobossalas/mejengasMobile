@@ -1,15 +1,25 @@
 import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createDrawerNavigator } from '@react-navigation/drawer';
 
-import type { AppStackParamList } from './types';
+import type { AppDrawerParamList } from './types';
 import HomeScreen from '../screens/HomeScreen';
+import GroupsScreen from '../screens/GroupsScreen';
 
-const Stack = createNativeStackNavigator<AppStackParamList>();
+const Drawer = createDrawerNavigator<AppDrawerParamList>();
 
 export default function AppNavigator() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Mejengas' }} />
-    </Stack.Navigator>
+    <Drawer.Navigator initialRouteName="Home">
+      <Drawer.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ title: 'Inicio' }}
+      />
+      <Drawer.Screen
+        name="Groups"
+        component={GroupsScreen}
+        options={{ title: 'Grupos' }}
+      />
+    </Drawer.Navigator>
   );
 }

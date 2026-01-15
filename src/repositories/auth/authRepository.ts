@@ -32,6 +32,8 @@ function mapUserDoc(
   const data = (snap.data() ?? {}) as Record<string, unknown>;
 
   return {
+    // Spread raw data first so we can override non-serializable fields below.
+    ...data,
     id: snap.id,
     uid: (data.uid as string) ?? snap.id,
     email: (data.email as string) ?? null,
@@ -39,7 +41,6 @@ function mapUserDoc(
     photoURL: (data.photoURL as string) ?? null,
     createdAt: toMillis(data.createdAt as FirebaseFirestoreTypes.Timestamp),
     updatedAt: toMillis(data.updatedAt as FirebaseFirestoreTypes.Timestamp),
-    ...data,
   };
 }
 

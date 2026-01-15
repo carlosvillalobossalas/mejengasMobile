@@ -1,3 +1,35 @@
+/* eslint-env jest */
+
+require('react-native-gesture-handler/jestSetup');
+
+jest.mock('react-native-reanimated', () => {
+  const ReactNative = require('react-native');
+
+  const Animated = {
+    View: ReactNative.View,
+    Text: ReactNative.Text,
+    Image: ReactNative.Image,
+    ScrollView: ReactNative.ScrollView,
+    FlatList: ReactNative.FlatList,
+    createAnimatedComponent: component => component,
+  };
+
+  return {
+    __esModule: true,
+    default: Animated,
+    ReduceMotion: { Never: 0 },
+    interpolate: value => value,
+    runOnJS: fn => fn,
+    runOnUI: fn => fn,
+    useAnimatedProps: () => ({}),
+    useAnimatedStyle: () => ({}),
+    useDerivedValue: initializer => ({ value: initializer() }),
+    useSharedValue: initialValue => ({ value: initialValue }),
+    withSpring: value => value,
+    withTiming: value => value,
+  };
+});
+
 jest.mock('@react-native-firebase/auth', () => {
   const mockAuthInstance = {
     currentUser: null,

@@ -6,3 +6,8 @@ export type AuthStackParamList = {
 export type AppStackParamList = {
   Home: undefined;
 };
+
+export type AppDrawerParamList = {
+  Home: undefined;
+  Groups: undefined;
+};
