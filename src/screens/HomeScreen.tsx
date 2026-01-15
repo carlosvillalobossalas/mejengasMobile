@@ -200,11 +200,11 @@ function ActionCardItem({
     theme: ReturnType<typeof useTheme>;
 }) {
     const heightMap = {
-        small: 120,
-        medium: 160,
-        large: 200,
+        small: 140,
+        medium: 180,
+        large: 220,
     };
-    const iconSize = card.size === 'large' ? 56 : card.size === 'medium' ? 48 : 40;
+    const iconSize = card.size === 'large' ? 64 : card.size === 'medium' ? 56 : 48;
 
     return (
         <TouchableOpacity
@@ -227,8 +227,9 @@ function ActionCardItem({
                         <Icon name={card.icon} size={iconSize} color="#FFFFFF" />
                     </View>
                     <Text
-                        variant={card.size === 'large' ? 'titleLarge' : 'titleMedium'}
+                        variant={card.size === 'large' ? 'headlineSmall' : 'titleLarge'}
                         style={styles.actionTitle}
+                        numberOfLines={2}
                     >
                         {card.title}
                     </Text>
@@ -305,25 +306,27 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     actionCardContent: {
-        flex: 1,
+        display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 12,
+        height: '100%',
     },
     actionIconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
         justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: 8,
     },
     actionTitle: {
         color: '#FFFFFF',
         fontWeight: '700',
         textAlign: 'center',
-        textShadowColor: 'rgba(0, 0, 0, 0.3)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 2,
+        textShadowColor: 'rgba(0, 0, 0, 0.4)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4,
+        paddingHorizontal: 8,
     },
 });

@@ -79,6 +79,9 @@ export const startAuthListener = createAsyncThunk<void, void>(
         dispatch(firestoreUserChanged(userDoc));
         dispatch(authStatusChanged('authenticated'));
         dispatch(hydrateSelectedGroupId({ userId: user.uid }));
+        // Fetch groups after hydrating the selected group ID
+        const { fetchMyGroups } = await import('../groups/groupsSlice');
+        dispatch(fetchMyGroups({ userId: user.uid }));
       } catch (e) {
         dispatch(authErrorChanged(toSpanishAuthErrorMessage(e)));
         dispatch(authStatusChanged('error'));
