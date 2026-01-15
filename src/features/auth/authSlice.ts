@@ -10,6 +10,7 @@ import {
   signInWithGoogle as signInWithGoogleRepo,
   signOut as signOutRepo,
 } from '../../repositories/auth/authRepository';
+import { hydrateSelectedGroupId } from '../groups/groupsSlice';
 
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'error';
 
@@ -77,6 +78,7 @@ export const startAuthListener = createAsyncThunk<void, void>(
         const userDoc = await ensureFirestoreUserForAuthUser(user);
         dispatch(firestoreUserChanged(userDoc));
         dispatch(authStatusChanged('authenticated'));
+        dispatch(hydrateSelectedGroupId({ userId: user.uid }));
       } catch (e) {
         dispatch(authErrorChanged(toSpanishAuthErrorMessage(e)));
         dispatch(authStatusChanged('error'));

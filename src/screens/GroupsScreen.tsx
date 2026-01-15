@@ -10,7 +10,7 @@ import {
 } from 'react-native-paper';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
-import { fetchMyGroups, setSelectedGroupId } from '../features/groups/groupsSlice';
+import { fetchMyGroups, selectGroup } from '../features/groups/groupsSlice';
 
 export default function GroupsScreen() {
   const dispatch = useAppDispatch();
@@ -39,7 +39,8 @@ export default function GroupsScreen() {
   };
 
   const onSelectGroup = (groupId: string) => {
-    dispatch(setSelectedGroupId(groupId));
+    if (!userId) return;
+    dispatch(selectGroup({ userId, groupId }));
   };
 
   return (

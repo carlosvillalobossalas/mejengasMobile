@@ -2,6 +2,10 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 import { firebaseUserChanged, signOutFromFirebase } from '../auth/authSlice';
 import {
+  getStoredSelectedGroupId,
+  setStoredSelectedGroupId,
+} from '../../services/storage/selectedGroupStorage';
+import {
   fetchGroupsForUser,
   type Group,
 } from '../../repositories/groups/groupsRepository';
@@ -13,6 +17,7 @@ export type GroupsState = {
   error: string | null;
   groups: Array<Group>;
   selectedGroupId: string | null;
+  isHydrated: boolean;
 };
 
 const initialState: GroupsState = {
@@ -20,6 +25,7 @@ const initialState: GroupsState = {
   error: null,
   groups: [],
   selectedGroupId: null,
+  isHydrated: false,
 };
 
 function toSpanishGroupsErrorMessage(error: unknown): string {
@@ -39,6 +45,30 @@ export const fetchMyGroups = createAsyncThunk<
   try {
     const groups = await fetchGroupsForUser(userId);
     return { groups };
+  } catch (e) {
+    return rejectWithValue(toSpanishGroupsErrorMessage(e));
+  }
+});
+
+export const hydrateSelectedGroupId = createAsyncThunk<
+  { selectedGroupId: string | null },
+  { userId: string }
+>('groups/hydrateSelectedGroupId', async ({ userId }, { rejectWithValue }) => {
+  try {
+    const selectedGroupId = await getStoredSelectedGroupId(userId);
+    return { selectedGroupId };
+  } catch (e) {
+    return rejectWithValue(toSpanishGroupsErrorMessage(e));
+  }
+});
+
+export const selectGroup = createAsyncThunk<
+  { selectedGroupId: string | null },
+  { userId: string; groupId: string | null }
+>('groups/selectGroup', async ({ userId, groupId }, { rejectWithValue }) => {
+  try {
+    await setStoredSelectedGroupId(userId, groupId);
+    return { selectedGroupId: groupId };
   } catch (e) {
     return rejectWithValue(toSpanishGroupsErrorMessage(e));
   }
@@ -66,16 +96,14 @@ const groupsSlice = createSlice({
         state.status = 'idle';
         state.groups = action.payload.groups;
 
-        // Preserve selection if still exists, otherwise pick first.
+        // Do NOT auto-select; only validate existing selection.
         if (state.selectedGroupId) {
           const stillExists = action.payload.groups.some(
             g => g.id === state.selectedGroupId,
           );
           if (!stillExists) {
-            state.selectedGroupId = action.payload.groups[0]?.id ?? null;
+            state.selectedGroupId = null;
           }
-        } else {
-          state.selectedGroupId = action.payload.groups[0]?.id ?? null;
         }
       })
       .addCase(fetchMyGroups.rejected, (state, action) => {
@@ -85,11 +113,22 @@ const groupsSlice = createSlice({
           action.error.message ??
           'No se pudieron cargar los grupos.';
       })
+      .addCase(hydrateSelectedGroupId.fulfilled, (state, action) => {
+        state.selectedGroupId = action.payload.selectedGroupId;
+        state.isHydrated = true;
+      })
+      .addCase(hydrateSelectedGroupId.rejected, state => {
+        state.isHydrated = true;
+      })
+      .addCase(selectGroup.fulfilled, (state, action) => {
+        state.selectedGroupId = action.payload.selectedGroupId;
+      })
       .addCase(signOutFromFirebase.fulfilled, state => {
         state.status = 'idle';
         state.error = null;
         state.groups = [];
         state.selectedGroupId = null;
+        state.isHydrated = false;
       })
       .addCase(firebaseUserChanged, (state, action) => {
         if (!action.payload) {
@@ -97,6 +136,7 @@ const groupsSlice = createSlice({
           state.error = null;
           state.groups = [];
           state.selectedGroupId = null;
+          state.isHydrated = false;
         }
       });
   },
