@@ -6,16 +6,17 @@
  */
 
 import React from 'react';
+import 'react-native-reanimated'
 import { StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { PaperProvider } from 'react-native-paper';
 import { Provider as ReduxProvider } from 'react-redux';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import 'react-native-reanimated'
 import RootNavigator from './src/navigation/RootNavigator';
 import { store } from './src/app/store';
 import AuthBootstrapper from './src/features/auth/AuthBootstrapper';
+import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -24,7 +25,14 @@ function App() {
     <ReduxProvider store={store}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <PaperProvider>
+          <PaperProvider
+            settings={{
+              icon: props => <MaterialDesignIcons
+                {...props}
+                name={props.name as any}
+              />,
+            }}
+          >
             <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
             <NavigationContainer>
               <AuthBootstrapper />
@@ -33,7 +41,7 @@ function App() {
           </PaperProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
-    </ReduxProvider>
+    </ReduxProvider >
   );
 }
 

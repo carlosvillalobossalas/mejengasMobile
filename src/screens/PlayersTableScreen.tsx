@@ -212,13 +212,16 @@ export default function PlayersTableScreen() {
       {/* Header */}
       <Surface style={styles.header} elevation={2}>
         <View style={styles.headerContent}>
-          <View style={styles.titleRow}>
+          {/* <View style={styles.titleRow}>
             <Icon name="soccer" size={24} color="#FFFFFF" />
             <Text variant="titleLarge" style={styles.headerTitle}>
               Jugadores
             </Text>
-          </View>
+          </View> */}
 
+          <Text variant="bodySmall" style={styles.playerCount}>
+            Total: {currentYearPlayers.length} jugadores
+          </Text>
           <Button
             mode="contained"
             onPress={handleOpenYearSelector}
@@ -230,9 +233,6 @@ export default function PlayersTableScreen() {
             {getYearLabel(selectedYear)}
           </Button>
 
-          <Text variant="bodySmall" style={styles.playerCount}>
-            Total: {currentYearPlayers.length} jugadores
-          </Text>
         </View>
       </Surface>
 
