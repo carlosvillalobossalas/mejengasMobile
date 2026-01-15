@@ -129,3 +129,4 @@
   - Redux Toolkit
   - Firebase
 - Avoid Expo-specific APIs unless explicitly requested
+- Icon components should be imported from '@react-native-vector-icons/material-design-icons'

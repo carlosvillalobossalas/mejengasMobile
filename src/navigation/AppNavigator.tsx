@@ -4,6 +4,7 @@ import { createDrawerNavigator } from '@react-navigation/drawer';
 import type { AppDrawerParamList } from './types';
 import HomeScreen from '../screens/HomeScreen';
 import GroupsScreen from '../screens/GroupsScreen';
+import PlayersTableScreen from '../screens/PlayersTableScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector } from '../app/hooks';
 
@@ -31,6 +32,11 @@ export default function AppNavigator() {
         name="Groups"
         component={GroupsScreen}
         options={{ title: 'Grupos' }}
+      />
+      <Drawer.Screen
+        name="PlayersTable"
+        component={PlayersTableScreen}
+        options={{ title: 'Jugadores' }}
       />
     </Drawer.Navigator>
   );

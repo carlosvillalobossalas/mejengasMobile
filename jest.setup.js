@@ -12,6 +12,22 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
+jest.mock('@react-native-vector-icons/material-design-icons', () => ({
+  MaterialDesignIcons: 'Icon',
+}));
+
+jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
+
+jest.mock('@gorhom/bottom-sheet', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: React.forwardRef(() => null),
+    BottomSheetBackdrop: () => null,
+    BottomSheetFlatList: require('react-native').FlatList,
+  };
+});
+
 jest.mock('react-native-reanimated', () => {
   const ReactNative = require('react-native');
 

@@ -8,8 +8,11 @@ import {
     Chip,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon, MaterialDesignIconsIconName } from '@react-native-vector-icons/material-design-icons';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useNavigation } from '@react-navigation/native';
 
 import { useAppSelector } from '../app/hooks';
+import type { AppDrawerParamList } from '../navigation/types';
 
 type ActionCard = {
     id: string;
@@ -27,6 +30,7 @@ const CheckCircleIcon = () => <Icon name="check-circle" size={16} color="#4CAF50
 
 export default function HomeScreen() {
     const theme = useTheme();
+    const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
     const [searchQuery, setSearchQuery] = useState('');
 
     const { groups, selectedGroupId } = useAppSelector(state => state.groups);
@@ -53,7 +57,7 @@ export default function HomeScreen() {
                 icon: 'account-group',
                 color: '#2196F3',
                 size: 'large',
-                onPress: () => console.log('Navigate to Players'),
+                onPress: () => navigation.navigate('PlayersTable'),
             },
             {
                 id: 'goalkeepers',
@@ -101,7 +105,7 @@ export default function HomeScreen() {
         }
 
         return cards;
-    }, [isOwner, isAdmin]);
+    }, [isOwner, isAdmin, navigation]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
