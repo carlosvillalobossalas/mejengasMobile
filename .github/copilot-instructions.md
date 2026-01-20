@@ -7,6 +7,9 @@
 - Avoid deeply nested JSX and logic
 - Prefer explicit code over clever code
 - Typescript types should be strict and explicit. Avoid using `any` or implicit `any`
+- Create files for types when they are shared across multiple files
+- Use async/await for asynchronous code
+- Always handle loading and error states for async operations
 
 ---
 
@@ -130,3 +133,6 @@
   - Firebase
 - Avoid Expo-specific APIs unless explicitly requested
 - Icon components should be imported from '@react-native-vector-icons/material-design-icons'
+- Don't leave unused code
+- Don't leave errors or warnings in the code
+- Check if componentes or functions have the attributes, properties or parameters to work correctly before generating code

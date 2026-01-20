@@ -73,7 +73,7 @@ export default function HomeScreen() {
                 icon: 'soccer',
                 color: '#4CAF50',
                 size: 'large',
-                onPress: () => console.log('Navigate to Matches'),
+                onPress: () => navigation.navigate('Matches'),
             },
             {
                 id: 'profile',

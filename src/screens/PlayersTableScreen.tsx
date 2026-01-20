@@ -21,8 +21,8 @@ import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/b
 import { useAppSelector } from '../app/hooks';
 import {
   preparePlayerStatsFromSeasonStats,
-  getPlayerDisplay,
 } from '../endpoints/players/playerStatsEndpoints';
+import { getPlayerDisplay } from '../helpers/players';
 
 export type PlayerStatsAggregate = {
   id: string;
