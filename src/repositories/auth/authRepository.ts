@@ -91,6 +91,24 @@ export async function ensureFirestoreUserForAuthUser(
   return mapUserDoc(snap);
 }
 
+export async function updateUserFcmToken(
+  userId: string,
+  fcmToken: string,
+): Promise<void> {
+  if (!userId || !fcmToken) return;
+
+  const ref = usersCollection().doc(userId);
+
+  await ref.set(
+    {
+      fcmToken,
+      fcmTokens: firestore.FieldValue.arrayUnion(fcmToken),
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
 export async function signInWithEmailAndPassword(params: {
   email: string;
   password: string;

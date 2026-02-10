@@ -107,6 +107,7 @@ jest.mock('@react-native-firebase/firestore', () => {
 
   firestore.FieldValue = {
     serverTimestamp: () => null,
+    arrayUnion: (...items) => items,
   };
 
   return firestore;
@@ -120,3 +121,23 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
     signOut: jest.fn(async () => undefined),
   },
 }));
+
+jest.mock('@react-native-firebase/messaging', () => {
+  const messaging = () => ({
+    requestPermission: jest.fn(async () => 1),
+    getToken: jest.fn(async () => 'test-fcm-token'),
+    onTokenRefresh: jest.fn(() => () => undefined),
+    onMessage: jest.fn(() => () => undefined),
+    onNotificationOpenedApp: jest.fn(() => () => undefined),
+    getInitialNotification: jest.fn(async () => null),
+    setBackgroundMessageHandler: jest.fn(),
+  });
+
+  messaging.AuthorizationStatus = {
+    AUTHORIZED: 1,
+    PROVISIONAL: 2,
+    DENIED: 0,
+  };
+
+  return messaging;
+});

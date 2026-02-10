@@ -16,6 +16,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
 import { store } from './src/app/store';
 import AuthBootstrapper from './src/features/auth/AuthBootstrapper';
+import NotificationsBootstrapper from './src/features/notifications/NotificationsBootstrapper';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
             <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
             <NavigationContainer>
               <AuthBootstrapper />
+              <NotificationsBootstrapper />
               <RootNavigator />
             </NavigationContainer>
           </PaperProvider>
