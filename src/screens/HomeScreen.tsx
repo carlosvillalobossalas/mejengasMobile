@@ -81,7 +81,7 @@ export default function HomeScreen() {
                 icon: 'account-circle',
                 color: '#9C27B0',
                 size: 'small',
-                onPress: () => console.log('Navigate to Profile'),
+                onPress: () => navigation.navigate('Profile'),
             },
             {
                 id: 'stats',

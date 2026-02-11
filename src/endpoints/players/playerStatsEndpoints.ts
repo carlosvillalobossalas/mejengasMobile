@@ -3,7 +3,7 @@ import {
     getAllPlayersByGroup,
 } from '../../repositories/players/playerSeasonStatsRepository';
 
-type PlayerStatsAggregate = {
+export type PlayerStatsAggregate = {
     id: string;
     goals: number;
     assists: number;
@@ -11,6 +11,7 @@ type PlayerStatsAggregate = {
     won: number;
     draw: number;
     lost: number;
+    mvp: number;
     name?: string;
     photoURL?: string;
     originalName?: string;
@@ -53,6 +54,7 @@ export async function preparePlayerStatsFromSeasonStats(
                         won: 0,
                         draw: 0,
                         lost: 0,
+                        mvp: 0,
                     };
                 }
 
@@ -62,6 +64,7 @@ export async function preparePlayerStatsFromSeasonStats(
                 historicTotals[stat.playerId].won += stat.won || 0;
                 historicTotals[stat.playerId].draw += stat.draw || 0;
                 historicTotals[stat.playerId].lost += stat.lost || 0;
+                historicTotals[stat.playerId].mvp += stat.mvp || 0;
             });
         });
 
@@ -89,6 +92,7 @@ export async function preparePlayerStatsFromSeasonStats(
                     won: stat.won || 0,
                     draw: stat.draw || 0,
                     lost: stat.lost || 0,
+                    mvp: stat.mvp || 0,
                     name: fullPlayer?.name,
                     photoURL: fullPlayer?.photoURL,
                     originalName: fullPlayer?.originalName,

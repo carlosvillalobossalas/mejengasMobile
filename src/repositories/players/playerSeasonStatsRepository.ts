@@ -3,6 +3,7 @@ import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firest
 export type PlayerSeasonStats = {
   id: string;
   playerId: string;
+  userId: string;
   groupId: string;
   season: string;
   goals: number;
@@ -11,6 +12,7 @@ export type PlayerSeasonStats = {
   won: number;
   draw: number;
   lost: number;
+  mvp: number;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -53,6 +55,7 @@ const mapPlayerSeasonStatsDoc = (
   return {
     id: doc.id,
     playerId: String(data.playerId ?? ''),
+    userId: String(data.userId ?? ''),
     groupId: String(data.groupId ?? ''),
     season: String(data.season ?? ''),
     goals: Number(data.goals ?? 0),
@@ -61,6 +64,7 @@ const mapPlayerSeasonStatsDoc = (
     won: Number(data.won ?? 0),
     draw: Number(data.draw ?? 0),
     lost: Number(data.lost ?? 0),
+    mvp: Number(data.mvp ?? 0),
     createdAt: toIsoString(data.createdAt),
     updatedAt: toIsoString(data.updatedAt),
   };
@@ -104,6 +108,19 @@ export async function getAllPlayerSeasonStatsByGroup(
   });
 
   return statsBySeason;
+}
+
+/**
+ * Get all player season stats for a specific user
+ */
+export async function getAllPlayerSeasonStatsByUserId(
+  userId: string,
+): Promise<PlayerSeasonStats[]> {
+  const statsRef = firestore().collection(PLAYER_SEASON_STATS_COLLECTION);
+  const q = statsRef.where('userId', '==', userId);
+  const snapshot = await q.get();
+
+  return snapshot.docs.map(mapPlayerSeasonStatsDoc);
 }
 
 /**

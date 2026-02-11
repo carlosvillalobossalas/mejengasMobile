@@ -12,4 +12,5 @@ export type AppDrawerParamList = {
   Groups: undefined;
   PlayersTable: undefined;
   Matches: undefined;
+  Profile: undefined;
 };

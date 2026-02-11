@@ -143,3 +143,46 @@ export async function fetchGroupsForUser(userId: string): Promise<Array<Group>> 
 
   return groups;
 }
+
+/**
+ * Get multiple groups by IDs
+ */
+export async function getGroupsByIds(
+  groupIds: string[],
+): Promise<Map<string, Group>> {
+  if (groupIds.length === 0) {
+    return new Map();
+  }
+
+  const groupsRef = firestore().collection(GROUPS_COLLECTION);
+  const docId = firestore.FieldPath.documentId();
+  const groupsMap = new Map<string, Group>();
+
+  // Firestore `in` queries are limited to 10 values, so we chunk.
+  for (const idsChunk of chunk(groupIds, 10)) {
+    try {
+      const snap = await groupsRef.where(docId, 'in', idsChunk).get();
+      snap.docs.forEach(doc => {
+        const group = mapGroupDoc(doc);
+        groupsMap.set(group.id, group);
+      });
+    } catch {
+      // Fallback: fetch by doc ID one by one (slower but reliable).
+      const docs = await Promise.all(idsChunk.map(id => groupsRef.doc(id).get()));
+      for (const doc of docs) {
+        const existsValue = (doc as unknown as { exists?: unknown }).exists;
+        const exists =
+          typeof existsValue === 'function'
+            ? Boolean((existsValue as () => boolean)())
+            : Boolean(existsValue);
+
+        if (exists) {
+          const group = mapGroupDoc(doc);
+          groupsMap.set(group.id, group);
+        }
+      }
+    }
+  }
+
+  return groupsMap;
+}

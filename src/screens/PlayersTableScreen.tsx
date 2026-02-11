@@ -21,22 +21,9 @@ import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/b
 import { useAppSelector } from '../app/hooks';
 import {
   preparePlayerStatsFromSeasonStats,
+  type PlayerStatsAggregate,
 } from '../endpoints/players/playerStatsEndpoints';
 import { getPlayerDisplay } from '../helpers/players';
-
-export type PlayerStatsAggregate = {
-  id: string;
-  goals: number;
-  assists: number;
-  matches: number;
-  won: number;
-  draw: number;
-  lost: number;
-  name?: string;
-  photoURL?: string;
-  originalName?: string;
-  userId?: string;
-};
 
 type SortColumn =
   | 'name'
