@@ -29,7 +29,7 @@ type SortColumn =
   | 'name'
   | 'goals'
   | 'assists'
-  | 'goalsAndAssists'
+  | 'mvp'
   | 'matches'
   | 'goalsPerMatch'
   | 'assistsPerMatch';
@@ -127,9 +127,9 @@ export default function PlayersTableScreen() {
           aValue = a.assists;
           bValue = b.assists;
           break;
-        case 'goalsAndAssists':
-          aValue = a.goals + a.assists;
-          bValue = b.goals + b.assists;
+        case 'mvp':
+          aValue = a.mvp;
+          bValue = b.mvp;
           break;
         case 'matches':
           aValue = a.matches;
@@ -265,9 +265,9 @@ export default function PlayersTableScreen() {
             <DataTable.Title
               numeric
               sortDirection={
-                sortBy === 'goalsAndAssists' ? sortDirection : undefined
+                sortBy === 'mvp' ? sortDirection : undefined
               }
-              onPress={() => handleSort('goalsAndAssists')}
+              onPress={() => handleSort('mvp')}
               style={styles.statColumn}
               textStyle={styles.headerText}
             >
@@ -343,7 +343,7 @@ export default function PlayersTableScreen() {
 
                 <DataTable.Cell numeric style={styles.statColumn}>
                   <Text variant="bodyMedium" style={styles.combinedText}>
-                    {player.goals + player.assists}
+                    {player.mvp}
                   </Text>
                 </DataTable.Cell>
 
