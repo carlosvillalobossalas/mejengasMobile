@@ -6,6 +6,7 @@ import {
     Text,
     useTheme,
     Chip,
+    IconButton,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon, MaterialDesignIconsIconName } from '@react-native-vector-icons/material-design-icons';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -140,11 +141,20 @@ export default function HomeScreen() {
                                     </Text>
                                 )}
                             </View>
-                            {(isOwner || isAdmin) && (
-                                <View style={styles.crownIcon}>
-                                    <Icon name="crown" size={28} color="#FFD700" />
-                                </View>
-                            )}
+                            <View style={styles.groupActions}>
+                                {(isOwner || isAdmin) && (
+                                    <View style={styles.crownIcon}>
+                                        <Icon name="crown" size={28} color="#FFD700" />
+                                    </View>
+                                )}
+                                <IconButton
+                                    icon="swap-horizontal"
+                                    size={24}
+                                    iconColor={theme.colors.primary}
+                                    onPress={() => navigation.navigate('Groups')}
+                                    style={styles.changeGroupButton}
+                                />
+                            </View>
                         </View>
                         <View style={styles.groupMeta}>
                             <Chip icon={EyeIcon} compact>
@@ -277,6 +287,14 @@ const styles = StyleSheet.create({
         opacity: 0.85,
     },
     crownIcon: {
+        margin: 0,
+    },
+    groupActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    changeGroupButton: {
         margin: 0,
     },
     groupMeta: {
