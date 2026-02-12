@@ -4,6 +4,7 @@ import {
   StyleSheet,
   View,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import {
   Text,
@@ -24,6 +25,7 @@ import {
   type PlayerStatsAggregate,
 } from '../endpoints/players/playerStatsEndpoints';
 import { getPlayerDisplay } from '../helpers/players';
+import PlayerProfileModal from '../components/PlayerProfileModal';
 
 type SortColumn =
   | 'name'
@@ -53,6 +55,8 @@ export default function PlayersTableScreen() {
   const [sortBy, setSortBy] = useState<SortColumn>('goals');
   const [sortDirection, setSortDirection] = useState<SortDirection>('descending');
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const playerProfileModalRef = useRef<BottomSheet>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerStatsAggregate | null>(null);
 
   // Load stats when component mounts or groupId changes
   useEffect(() => {
@@ -91,6 +95,11 @@ export default function PlayersTableScreen() {
   const handleSelectYear = useCallback((year: string) => {
     setSelectedYear(year);
     bottomSheetRef.current?.close();
+  }, []);
+
+  const handlePlayerPress = useCallback((player: PlayerStatsAggregate) => {
+    setSelectedPlayer(player);
+    playerProfileModalRef.current?.expand();
   }, []);
 
   const renderBackdrop = useCallback(
@@ -287,13 +296,17 @@ export default function PlayersTableScreen() {
           {/* Table Rows */}
           {sortedPlayers.map((player, index) => {
             return (
-              <DataTable.Row
+              <TouchableOpacity
                 key={player.id}
-                style={[
-                  styles.tableRow,
-                  index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                ]}
+                onPress={() => handlePlayerPress(player)}
+                activeOpacity={0.7}
               >
+                <DataTable.Row
+                  style={[
+                    styles.tableRow,
+                    index % 2 === 0 ? styles.evenRow : styles.oddRow,
+                  ]}
+                >
                 <DataTable.Cell style={styles.rankColumn}>
                   <Text
                     variant="bodyMedium"
@@ -351,6 +364,7 @@ export default function PlayersTableScreen() {
                   <Text variant="bodyMedium">{player.matches}</Text>
                 </DataTable.Cell>
               </DataTable.Row>
+              </TouchableOpacity>
             );
           })}
 
@@ -404,6 +418,14 @@ export default function PlayersTableScreen() {
             />
           </View>
         </BottomSheet>
+
+        {/* Player Profile Modal */}
+        <PlayerProfileModal
+          userId={selectedPlayer?.userId || null}
+          playerName={selectedPlayer?.name}
+          playerPhotoURL={selectedPlayer?.photoURL}
+          bottomSheetRef={playerProfileModalRef}
+        />
       </Portal>
     </View>
   );
