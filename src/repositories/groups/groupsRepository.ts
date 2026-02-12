@@ -186,3 +186,36 @@ export async function getGroupsByIds(
 
   return groupsMap;
 }
+
+/**
+ * Get user role in a specific group
+ */
+export async function getUserRoleInGroup(
+  groupId: string,
+  userId: string,
+): Promise<string | null> {
+  const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
+  
+  // Try with userId field
+  let snapshot = await membersRef
+    .where('groupId', '==', groupId)
+    .where('userId', '==', userId)
+    .limit(1)
+    .get();
+
+  // If not found, try with userid field (lowercase)
+  if (snapshot.empty) {
+    snapshot = await membersRef
+      .where('groupId', '==', groupId)
+      .where('userid', '==', userId)
+      .limit(1)
+      .get();
+  }
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const member = mapMemberDoc(snapshot.docs[0]);
+  return member.role;
+}

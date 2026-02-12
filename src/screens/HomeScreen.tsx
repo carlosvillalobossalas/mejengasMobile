@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
     Card,
@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import { useAppSelector } from '../app/hooks';
 import type { AppDrawerParamList } from '../navigation/types';
+import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
 
 type ActionCard = {
     id: string;
@@ -33,6 +34,7 @@ export default function HomeScreen() {
     const theme = useTheme();
     const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
     const [searchQuery, setSearchQuery] = useState('');
+    const [userRole, setUserRole] = useState<string | null>(null);
 
     const { groups, selectedGroupId } = useAppSelector(state => state.groups);
     const currentUser = useAppSelector(state => state.auth.firestoreUser);
@@ -43,7 +45,27 @@ export default function HomeScreen() {
     );
 
     const isOwner = activeGroup?.ownerId === currentUser?.uid;
-    const isAdmin = false; // TODO: check user role in group
+    const isAdmin = userRole === 'admin' || userRole === 'owner';
+
+    // Load user role when group or user changes
+    useEffect(() => {
+        const loadUserRole = async () => {
+            if (!selectedGroupId || !currentUser?.uid) {
+                setUserRole(null);
+                return;
+            }
+
+            try {
+                const role = await getUserRoleInGroup(selectedGroupId, currentUser.uid);
+                setUserRole(role);
+            } catch (error) {
+                console.error('Error loading user role:', error);
+                setUserRole(null);
+            }
+        };
+
+        loadUserRole();
+    }, [selectedGroupId, currentUser?.uid]);
 
     const handleSearch = () => {
         // TODO: Navigate to search screen
@@ -92,21 +114,18 @@ export default function HomeScreen() {
                 size: 'medium',
                 onPress: () => navigation.navigate('Invitations'),
             },
-        ];
-
-        if (isOwner || isAdmin) {
-            cards.push({
+            {
                 id: 'admin',
                 title: 'Administrar Grupo',
                 icon: 'cog',
                 color: '#F44336',
                 size: 'medium',
                 onPress: () => console.log('Navigate to Admin'),
-            });
-        }
+            },
+        ];
 
         return cards;
-    }, [isOwner, isAdmin, navigation]);
+    }, [navigation]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -185,7 +204,12 @@ export default function HomeScreen() {
                     {actionCards
                         .filter((_, index) => index % 2 === 0)
                         .map(card => (
-                            <ActionCardItem key={card.id} card={card} theme={theme} />
+                            <ActionCardItem
+                                key={card.id}
+                                card={card}
+                                theme={theme}
+                                isDisabled={card.id === 'admin' && !isOwner && !isAdmin}
+                            />
                         ))}
                 </View>
 
@@ -194,7 +218,12 @@ export default function HomeScreen() {
                     {actionCards
                         .filter((_, index) => index % 2 === 1)
                         .map(card => (
-                            <ActionCardItem key={card.id} card={card} theme={theme} />
+                            <ActionCardItem
+                                key={card.id}
+                                card={card}
+                                theme={theme}
+                                isDisabled={card.id === 'admin' && !isOwner && !isAdmin}
+                            />
                         ))}
                 </View>
             </View>
@@ -205,12 +234,14 @@ export default function HomeScreen() {
 function ActionCardItem({
     card,
     theme: _theme,
+    isDisabled = false,
 }: {
     card: ActionCard;
     theme: ReturnType<typeof useTheme>;
+    isDisabled?: boolean;
 }) {
     const heightMap = {
-        small: 140,
+        small: 155,
         medium: 180,
         large: 220,
     };
@@ -218,9 +249,10 @@ function ActionCardItem({
 
     return (
         <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={card.onPress}
+            activeOpacity={isDisabled ? 1 : 0.7}
+            onPress={isDisabled ? undefined : card.onPress}
             style={styles.cardTouchable}
+            disabled={isDisabled}
         >
             <Card
                 style={[
@@ -229,10 +261,16 @@ function ActionCardItem({
                         height: heightMap[card.size],
                         backgroundColor: card.color,
                     },
+                    isDisabled && styles.disabledCard,
                 ]}
-                elevation={4}
+                elevation={isDisabled ? 1 : 4}
             >
                 <Card.Content style={styles.actionCardContent}>
+                    {isDisabled && (
+                        <View style={styles.lockIconContainer}>
+                            <Icon name="lock" size={32} color="rgba(255, 255, 255, 0.9)" />
+                        </View>
+                    )}
                     <View style={styles.actionIconContainer}>
                         <Icon name={card.icon} size={iconSize} color="#FFFFFF" />
                     </View>
@@ -243,6 +281,11 @@ function ActionCardItem({
                     >
                         {card.title}
                     </Text>
+                    {isDisabled && (
+                        <Text style={styles.disabledText}>
+                            Solo para admins
+                        </Text>
+                    )}
                 </Card.Content>
             </Card>
         </TouchableOpacity>
@@ -323,11 +366,21 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: 'hidden',
     },
+    disabledCard: {
+        opacity: 0.6,
+    },
     actionCardContent: {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         height: '100%',
+        position: 'relative',
+    },
+    lockIconContainer: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        zIndex: 1,
     },
     actionIconContainer: {
         width: 90,
@@ -346,5 +399,12 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 0, height: 2 },
         textShadowRadius: 4,
         paddingHorizontal: 8,
+    },
+    disabledText: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        marginTop: 4,
+        opacity: 0.9,
+        textAlign: 'center',
     },
 });
