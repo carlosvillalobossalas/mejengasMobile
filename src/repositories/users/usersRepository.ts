@@ -74,3 +74,40 @@ export async function updateUserPhotoURL(
     updatedAt: firestore.FieldValue.serverTimestamp(),
   });
 }
+
+/**
+ * Search users by display name (case-insensitive partial match)
+ * @param searchTerm Term to search for in displayName
+ * @param limit Maximum number of results to return
+ */
+export async function searchUsersByName(
+  searchTerm: string,
+  limit: number = 10,
+): Promise<User[]> {
+  if (!searchTerm || searchTerm.trim().length === 0) {
+    return [];
+  }
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  // Firestore doesn't support case-insensitive queries or partial matches directly
+  // So we fetch all users and filter in memory
+  // For large datasets, consider using Algolia or similar search service
+  const snapshot = await firestore()
+    .collection(USERS_COLLECTION)
+    .limit(100) // Limit initial fetch to avoid performance issues
+    .get();
+
+  const users = snapshot.docs.map(mapUserDoc);
+
+  // Filter by partial match (case-insensitive)
+  const filtered = users.filter(user => {
+    if (!user.displayName) {
+      return false;
+    }
+    return user.displayName.toLowerCase().includes(normalizedSearch);
+  });
+
+  return filtered.slice(0, limit);
+}
+

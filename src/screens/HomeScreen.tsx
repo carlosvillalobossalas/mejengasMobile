@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
     Card,
@@ -7,14 +7,21 @@ import {
     useTheme,
     Chip,
     IconButton,
+    Avatar,
+    List,
+    Divider,
+    Portal,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon, MaterialDesignIconsIconName } from '@react-native-vector-icons/material-design-icons';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
+import BottomSheet from '@gorhom/bottom-sheet';
 
-import { useAppSelector } from '../app/hooks';
+import { useAppSelector, useDebounce } from '../app/hooks';
 import type { AppDrawerParamList } from '../navigation/types';
 import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
+import { searchUsersByName, type User } from '../repositories/users/usersRepository';
+import PlayerProfileModal from '../components/PlayerProfileModal';
 
 type ActionCard = {
     id: string;
@@ -35,6 +42,14 @@ export default function HomeScreen() {
     const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
     const [searchQuery, setSearchQuery] = useState('');
     const [userRole, setUserRole] = useState<string | null>(null);
+    const [searchResults, setSearchResults] = useState<User[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [selectedUserName, setSelectedUserName] = useState<string | undefined>(undefined);
+    const [selectedUserPhoto, setSelectedUserPhoto] = useState<string | undefined>(undefined);
+    const bottomSheetRef = useRef<BottomSheet | null>(null);
+    const searchbarRef = useRef<any>(null);
+    const debouncedSearchQuery = useDebounce(searchQuery, 700);
 
     const { groups, selectedGroupId } = useAppSelector(state => state.groups);
     const currentUser = useAppSelector(state => state.auth.firestoreUser);
@@ -67,9 +82,44 @@ export default function HomeScreen() {
         loadUserRole();
     }, [selectedGroupId, currentUser?.uid]);
 
-    const handleSearch = () => {
-        // TODO: Navigate to search screen
-        console.log('Search:', searchQuery);
+    // Execute search when debounced query changes
+    useEffect(() => {
+        const executeSearch = async () => {
+            if (!debouncedSearchQuery || debouncedSearchQuery.trim().length < 2) {
+                setSearchResults([]);
+                setIsSearching(false);
+                return;
+            }
+
+            setIsSearching(true);
+            try {
+                const results = await searchUsersByName(debouncedSearchQuery, 8);
+                setSearchResults(results);
+            } catch (error) {
+                console.error('Error searching users:', error);
+                setSearchResults([]);
+            } finally {
+                setIsSearching(false);
+            }
+        };
+
+        executeSearch();
+    }, [debouncedSearchQuery]);
+
+    const handleSelectPlayer = (user: User) => {
+        // Blur searchbar to hide keyboard and remove focus
+        searchbarRef.current?.blur();
+        
+        setSelectedUserId(user.uid);
+        setSelectedUserName(user.displayName || undefined);
+        setSelectedUserPhoto(user.photoURL || undefined);
+        setSearchQuery('');
+        setSearchResults([]);
+        
+        // Open modal after state is set
+        setTimeout(() => {
+            bottomSheetRef.current?.expand();
+        }, 100);
     };
 
     const actionCards: ActionCard[] = useMemo(() => {
@@ -129,17 +179,68 @@ export default function HomeScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            {/* Search Bar */}
+            {/* Searref={searchbarRef}
+                    ch Bar */}
             <View style={styles.searchContainer}>
                 <Searchbar
-                    placeholder="Buscar grupos o jugadores..."
+                    placeholder="Buscar jugadores..."
                     onChangeText={setSearchQuery}
                     value={searchQuery}
-                    onSubmitEditing={handleSearch}
                     icon="magnify"
                     style={styles.searchbar}
                     elevation={2}
+                    loading={isSearching}
                 />
+                
+                {/* Search Results */}
+                {searchResults.length > 0 && (
+                    <Card style={styles.searchResultsCard} elevation={4}>
+                        {searchResults.map((user, index) => (
+                            <React.Fragment key={user.id}>
+                                <List.Item
+                                    title={user.displayName || 'Sin nombre'}
+                                    description={user.email}
+                                    left={user.photoURL ? () => (
+                                        <Avatar.Image
+                                            size={40}
+                                            source={{ uri: user.photoURL! }}
+                                            style={styles.searchAvatar}
+                                        />
+                                    ) : undefined}
+                                    right={() => (
+                                        <Icon
+                                            name="chevron-right"
+                                            size={24}
+                                            color={theme.colors.onSurfaceVariant}
+                                        />
+                                    )}
+                                    onPress={() => handleSelectPlayer(user)}
+                                    style={styles.searchResultItem}
+                                />
+                                {index < searchResults.length - 1 && <Divider />}
+                            </React.Fragment>
+                        ))}
+                    </Card>
+                )}
+                
+                {/* No results message */}
+                {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
+                    <Card style={styles.searchResultsCard} elevation={2}>
+                        <Card.Content style={styles.noResultsContainer}>
+                            <Icon
+                                name="account-search"
+                                size={48}
+                                color={theme.colors.onSurfaceVariant}
+                            />
+                            <Text
+                                variant="bodyMedium"
+                                style={[styles.noResultsText, { color: theme.colors.onSurfaceVariant }]}
+                            >
+                                No se encontraron jugadores
+                            </Text>
+                        </Card.Content>
+                    </Card>
+                )}
             </View>
 
             {/* Group Info Card */}
@@ -227,6 +328,16 @@ export default function HomeScreen() {
                         ))}
                 </View>
             </View>
+
+            {/* Player Profile Modal */}
+            <Portal>
+                <PlayerProfileModal
+                    userId={selectedUserId}
+                    playerName={selectedUserName}
+                    playerPhotoURL={selectedUserPhoto}
+                    bottomSheetRef={bottomSheetRef}
+                />
+            </Portal>
         </ScrollView>
     );
 }
@@ -303,10 +414,33 @@ const styles = StyleSheet.create({
     },
     searchContainer: {
         marginBottom: 16,
+        zIndex: 0,
     },
     searchbar: {
         borderRadius: 28,
         elevation: 2,
+    },
+    searchResultsCard: {
+        marginTop: 8,
+        borderRadius: 12,
+        backgroundColor: '#FFFFFF',
+        overflow: 'hidden',
+        maxHeight: 400,
+    },
+    searchResultItem: {
+        paddingVertical: 8,
+    },
+    searchAvatar: {
+        marginLeft: 8,
+        marginRight: 8,
+    },
+    noResultsContainer: {
+        alignItems: 'center',
+        paddingVertical: 24,
+        gap: 8,
+    },
+    noResultsText: {
+        textAlign: 'center',
     },
     groupCard: {
         marginBottom: 20,
