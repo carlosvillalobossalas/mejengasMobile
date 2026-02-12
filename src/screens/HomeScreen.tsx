@@ -85,12 +85,12 @@ export default function HomeScreen() {
                 onPress: () => navigation.navigate('Profile'),
             },
             {
-                id: 'stats',
-                title: 'Estadísticas',
-                icon: 'chart-bar',
+                id: 'invitations',
+                title: 'Invitaciones',
+                icon: 'email-multiple',
                 color: '#00BCD4',
                 size: 'medium',
-                onPress: () => console.log('Navigate to Stats'),
+                onPress: () => navigation.navigate('Invitations'),
             },
         ];
 

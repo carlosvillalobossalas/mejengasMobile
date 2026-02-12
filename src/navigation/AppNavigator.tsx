@@ -7,6 +7,7 @@ import GroupsScreen from '../screens/GroupsScreen';
 import PlayersTableScreen from '../screens/PlayersTableScreen';
 import MatchesScreen from '../screens/MatchesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import InvitationsScreen from '../screens/InvitationsScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector } from '../app/hooks';
 
@@ -49,6 +50,11 @@ export default function AppNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{ title: 'Mi Perfil' }}
+      />
+      <Drawer.Screen
+        name="Invitations"
+        component={InvitationsScreen}
+        options={{ title: 'Invitaciones' }}
       />
     </Drawer.Navigator>
   );
