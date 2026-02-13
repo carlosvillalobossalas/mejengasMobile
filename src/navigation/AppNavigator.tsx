@@ -11,6 +11,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import InvitationsScreen from '../screens/InvitationsScreen';
 import AdminScreen from '../screens/AdminScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
+import AddPlayerScreen from '../screens/AddPlayerScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector } from '../app/hooks';
 
@@ -73,6 +74,11 @@ export default function AppNavigator() {
         name="AddMatch"
         component={AddMatchScreen}
         options={{ title: 'Agregar Partido' }}
+      />
+      <Drawer.Screen
+        name="AddPlayer"
+        component={AddPlayerScreen}
+        options={{ title: 'Agregar Jugador' }}
       />
     </Drawer.Navigator>
   );

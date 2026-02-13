@@ -37,7 +37,7 @@ export default function AdminScreen() {
       description: 'Añadir un nuevo jugador al grupo',
       icon: 'account-plus',
       color: '#2196F3',
-      onPress: () => console.log('Add player'),
+      onPress: () => navigation.navigate('AddPlayer'),
     },
     {
       id: 'link-players',
