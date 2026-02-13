@@ -25,7 +25,7 @@ import {
 } from '../endpoints/goalkeepers/goalkeepersStatsEndpoints';
 import { getPlayerInitial, getPlayerDisplay } from '../helpers/players';
 
-type SortColumn = 'name' | 'goalsConceded' | 'cleanSheets' | 'matches';
+type SortColumn = 'name' | 'goalsReceived' | 'cleanSheets' | 'matches';
 type SortDirection = 'ascending' | 'descending';
 
 // Icon component for year button
@@ -112,9 +112,9 @@ export default function GoalkeepersTableScreen() {
                     aValue = getPlayerDisplay({ name: a.name, originalName: a.originalName });
                     bValue = getPlayerDisplay({ name: b.name, originalName: b.originalName });
                     break;
-                case 'goalsConceded':
-                    aValue = a.goalsConceded;
-                    bValue = b.goalsConceded;
+                case 'goalsReceived':
+                    aValue = a.goalsReceived;
+                    bValue = b.goalsReceived;
                     break;
                 case 'cleanSheets':
                     aValue = a.cleanSheets;
@@ -219,8 +219,8 @@ export default function GoalkeepersTableScreen() {
                         </DataTable.Title>
                         <DataTable.Title
                             numeric
-                            sortDirection={sortBy === 'goalsConceded' ? sortDirection : undefined}
-                            onPress={() => handleSort('goalsConceded')}
+                            sortDirection={sortBy === 'goalsReceived' ? sortDirection : undefined}
+                            onPress={() => handleSort('goalsReceived')}
                             style={styles.statColumn}
                             textStyle={styles.headerText}
                         >
@@ -298,8 +298,8 @@ export default function GoalkeepersTableScreen() {
                                 </DataTable.Cell>
 
                                 <DataTable.Cell numeric style={styles.statColumn}>
-                                    <Text variant="bodyMedium" style={styles.goalsConcededText}>
-                                        {goalkeeper.goalsConceded}
+                                    <Text variant="bodyMedium" style={styles.goalsReceivedText}>
+                                        {goalkeeper.goalsReceived}
                                     </Text>
                                 </DataTable.Cell>
 
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     goalkeeperName: {
         flex: 1,
     },
-    goalsConcededText: {
+    goalsReceivedText: {
         color: '#F44336',
         fontWeight: 'bold',
     },

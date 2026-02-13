@@ -1,4 +1,4 @@
-import { getMatchesByGroupId, type Match, type MatchPlayer } from '../../repositories/matches/matchesRepository';
+import { getAllGoalkeeperSeasonStatsByGroup, type GoalkeeperSeasonStats } from '../../repositories/goalkeepers/goalkeeperSeasonStatsRepository';
 import { getPlayersByIds, type Player } from '../../repositories/players/playerSeasonStatsRepository';
 
 export type GoalkeeperStats = {
@@ -6,106 +6,73 @@ export type GoalkeeperStats = {
   name: string | null;
   originalName?: string | null;
   photoURL: string | null;
-  goalsConceded: number;
   cleanSheets: number;
+  goalsReceived: number;
   matches: number;
 };
 
 /**
- * Prepare goalkeeper statistics from matches, grouped by year
- * Returns a record where keys are years (or 'historico') and values are arrays of stats
+ * Prepare goalkeeper statistics from GoalkeeperSeasonStats collection, grouped by season
+ * Returns a record where keys are seasons (including 'historico' for all-time) and values are arrays of stats
  */
 export async function prepareGoalkeeperStatsFromMatches(
   groupId: string,
 ): Promise<Record<string, GoalkeeperStats[]>> {
-  // Get all matches for the group
-  const matches = await getMatchesByGroupId(groupId);
+  // Get all goalkeeper season stats for the group
+  const statsBySeason = await getAllGoalkeeperSeasonStatsByGroup(groupId);
 
-  // Group matches by year
-  const matchesByYear: Record<string, Match[]> = {
-    historico: matches,
-  };
-
-  matches.forEach(match => {
-    const year = new Date(match.date).getFullYear().toString();
-    if (!matchesByYear[year]) {
-      matchesByYear[year] = [];
-    }
-    matchesByYear[year].push(match);
+  // Collect all playerId from all seasons for batch fetch
+  const allPlayerIds = new Set<string>();
+  Object.values(statsBySeason).forEach(seasonStats => {
+    seasonStats.forEach(stat => {
+      allPlayerIds.add(stat.playerId);
+    });
   });
 
-  // Process stats for each year
-  const statsByYear: Record<string, GoalkeeperStats[]> = {};
+  // Fetch all goalkeeper player info in one batch
+  const playersMap = await getPlayersByIds(Array.from(allPlayerIds));
 
-  for (const [year, yearMatches] of Object.entries(matchesByYear)) {
-    const goalkeeperMap = new Map<string, {
-      goalsConceded: number;
-      cleanSheets: number;
-      matches: number;
-    }>();
+  // Convert stats to GoalkeeperStats format with player details
+  const result: Record<string, GoalkeeperStats[]> = { historico: [] };
 
-    // Collect all goalkeeper IDs for this year
-    const goalkeeperIds = new Set<string>();
+  for (const [season, stats] of Object.entries(statsBySeason)) {
+    const statsArray: GoalkeeperStats[] = stats.map(stat => {
+      const player = playersMap.get(stat.playerId);
 
-    // Process each match
-    for (const match of yearMatches) {
-      // Process team 1 goalkeepers
-      const team1Goalkeepers = match.players1.filter(p => p.position === 'POR');
-      team1Goalkeepers.forEach(gk => {
-        goalkeeperIds.add(gk.id);
-        const current = goalkeeperMap.get(gk.id) || {
-          goalsConceded: 0,
-          cleanSheets: 0,
-          matches: 0,
-        };
-
-        goalkeeperMap.set(gk.id, {
-          goalsConceded: current.goalsConceded + match.goalsTeam2,
-          cleanSheets: current.cleanSheets + (match.goalsTeam2 === 0 ? 1 : 0),
-          matches: current.matches + 1,
-        });
-      });
-
-      // Process team 2 goalkeepers
-      const team2Goalkeepers = match.players2.filter(p => p.position === 'POR');
-      team2Goalkeepers.forEach(gk => {
-        goalkeeperIds.add(gk.id);
-        const current = goalkeeperMap.get(gk.id) || {
-          goalsConceded: 0,
-          cleanSheets: 0,
-          matches: 0,
-        };
-
-        goalkeeperMap.set(gk.id, {
-          goalsConceded: current.goalsConceded + match.goalsTeam1,
-          cleanSheets: current.cleanSheets + (match.goalsTeam1 === 0 ? 1 : 0),
-          matches: current.matches + 1,
-        });
-      });
-    }
-
-    // Fetch all goalkeeper player info in one batch
-    const playersMap = await getPlayersByIds(Array.from(goalkeeperIds));
-
-    // Convert map to array with player details
-    const statsArray: GoalkeeperStats[] = [];
-    
-    for (const [playerId, stats] of goalkeeperMap.entries()) {
-      const player = playersMap.get(playerId);
-      
-      statsArray.push({
-        id: playerId,
+      return {
+        id: stat.playerId,
         name: player?.name || null,
         originalName: player?.originalName || null,
         photoURL: player?.photoURL || null,
-        goalsConceded: stats.goalsConceded,
-        cleanSheets: stats.cleanSheets,
-        matches: stats.matches,
-      });
-    }
+        cleanSheets: stat.cleanSheets,
+        goalsReceived: stat.goalsReceived,
+        matches: stat.matches,
+      };
+    });
 
-    statsByYear[year] = statsArray;
+    result[season] = statsArray;
+
+    // Add to historico (all-time stats)
+    result.historico.push(...statsArray);
   }
 
-  return statsByYear;
+  // Aggregate historico stats by playerId
+  const historicoMap = new Map<string, GoalkeeperStats>();
+  result.historico.forEach(stat => {
+    const existing = historicoMap.get(stat.id);
+    if (existing) {
+      historicoMap.set(stat.id, {
+        ...stat,
+        cleanSheets: existing.cleanSheets + stat.cleanSheets,
+        goalsReceived: existing.goalsReceived + stat.goalsReceived,
+        matches: existing.matches + stat.matches,
+      });
+    } else {
+      historicoMap.set(stat.id, stat);
+    }
+  });
+
+  result.historico = Array.from(historicoMap.values());
+
+  return result;
 }
