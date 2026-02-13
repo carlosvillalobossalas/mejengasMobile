@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ScrollView,
   StyleSheet,
   View,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import {
   Text,
@@ -18,13 +19,10 @@ import {
   Menu,
   Snackbar,
   MD3Theme,
+  Portal,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import DatePicker from 'react-native-date-picker';
-import BottomSheet, {
-  BottomSheetBackdrop,
-  BottomSheetScrollView,
-} from '@gorhom/bottom-sheet';
 
 import { useAppSelector } from '../app/hooks';
 import { getAllPlayersByGroup, type Player } from '../repositories/players/playerSeasonStatsRepository';
@@ -87,13 +85,11 @@ export default function AddMatchScreen() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
-  const [playerSheetIndex, setPlayerSheetIndex] = useState(-1);
+  const [isPlayerPickerVisible, setIsPlayerPickerVisible] = useState(false);
   const [positionMenuIndex, setPositionMenuIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const playerSheetRef = useRef<BottomSheet>(null);
-  const playerSheetSnapPoints = useMemo(() => ['60%', '85%'], []);
 
   const [team1Players, setTeam1Players] = useState<TeamPlayer[]>(createDefaultTeamPlayers);
 
@@ -109,7 +105,12 @@ export default function AddMatchScreen() {
       setIsLoadingPlayers(true);
       try {
         const playersData = await getAllPlayersByGroup(selectedGroupId);
-        setPlayers(playersData);
+        const sortedPlayers = playersData.sort((a, b) => {
+          const nameA = a.name || a.originalName || '';
+          const nameB = b.name || b.originalName || '';
+          return nameA.localeCompare(nameB);
+        });
+        setPlayers(sortedPlayers);
       } catch (error) {
         console.error('Error loading players:', error);
       } finally {
@@ -121,38 +122,38 @@ export default function AddMatchScreen() {
   }, [selectedGroupId]);
 
   const currentTeamPlayers = activeTab === 0 ? team1Players : activeTab === 1 ? team2Players : [];
-  const setCurrentTeamPlayers = activeTab === 0 ? setTeam1Players : activeTab === 1 ? setTeam2Players : () => {};
+  const setCurrentTeamPlayers = activeTab === 0 ? setTeam1Players : activeTab === 1 ? setTeam2Players : () => { };
 
   const team1Goals = useMemo(() => {
     const goals = team1Players.reduce((sum, player) => sum + parseStatValue(player.goals), 0);
     const opponentOwnGoals = team2Players.reduce((sum, player) => sum + parseStatValue(player.ownGoals), 0);
     return goals + opponentOwnGoals;
-  }, [team1Players, team2Players]);
+  }, [JSON.stringify(team1Players.map(p => ({ id: p.playerId, goals: p.goals }))), JSON.stringify(team2Players.map(p => ({ id: p.playerId, ownGoals: p.ownGoals })))]);
 
   const team2Goals = useMemo(() => {
     const goals = team2Players.reduce((sum, player) => sum + parseStatValue(player.goals), 0);
     const opponentOwnGoals = team1Players.reduce((sum, player) => sum + parseStatValue(player.ownGoals), 0);
     return goals + opponentOwnGoals;
-  }, [team1Players, team2Players]);
+  }, [JSON.stringify(team2Players.map(p => ({ id: p.playerId, goals: p.goals }))), JSON.stringify(team1Players.map(p => ({ id: p.playerId, ownGoals: p.ownGoals })))]);
 
   const selectedPlayerIds = useMemo(() => {
     const ids = new Set<string>();
     team1Players.forEach(p => p.playerId && ids.add(p.playerId));
     team2Players.forEach(p => p.playerId && ids.add(p.playerId));
     return ids;
-  }, [team1Players, team2Players]);
+  }, [JSON.stringify(team1Players.map(p => p.playerId)), JSON.stringify(team2Players.map(p => p.playerId))]);
 
   const availablePlayers = useMemo(() => {
     return players.filter(player => !selectedPlayerIds.has(player.id));
   }, [players, selectedPlayerIds]);
 
-  const handlePositionChange = (index: number, position: Position) => {
+  const handlePositionChange = useCallback((index: number, position: Position) => {
     const updated = [...currentTeamPlayers];
     updated[index].position = position;
     setCurrentTeamPlayers(updated);
-  };
+  }, [currentTeamPlayers, setCurrentTeamPlayers]);
 
-  const handlePlayerSelect = (player: Player) => {
+  const handlePlayerSelect = useCallback((player: Player) => {
     if (selectedRowIndex === null) return;
 
     const updated = [...currentTeamPlayers];
@@ -160,17 +161,15 @@ export default function AddMatchScreen() {
     updated[selectedRowIndex].playerName = getPlayerDisplay(player);
     setCurrentTeamPlayers(updated);
     
-    // Close sheet immediately
-    playerSheetRef.current?.close();
-    setPlayerSheetIndex(-1);
+    setIsPlayerPickerVisible(false);
     setSelectedRowIndex(null);
-  };
+  }, [selectedRowIndex, currentTeamPlayers, setCurrentTeamPlayers]);
 
-  const handleStatChange = (index: number, field: 'goals' | 'assists' | 'ownGoals', value: string) => {
+  const handleStatChange = useCallback((index: number, field: 'goals' | 'assists' | 'ownGoals', value: string) => {
     const updated = [...currentTeamPlayers];
     updated[index][field] = normalizeNumberInput(value);
     setCurrentTeamPlayers(updated);
-  };
+  }, [currentTeamPlayers, setCurrentTeamPlayers]);
 
   const handleStatFocus = (index: number, field: 'goals' | 'assists' | 'ownGoals') => {
     if (currentTeamPlayers[index][field] === '0') {
@@ -184,17 +183,15 @@ export default function AddMatchScreen() {
     }
   };
 
-  const openPlayerPicker = (index: number) => {
+  const openPlayerPicker = useCallback((index: number) => {
     setSelectedRowIndex(index);
-    setPlayerSheetIndex(0);
-  };
+    setIsPlayerPickerVisible(true);
+  }, []);
 
-  const handlePlayerSheetChange = (index: number) => {
-    setPlayerSheetIndex(index);
-    if (index === -1) {
-      setSelectedRowIndex(null);
-    }
-  };
+  const closePlayerPicker = useCallback(() => {
+    setIsPlayerPickerVisible(false);
+    setSelectedRowIndex(null);
+  }, []);
 
   const handleSaveMatch = async () => {
     // Validate that all players are selected
@@ -462,8 +459,8 @@ export default function AddMatchScreen() {
                     team1Goals > team2Goals
                       ? '#2196F3'
                       : team2Goals > team1Goals
-                      ? '#2196F3'
-                      : '#FF9800',
+                        ? '#2196F3'
+                        : '#FF9800',
                 },
               ]}
               textStyle={styles(theme).resultChipText}
@@ -471,8 +468,8 @@ export default function AddMatchScreen() {
               {team1Goals > team2Goals
                 ? 'Victoria Equipo 1'
                 : team2Goals > team1Goals
-                ? 'Victoria Equipo 2'
-                : 'Empate'}
+                  ? 'Victoria Equipo 2'
+                  : 'Empate'}
             </Chip>
           </Surface>
 
@@ -523,71 +520,65 @@ export default function AddMatchScreen() {
         </ScrollView>
       )}
 
-      {/* Player Picker Bottom Sheet */}
-      <BottomSheet
-        ref={playerSheetRef}
-        index={playerSheetIndex}
-        snapPoints={playerSheetSnapPoints}
-        enablePanDownToClose
-        onChange={handlePlayerSheetChange}
-        backdropComponent={(props) => (
-          <BottomSheetBackdrop
-            {...props}
-            disappearsOnIndex={-1}
-            appearsOnIndex={0}
-          />
-        )}
-      >
-        <View style={styles(theme).bottomSheetHeader}>
-          <Text variant="titleLarge" style={styles(theme).bottomSheetTitle}>
-            Seleccionar Jugador
-          </Text>
-        </View>
-
-        {isLoadingPlayers ? (
-          <View style={styles(theme).loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-          </View>
-        ) : (
-          <BottomSheetScrollView style={styles(theme).bottomSheetList}>
-            {availablePlayers.map((player, index) => (
-              <React.Fragment key={player.id}>
-                <List.Item
-                  title={getPlayerDisplay(player)}
-                  onPress={() => handlePlayerSelect(player)}
-                  left={(props) => <List.Icon {...props} icon="account" />}
-                  right={(props) => <List.Icon {...props} icon="chevron-right" />}
-                />
-                {index < availablePlayers.length - 1 && <Divider />}
-              </React.Fragment>
-            ))}
-
-            {availablePlayers.length === 0 && (
-              <View style={styles(theme).emptyPlayersContainer}>
-                <Icon name="account-off" size={48} color="#999" />
-                <Text style={styles(theme).emptyPlayersText}>
-                  {players.length === 0 
-                    ? 'No hay jugadores en este grupo'
-                    : 'Todos los jugadores ya están seleccionados'}
+      {/* Player Picker Modal */}
+      <Portal>
+        <Modal
+          visible={isPlayerPickerVisible}
+          onRequestClose={closePlayerPicker}
+          animationType="slide"
+          transparent={true}
+        >
+          <View style={styles(theme).modalOverlay}>
+            <Surface style={styles(theme).modalContent} elevation={5}>
+              <View style={styles(theme).modalHeader}>
+                <Text variant="titleLarge" style={styles(theme).modalTitle}>
+                  Seleccionar Jugador
                 </Text>
+                <TouchableOpacity onPress={closePlayerPicker}>
+                  <Icon name="close" size={24} color={theme.colors.onSurface} />
+                </TouchableOpacity>
               </View>
-            )}
-          </BottomSheetScrollView>
-        )}
 
-        <View style={styles(theme).bottomSheetFooter}>
-          <Button
-            mode="outlined"
-            onPress={() => {
-              playerSheetRef.current?.close();
-              setPlayerSheetIndex(-1);
-              setSelectedRowIndex(null);
-            }}
-          >
-            Cerrar
-          </Button>
-        </View>
-      </BottomSheet>
+              {isLoadingPlayers ? (
+                <View style={styles(theme).loadingContainer}>
+                  <ActivityIndicator size="large" color={theme.colors.primary} />
+                </View>
+              ) : (
+                <ScrollView style={styles(theme).modalList}>
+                  {availablePlayers.map((player, index) => (
+                    <React.Fragment key={player.id}>
+                      <List.Item
+                        title={getPlayerDisplay(player)}
+                        onPress={() => handlePlayerSelect(player)}
+                        left={(props) => <List.Icon {...props} icon="account" />}
+                        right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                      />
+                      {index < availablePlayers.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+
+                  {availablePlayers.length === 0 && (
+                    <View style={styles(theme).emptyPlayersContainer}>
+                      <Icon name="account-off" size={48} color="#999" />
+                      <Text style={styles(theme).emptyPlayersText}>
+                        {players.length === 0
+                          ? 'No hay jugadores en este grupo'
+                          : 'Todos los jugadores ya están seleccionados'}
+                      </Text>
+                    </View>
+                  )}
+                </ScrollView>
+              )}
+
+              {/* <View style={styles(theme).modalFooter}>
+                <Button mode="outlined" onPress={closePlayerPicker}>
+                  Cerrar
+                </Button>
+              </View> */}
+            </Surface>
+          </View>
+        </Modal>
+      </Portal>
 
       {/* Snackbar for feedback */}
       <Snackbar
@@ -784,21 +775,35 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   saveButtonContent: {
     paddingVertical: 8,
   },
-  bottomSheetHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
-  bottomSheetTitle: {
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: '80%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  modalTitle: {
     fontWeight: 'bold',
   },
-  bottomSheetList: {
+  modalList: {
+    flex: 1,
     paddingHorizontal: 8,
-  },
-  bottomSheetFooter: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   loadingContainer: {
     padding: 40,

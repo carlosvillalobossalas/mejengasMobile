@@ -141,9 +141,8 @@ async function saveGoalkeeperStats(
     batch.update(docRef, updateData);
   } else {
     // Create new record
-    const newData = {
+    const newData: any = {
       playerId,
-      userId: userId ?? undefined,
       groupId,
       season,
       goalsReceived,
@@ -158,6 +157,10 @@ async function saveGoalkeeperStats(
       createdAt: firestore.FieldValue.serverTimestamp(),
       updatedAt: firestore.FieldValue.serverTimestamp(),
     };
+
+    if (userId) {
+      newData.userId = userId;
+    }
 
     batch.set(docRef, newData);
   }
@@ -201,9 +204,8 @@ async function savePlayerStats(
     batch.update(docRef, updateData);
   } else {
     // Create new record
-    const newData = {
+    const newData: any = {
       playerId,
-      userId: userId ?? undefined,
       groupId,
       season,
       goals: performance.goals,
@@ -217,6 +219,10 @@ async function savePlayerStats(
       createdAt: firestore.FieldValue.serverTimestamp(),
       updatedAt: firestore.FieldValue.serverTimestamp(),
     };
+
+    if (userId) {
+      newData.userId = userId;
+    }
 
     batch.set(docRef, newData);
   }
@@ -233,7 +239,7 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
   const matchRef = firestore().collection(MATCHES_COLLECTION).doc();
   const matchData = {
     groupId: match.groupId,
-    date: match.date.toISOString(),
+    date: firestore.Timestamp.fromDate(match.date),
     goalsTeam1: match.team1Goals,
     goalsTeam2: match.team2Goals,
     players1: match.team1Players.map(p => ({
