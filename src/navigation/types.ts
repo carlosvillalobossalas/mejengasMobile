@@ -15,4 +15,6 @@ export type AppDrawerParamList = {
   Matches: undefined;
   Profile: undefined;
   Invitations: undefined;
+  Admin: undefined;
+  AddMatch: undefined;
 };

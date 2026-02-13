@@ -9,6 +9,8 @@ import GoalkeepersTableScreen from '../screens/GoalkeepersTableScreen';
 import MatchesScreen from '../screens/MatchesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InvitationsScreen from '../screens/InvitationsScreen';
+import AdminScreen from '../screens/AdminScreen';
+import AddMatchScreen from '../screens/AddMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector } from '../app/hooks';
 
@@ -61,6 +63,16 @@ export default function AppNavigator() {
         name="Invitations"
         component={InvitationsScreen}
         options={{ title: 'Invitaciones' }}
+      />
+      <Drawer.Screen
+        name="Admin"
+        component={AdminScreen}
+        options={{ title: 'Administrar Grupo' }}
+      />
+      <Drawer.Screen
+        name="AddMatch"
+        component={AddMatchScreen}
+        options={{ title: 'Agregar Partido' }}
       />
     </Drawer.Navigator>
   );

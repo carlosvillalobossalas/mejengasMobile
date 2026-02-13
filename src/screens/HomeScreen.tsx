@@ -170,7 +170,7 @@ export default function HomeScreen() {
                 icon: 'cog',
                 color: '#F44336',
                 size: 'medium',
-                onPress: () => console.log('Navigate to Admin'),
+                onPress: () => navigation.navigate('Admin'),
             },
         ];
 
@@ -179,10 +179,10 @@ export default function HomeScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            {/* Searref={searchbarRef}
-                    ch Bar */}
+            {/* Search Bar */}
             <View style={styles.searchContainer}>
                 <Searchbar
+                    ref={searchbarRef}
                     placeholder="Buscar jugadores..."
                     onChangeText={setSearchQuery}
                     value={searchQuery}
