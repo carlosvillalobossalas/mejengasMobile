@@ -5,6 +5,7 @@ import type { AppDrawerParamList } from './types';
 import HomeScreen from '../screens/HomeScreen';
 import GroupsScreen from '../screens/GroupsScreen';
 import PlayersTableScreen from '../screens/PlayersTableScreen';
+import GoalkeepersTableScreen from '../screens/GoalkeepersTableScreen';
 import MatchesScreen from '../screens/MatchesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InvitationsScreen from '../screens/InvitationsScreen';
@@ -40,6 +41,11 @@ export default function AppNavigator() {
         name="PlayersTable"
         component={PlayersTableScreen}
         options={{ title: 'Jugadores' }}
+      />
+      <Drawer.Screen
+        name="GoalkeepersTable"
+        component={GoalkeepersTableScreen}
+        options={{ title: 'Porteros' }}
       />
       <Drawer.Screen
         name="Matches"

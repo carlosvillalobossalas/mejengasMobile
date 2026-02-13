@@ -138,7 +138,7 @@ export default function HomeScreen() {
                 icon: 'hand-back-right',
                 color: '#FF9800',
                 size: 'medium',
-                onPress: () => console.log('Navigate to Goalkeepers'),
+                onPress: () => navigation.navigate('GoalkeepersTable'),
             },
             {
                 id: 'matches',
