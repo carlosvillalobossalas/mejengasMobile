@@ -28,6 +28,7 @@ type ActionCard = {
     title: string;
     icon: MaterialDesignIconsIconName;
     color: string;
+    iconColor: string;
     size: 'small' | 'medium' | 'large';
     onPress: () => void;
 };
@@ -128,7 +129,8 @@ export default function HomeScreen() {
                 id: 'players',
                 title: 'Jugadores',
                 icon: 'account-group',
-                color: theme.colors.primary,
+                color: theme.colors.onPrimary,
+                iconColor: theme.colors.primary,
                 size: 'large',
                 onPress: () => navigation.navigate('PlayersTable'),
             },
@@ -136,7 +138,8 @@ export default function HomeScreen() {
                 id: 'goalkeepers',
                 title: 'Porteros',
                 icon: 'hand-back-right',
-                color: theme.colors.secondary,
+                color: theme.colors.onPrimary,
+                iconColor: theme.colors.primary,
                 size: 'medium',
                 onPress: () => navigation.navigate('GoalkeepersTable'),
             },
@@ -144,7 +147,8 @@ export default function HomeScreen() {
                 id: 'matches',
                 title: 'Partidos',
                 icon: 'soccer',
-                color: theme.colors.secondary,
+                color: theme.colors.onPrimary,
+                iconColor: theme.colors.primary,
                 size: 'large',
                 onPress: () => navigation.navigate('Matches'),
             },
@@ -152,7 +156,8 @@ export default function HomeScreen() {
                 id: 'profile',
                 title: 'Mi Perfil',
                 icon: 'account-circle',
-                color: theme.colors.primary,
+                color: theme.colors.onPrimary,
+                iconColor: theme.colors.primary,
                 size: 'small',
                 onPress: () => navigation.navigate('Profile'),
             },
@@ -160,7 +165,8 @@ export default function HomeScreen() {
                 id: 'invitations',
                 title: 'Invitaciones',
                 icon: 'email-multiple',
-                color: theme.colors.primary,
+                color: theme.colors.onPrimary,
+                iconColor: theme.colors.primary,
                 size: 'medium',
                 onPress: () => navigation.navigate('Invitations'),
             },
@@ -168,7 +174,8 @@ export default function HomeScreen() {
                 id: 'admin',
                 title: 'Administrar Grupo',
                 icon: 'cog',
-                color: theme.colors.secondary,
+                color: theme.colors.onPrimary,
+                iconColor: theme.colors.primary,
                 size: 'medium',
                 onPress: () => navigation.navigate('Admin'),
             },
@@ -384,11 +391,11 @@ function ActionCardItem({
                         </View>
                     )}
                     <View style={styles.actionIconContainer}>
-                        <Icon name={card.icon} size={iconSize} color="#FFFFFF" />
+                        <Icon name={card.icon} size={iconSize} color={card.iconColor} />
                     </View>
                     <Text
                         variant={card.size === 'large' ? 'headlineSmall' : 'titleLarge'}
-                        style={styles.actionTitle}
+                        style={{ ...styles.actionTitle, color: card.iconColor }}
                         numberOfLines={2}
                     >
                         {card.title}
@@ -527,7 +534,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     actionTitle: {
-        color: '#FFFFFF',
+        // color: '#FFFFFF',
         fontWeight: '700',
         textAlign: 'center',
         textShadowColor: 'rgba(0, 0, 0, 0.4)',
