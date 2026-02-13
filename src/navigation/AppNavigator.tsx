@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { useTheme } from 'react-native-paper';
+import { Alert } from 'react-native';
 
 import type { AppDrawerParamList } from './types';
 import HomeScreen from '../screens/HomeScreen';
@@ -14,13 +15,15 @@ import AdminScreen from '../screens/AdminScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
 import AddPlayerScreen from '../screens/AddPlayerScreen';
 import SplashScreen from '../screens/SplashScreen';
-import { useAppSelector } from '../app/hooks';
+import { useAppSelector, useAppDispatch } from '../app/hooks';
 import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
+import { signOutFromFirebase } from '../features/auth/authSlice';
 
 const Drawer = createDrawerNavigator<AppDrawerParamList>();
 
 export default function AppNavigator() {
   const theme = useTheme();
+  const dispatch = useAppDispatch();
   const { selectedGroupId, isHydrated, groups } = useAppSelector(state => state.groups);
   const currentUser = useAppSelector(state => state.auth.firestoreUser);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -32,6 +35,30 @@ export default function AppNavigator() {
 
   const isOwner = activeGroup?.ownerId === currentUser?.uid;
   const isAdmin = userRole === 'admin' || userRole === 'owner' || isOwner;
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro que deseas cerrar sesión?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(signOutFromFirebase()).unwrap();
+            } catch (error) {
+              console.error('Error signing out:', error);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   // Load user role when group or user changes
   useEffect(() => {
@@ -59,7 +86,6 @@ export default function AppNavigator() {
   }
 
   const initialRoute = selectedGroupId ? 'Home' : 'Groups';
-  console.log("🚀 ~ AppNavigator ~ initialRoute:", initialRoute, selectedGroupId)
 
   return (
     <Drawer.Navigator
@@ -129,6 +155,22 @@ export default function AppNavigator() {
         options={{
           title: 'Agregar Jugador',
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="Logout"
+        component={HomeScreen}
+        options={{
+          title: 'Cerrar Sesión',
+          drawerItemStyle: { marginTop: 20, backgroundColor: theme.colors.primary },
+          drawerLabelStyle: { color: '#FFF', fontWeight: 'bold' },
+        }}
+
+        listeners={{
+          drawerItemPress: (e) => {
+            e.preventDefault();
+            handleLogout();
+          },
         }}
       />
     </Drawer.Navigator>
