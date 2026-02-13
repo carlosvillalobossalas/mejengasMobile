@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
   Button,
@@ -11,9 +11,11 @@ import {
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { fetchMyGroups, selectGroup } from '../features/groups/groupsSlice';
+import { getUserById } from '../repositories/users/usersRepository';
 
 export default function GroupsScreen() {
   const dispatch = useAppDispatch();
+  const [owners, setOwners] = useState<Record<string, string>>({});
 
   const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
   const { status, error, groups, selectedGroupId } = useAppSelector(
@@ -33,6 +35,31 @@ export default function GroupsScreen() {
     dispatch(fetchMyGroups({ userId }));
   }, [dispatch, groups.length, status, userId]);
 
+  // Fetch owner names for all groups
+  useEffect(() => {
+    const fetchOwners = async () => {
+      const ownerIds = [...new Set(groups.map(g => g.ownerId).filter(Boolean))];
+      const ownersMap: Record<string, string> = {};
+
+      for (const ownerId of ownerIds) {
+        try {
+          const owner = await getUserById(ownerId);
+          if (owner) {
+            ownersMap[ownerId] = owner.displayName || owner.email || 'Usuario';
+          }
+        } catch (error) {
+          console.error('Error fetching owner:', error);
+        }
+      }
+
+      setOwners(ownersMap);
+    };
+
+    if (groups.length > 0) {
+      fetchOwners();
+    }
+  }, [groups]);
+
   const onReload = () => {
     if (!userId) return;
     dispatch(fetchMyGroups({ userId }));
@@ -45,19 +72,6 @@ export default function GroupsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text variant="headlineSmall">Grupos</Text>
-        <Text variant="bodyMedium" style={styles.subtitle}>
-          Seleccioná el grupo con el que querés trabajar.
-        </Text>
-        {selectedGroup ? (
-          <Text variant="labelLarge">Activo: {selectedGroup.name}</Text>
-        ) : (
-          <Text variant="labelLarge">Activo: —</Text>
-        )}
-      </View>
-
-      <Divider />
 
       {status === 'loading' ? (
         <View style={styles.center}>
@@ -74,17 +88,11 @@ export default function GroupsScreen() {
         </HelperText>
       ) : null}
 
-      <View style={styles.actionsRow}>
-        <Button mode="outlined" onPress={onReload} disabled={!userId || status === 'loading'}>
-          Recargar
-        </Button>
-      </View>
-
       {groups.length === 0 && status !== 'loading' ? (
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
+        <Card style={styles.emptyCard}>
+          <Card.Content>
             <Text variant="titleMedium">No tenés grupos todavía</Text>
-            <Text variant="bodyMedium" style={styles.muted}>
+            <Text variant="bodyMedium" style={styles.emptyText}>
               Pedí acceso a un grupo o creá uno desde la consola/admin.
             </Text>
           </Card.Content>
@@ -93,30 +101,32 @@ export default function GroupsScreen() {
 
       {groups.map(group => {
         const isSelected = group.id === selectedGroupId;
+        const ownerName = group.ownerId ? owners[group.ownerId] || 'Cargando...' : 'Desconocido';
 
         return (
           <Card key={group.id} style={styles.card}>
             <Card.Content style={styles.cardContent}>
-              <Text variant="titleMedium">{group.name}</Text>
-              {group.description ? (
-                <Text variant="bodyMedium" style={styles.muted}>
-                  {group.description}
-                </Text>
-              ) : null}
+              <View style={styles.cardHeader}>
+                <View style={styles.textContainer}>
+                  <Text variant="titleMedium" style={styles.groupName}>
+                    {group.name}
+                  </Text>
+                  
+                  {group.description ? (
+                    <Text variant="bodySmall" style={styles.description}>
+                      {group.description}
+                    </Text>
+                  ) : null}
 
-              <View style={styles.metaRow}>
-                <Text variant="labelSmall" style={styles.meta}>
-                  Tipo: {group.type || '—'}
-                </Text>
-                <Text variant="labelSmall" style={styles.meta}>
-                  Visibilidad: {group.visibility || '—'}
-                </Text>
-              </View>
+                  <Text variant="labelSmall" style={styles.ownerText}>
+                    Dueño: {ownerName}
+                  </Text>
+                </View>
 
-              <View style={styles.cardActions}>
                 <Button
-                  mode={isSelected ? 'contained' : 'outlined'}
+                  mode={isSelected ? 'contained' : 'elevated'}
                   onPress={() => onSelectGroup(group.id)}
+                  compact
                 >
                   {isSelected ? 'Seleccionado' : 'Seleccionar'}
                 </Button>
@@ -135,17 +145,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
-  header: {
-    gap: 4,
-  },
-  subtitle: {
-    opacity: 0.75,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    gap: 12,
-  },
   center: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -155,26 +154,40 @@ const styles = StyleSheet.create({
   loadingText: {
     opacity: 0.75,
   },
-  card: {
+  emptyCard: {
     borderRadius: 12,
   },
+  emptyText: {
+    opacity: 0.6,
+    marginTop: 4,
+  },
+  card: {
+    borderRadius: 8,
+    elevation: 1,
+  },
   cardContent: {
-    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  muted: {
-    opacity: 0.75,
-  },
-  metaRow: {
+  cardHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    flexWrap: 'wrap',
   },
-  meta: {
-    opacity: 0.75,
+  textContainer: {
+    flex: 1,
+    gap: 4,
   },
-  cardActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+  groupName: {
+    fontWeight: '600',
+  },
+  description: {
+    opacity: 0.7,
+    lineHeight: 18,
+  },
+  ownerText: {
+    opacity: 0.5,
+    marginTop: 2,
   },
 });
