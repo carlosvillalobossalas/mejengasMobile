@@ -28,7 +28,7 @@ export default function AdminScreen() {
       title: 'Agregar Partido',
       description: 'Registrar un nuevo partido con alineaciones y resultados',
       icon: 'soccer',
-      color: '#4CAF50',
+      color: theme.colors.primary,
       onPress: () => navigation.navigate('AddMatch'),
     },
     {
@@ -36,7 +36,7 @@ export default function AdminScreen() {
       title: 'Agregar Jugador',
       description: 'Añadir un nuevo jugador al grupo',
       icon: 'account-plus',
-      color: '#2196F3',
+      color: theme.colors.secondary,
       onPress: () => navigation.navigate('AddPlayer'),
     },
     {
@@ -44,7 +44,7 @@ export default function AdminScreen() {
       title: 'Enlazar Jugadores',
       description: 'Conectar jugadores con cuentas de usuario',
       icon: 'link-variant',
-      color: '#FF9800',
+      color: theme.colors.primary,
       onPress: () => console.log('Link players'),
     },
   ];
