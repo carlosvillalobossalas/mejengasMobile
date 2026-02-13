@@ -9,6 +9,7 @@ export type GoalkeeperSeasonStats = {
   cleanSheets: number;
   goalsReceived: number;
   matches: number;
+  mvp?: number;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -48,6 +49,7 @@ const mapGoalkeeperSeasonStatsDoc = (
     matches: Number(data.matches ?? 0),
     createdAt: toIsoString(data.createdAt),
     updatedAt: toIsoString(data.updatedAt),
+    mvp: Number(data.mvp ?? 0),
   };
 };
 

@@ -26,7 +26,7 @@ import {
 } from '../endpoints/goalkeepers/goalkeepersStatsEndpoints';
 import { getPlayerInitial, getPlayerDisplay } from '../helpers/players';
 
-type SortColumn = 'name' | 'goalsReceived' | 'cleanSheets' | 'matches';
+type SortColumn = 'name' | 'goalsReceived' | 'cleanSheets' | 'matches' | 'mvp';
 type SortDirection = 'ascending' | 'descending';
 
 // Icon component for year button
@@ -43,7 +43,7 @@ export default function GoalkeepersTableScreen() {
         Record<string, GoalkeeperStats[]>
     >({ historico: [] });
     const [isLoading, setIsLoading] = useState(true);
-    const [sortBy, setSortBy] = useState<SortColumn>('cleanSheets');
+    const [sortBy, setSortBy] = useState<SortColumn>('mvp');
     const [sortDirection, setSortDirection] = useState<SortDirection>('descending');
     const bottomSheetRef = useRef<BottomSheet>(null);
 
@@ -124,6 +124,10 @@ export default function GoalkeepersTableScreen() {
                 case 'matches':
                     aValue = a.matches;
                     bValue = b.matches;
+                    break;
+                case 'mvp':
+                    aValue = a.mvp;
+                    bValue = b.mvp;
                     break;
             }
 
@@ -220,12 +224,12 @@ export default function GoalkeepersTableScreen() {
                         </DataTable.Title>
                         <DataTable.Title
                             numeric
-                            sortDirection={sortBy === 'goalsReceived' ? sortDirection : undefined}
-                            onPress={() => handleSort('goalsReceived')}
+                            sortDirection={sortBy === 'mvp' ? sortDirection : undefined}
+                            onPress={() => handleSort('mvp')}
                             style={styles(theme).statColumn}
                             textStyle={styles(theme).headerText}
                         >
-                            <Icon name="soccer" size={16} color="#FFFFFF" />
+                            <Icon name="star" size={16} color="#FFFFFF" />
                         </DataTable.Title>
                         <DataTable.Title
                             numeric
@@ -235,6 +239,15 @@ export default function GoalkeepersTableScreen() {
                             textStyle={styles(theme).headerText}
                         >
                             <Icon name="shield-check" size={16} color="#FFFFFF" />
+                        </DataTable.Title>
+                        <DataTable.Title
+                            numeric
+                            sortDirection={sortBy === 'goalsReceived' ? sortDirection : undefined}
+                            onPress={() => handleSort('goalsReceived')}
+                            style={styles(theme).statColumn}
+                            textStyle={styles(theme).headerText}
+                        >
+                            <Icon name="soccer" size={16} color="#FFFFFF" />
                         </DataTable.Title>
                         <DataTable.Title
                             numeric
@@ -287,7 +300,7 @@ export default function GoalkeepersTableScreen() {
                                                 size={32}
                                                 label={initial}
                                                 style={{ backgroundColor: theme.colors.secondary }}
-                                                
+
                                             />
                                         )}
                                         <Text
@@ -299,18 +312,22 @@ export default function GoalkeepersTableScreen() {
                                         </Text>
                                     </View>
                                 </DataTable.Cell>
-
+                                <DataTable.Cell numeric style={styles(theme).statColumn}>
+                                    <Text variant="bodyMedium" style={styles(theme).cleanSheetsText}>
+                                        {goalkeeper.mvp}
+                                    </Text>
+                                </DataTable.Cell>
+                                <DataTable.Cell numeric style={styles(theme).statColumn}>
+                                    <Text variant="bodyMedium" style={styles(theme).cleanSheetsText}>
+                                        {goalkeeper.cleanSheets}
+                                    </Text>
+                                </DataTable.Cell>
                                 <DataTable.Cell numeric style={styles(theme).statColumn}>
                                     <Text variant="bodyMedium" style={styles(theme).goalsReceivedText}>
                                         {goalkeeper.goalsReceived}
                                     </Text>
                                 </DataTable.Cell>
 
-                                <DataTable.Cell numeric style={styles(theme).statColumn}>
-                                    <Text variant="bodyMedium" style={styles(theme).cleanSheetsText}>
-                                        {goalkeeper.cleanSheets}
-                                    </Text>
-                                </DataTable.Cell>
 
                                 <DataTable.Cell numeric style={styles(theme).statColumn}>
                                     <Text variant="bodyMedium" style={styles(theme).cleanSheetsText} >{goalkeeper.matches}</Text>
