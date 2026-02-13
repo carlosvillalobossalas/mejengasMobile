@@ -11,6 +11,7 @@ import {
   Button,
   useTheme,
   Divider,
+  MD3Theme,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
@@ -64,28 +65,28 @@ export default function InvitationsScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles(theme).centerContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Cargando invitaciones...</Text>
+        <Text style={styles(theme).loadingText}>Cargando invitaciones...</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles(theme).centerContainer}>
         <Icon name="alert-circle" size={48} color={theme.colors.error} />
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles(theme).errorText}>{error}</Text>
       </View>
     );
   }
 
   if (invites.length === 0) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles(theme).centerContainer}>
         <Icon name="email-check" size={64} color={theme.colors.onSurfaceDisabled} />
-        <Text style={styles.emptyTitle}>No tienes invitaciones</Text>
-        <Text style={styles.emptySubtitle}>
+        <Text style={styles(theme).emptyTitle}>No tienes invitaciones</Text>
+        <Text style={styles(theme).emptySubtitle}>
           Cuando alguien te invite a un grupo, aparecerá aquí
         </Text>
       </View>
@@ -93,11 +94,11 @@ export default function InvitationsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
+    <ScrollView style={styles(theme).container}>
+      <View style={styles(theme).header}>
         <Icon name="email-multiple" size={32} color={theme.colors.primary} />
-        <Text style={styles.headerTitle}>Invitaciones Pendientes</Text>
-        <Text style={styles.headerSubtitle}>
+        <Text style={styles(theme).headerTitle}>Invitaciones Pendientes</Text>
+        <Text style={styles(theme).headerSubtitle}>
           Tienes {invites.length} {invites.length === 1 ? 'invitación' : 'invitaciones'}
         </Text>
       </View>
@@ -106,41 +107,41 @@ export default function InvitationsScreen() {
         const groupName = invite.group?.name || 'Grupo desconocido';
 
         return (
-          <Card key={invite.id} style={styles.inviteCard}>
+          <Card key={invite.id} style={styles(theme).inviteCard}>
             <Card.Content>
-              <View style={styles.inviteHeader}>
-                <View style={styles.groupIcon}>
+              <View style={styles(theme).inviteHeader}>
+                <View style={styles(theme).groupIcon}>
                   <Icon name="account-group" size={24} color={theme.colors.primary} />
                 </View>
-                <View style={styles.inviteInfo}>
-                  <Text style={styles.groupName}>{groupName}</Text>
-                  <View style={styles.inviterRow}>
-                    <Icon name="account" size={16} color="#757575" />
-                    <Text style={styles.inviterText}>
+                <View style={styles(theme).inviteInfo}>
+                  <Text style={styles(theme).groupName}>{groupName}</Text>
+                  <View style={styles(theme).inviterRow}>
+                    <Icon name="account" size={16} color={theme.colors.onSurfaceVariant} />
+                    <Text style={styles(theme).inviterText}>
                       Invitado por {invite.invitedByName}
                     </Text>
                   </View>
                 </View>
               </View>
 
-              <Divider style={styles.divider} />
+              <Divider style={styles(theme).divider} />
 
-              <View style={styles.actions}>
+              <View style={styles(theme).actions}>
                 <Button
                   mode="contained"
                   onPress={() => handleAccept(invite.id)}
-                  style={styles.acceptButton}
+                  style={styles(theme).acceptButton}
                   icon="check"
-                  buttonColor="#4CAF50"
+                  buttonColor={theme.colors.secondary}
                 >
                   Aceptar
                 </Button>
                 <Button
                   mode="outlined"
                   onPress={() => handleReject(invite.id)}
-                  style={styles.rejectButton}
+                  style={styles(theme).rejectButton}
                   icon="close"
-                  textColor="#F44336"
+                  textColor={theme.colors.error}
                 >
                   Rechazar
                 </Button>
@@ -153,10 +154,10 @@ export default function InvitationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = (theme: MD3Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: theme.colors.background,
   },
   centerContainer: {
     flex: 1,
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     textAlign: 'center',
-    color: '#F44336',
+    color: theme.colors.error,
   },
   emptyTitle: {
     marginTop: 16,
@@ -182,13 +183,13 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     marginTop: 8,
     fontSize: 14,
-    color: '#757575',
+    color: theme.colors.onSurfaceVariant,
     textAlign: 'center',
   },
   header: {
     padding: 20,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     marginBottom: 8,
   },
   headerTitle: {
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#757575',
+    color: theme.colors.onSurfaceVariant,
     marginTop: 4,
   },
   inviteCard: {
@@ -215,7 +216,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: theme.colors.primaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
   },
   inviterText: {
     fontSize: 14,
-    color: '#757575',
+    color: theme.colors.onSurfaceVariant,
   },
   divider: {
     marginVertical: 12,
@@ -249,6 +250,6 @@ const styles = StyleSheet.create({
   },
   rejectButton: {
     flex: 1,
-    borderColor: '#F44336',
+    borderColor: theme.colors.error,
   },
 });

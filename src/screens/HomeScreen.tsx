@@ -109,13 +109,13 @@ export default function HomeScreen() {
     const handleSelectPlayer = (user: User) => {
         // Blur searchbar to hide keyboard and remove focus
         searchbarRef.current?.blur();
-        
+
         setSelectedUserId(user.uid);
         setSelectedUserName(user.displayName || undefined);
         setSelectedUserPhoto(user.photoURL || undefined);
         setSearchQuery('');
         setSearchResults([]);
-        
+
         // Open modal after state is set
         setTimeout(() => {
             bottomSheetRef.current?.expand();
@@ -128,7 +128,7 @@ export default function HomeScreen() {
                 id: 'players',
                 title: 'Jugadores',
                 icon: 'account-group',
-                color: '#2196F3',
+                color: theme.colors.primary,
                 size: 'large',
                 onPress: () => navigation.navigate('PlayersTable'),
             },
@@ -136,7 +136,7 @@ export default function HomeScreen() {
                 id: 'goalkeepers',
                 title: 'Porteros',
                 icon: 'hand-back-right',
-                color: '#FF9800',
+                color: theme.colors.secondary,
                 size: 'medium',
                 onPress: () => navigation.navigate('GoalkeepersTable'),
             },
@@ -144,7 +144,7 @@ export default function HomeScreen() {
                 id: 'matches',
                 title: 'Partidos',
                 icon: 'soccer',
-                color: '#4CAF50',
+                color: theme.colors.secondary,
                 size: 'large',
                 onPress: () => navigation.navigate('Matches'),
             },
@@ -152,7 +152,7 @@ export default function HomeScreen() {
                 id: 'profile',
                 title: 'Mi Perfil',
                 icon: 'account-circle',
-                color: '#9C27B0',
+                color: theme.colors.primary,
                 size: 'small',
                 onPress: () => navigation.navigate('Profile'),
             },
@@ -160,7 +160,7 @@ export default function HomeScreen() {
                 id: 'invitations',
                 title: 'Invitaciones',
                 icon: 'email-multiple',
-                color: '#00BCD4',
+                color: theme.colors.primary,
                 size: 'medium',
                 onPress: () => navigation.navigate('Invitations'),
             },
@@ -168,14 +168,14 @@ export default function HomeScreen() {
                 id: 'admin',
                 title: 'Administrar Grupo',
                 icon: 'cog',
-                color: '#F44336',
+                color: theme.colors.secondary,
                 size: 'medium',
                 onPress: () => navigation.navigate('Admin'),
             },
         ];
 
         return cards;
-    }, [navigation]);
+    }, [navigation, theme]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -187,11 +187,12 @@ export default function HomeScreen() {
                     onChangeText={setSearchQuery}
                     value={searchQuery}
                     icon="magnify"
-                    style={styles.searchbar}
+                    iconColor={theme.colors.secondary}
+                    style={{ ...styles.searchbar, backgroundColor: theme.colors.onPrimary }}
                     elevation={2}
                     loading={isSearching}
                 />
-                
+
                 {/* Search Results */}
                 {searchResults.length > 0 && (
                     <Card style={styles.searchResultsCard} elevation={4}>
@@ -222,7 +223,7 @@ export default function HomeScreen() {
                         ))}
                     </Card>
                 )}
-                
+
                 {/* No results message */}
                 {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
                     <Card style={styles.searchResultsCard} elevation={2}>
@@ -277,12 +278,12 @@ export default function HomeScreen() {
                             </View>
                         </View>
                         <View style={styles.groupMeta}>
-                            <Chip icon={EyeIcon} compact>
+                            {/* <Chip icon={EyeIcon} compact>
                                 {activeGroup.visibility || 'Público'}
                             </Chip>
                             <Chip icon={ShapeIcon} compact>
                                 {activeGroup.type || 'General'}
-                            </Chip>
+                            </Chip> */}
                             {activeGroup.isActive && (
                                 <Chip
                                     icon={CheckCircleIcon}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Avatar, Text, Chip, Surface } from 'react-native-paper';
+import { Avatar, Text, Chip, Surface, useTheme, MD3Theme } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import type { MatchPlayer } from '../repositories/matches/matchesRepository';
@@ -69,6 +69,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     selectedTeam = 0,
     onTeamChange,
 }) => {
+    const theme = useTheme();
     const [activeTeam, setActiveTeam] = useState(selectedTeam);
 
     const handleTeamChange = (team: number) => {
@@ -97,7 +98,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
             <View
                 key={player.id}
                 style={[
-                    styles.playerContainer,
+                    styles(theme).playerContainer,
                     {
                         left: `${coords.x}%`,
                         top: `${coords.y}%`,
@@ -105,32 +106,32 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                 ]}
             >
                 {/* Player Avatar */}
-                <View style={styles.avatarWrapper}>
+                <View style={styles(theme).avatarWrapper}>
                     {playerPhoto ? (
                         <Avatar.Image
                             source={{ uri: playerPhoto }}
                             size={60}
                             style={[
-                                styles.avatar,
-                                isMVP && styles.mvpAvatar,
+                                styles(theme).avatar,
+                                isMVP && styles(theme).mvpAvatar,
                             ]}
                         />
                     ) : (
                         <Avatar.Text
                             label={getPlayerInitial(playerName)}
                             size={60}
-                            labelStyle={styles.avatarLabel}
+                            labelStyle={styles(theme).avatarLabel}
                             style={[
-                                styles.avatar,
-                                isMVP && styles.mvpAvatar,
-                                { backgroundColor: player.position === 'POR' ? '#FF9800' : '#2196F3' },
+                                styles(theme).avatar,
+                                isMVP && styles(theme).mvpAvatar,
+                                { backgroundColor: player.position === 'POR' ? theme.colors.secondary : theme.colors.primary },
                             ]}
                         />
                     )}
 
                     {/* MVP Badge */}
                     {isMVP && (
-                        <View style={styles.mvpBadge}>
+                        <View style={styles(theme).mvpBadge}>
                             <Icon name="star" size={12} color="#FFF" />
                         </View>
                     )}
@@ -138,45 +139,45 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                     {/* Position Badge */}
                     <Chip
                         style={[
-                            styles.positionChip,
-                            { borderColor: player.position === 'POR' ? '#FF9800' : '#2196F3' },
+                            styles(theme).positionChip,
+                            { borderColor: player.position === 'POR' ? theme.colors.secondary : theme.colors.primary },
                         ]}
-                        textStyle={styles.positionText}
+                        textStyle={styles(theme).positionText}
                     >
                         {player.position}
                     </Chip>
                 </View>
 
                 {/* Player Name */}
-                <Surface style={styles.nameSurface} elevation={1}>
-                    <Text variant="labelSmall" style={styles.nameText} numberOfLines={1}>
+                <Surface style={styles(theme).nameSurface} elevation={1}>
+                    <Text variant="labelSmall" style={styles(theme).nameText} numberOfLines={1}>
                         {playerName}
                     </Text>
                 </Surface>
 
                 {/* Stats */}
                 {hasStats && (
-                    <Surface style={styles.statsSurface} elevation={1}>
+                    <Surface style={styles(theme).statsSurface} elevation={1}>
                         {player.goals > 0 && (
-                            <View style={styles.statItem}>
-                                <Icon name="soccer" size={12} color="#4CAF50" />
-                                <Text variant="labelSmall" style={styles.statText}>
+                            <View style={styles(theme).statItem}>
+                                <Icon name="soccer" size={12} color={theme.colors.primary} />
+                                <Text variant="labelSmall" style={styles(theme).statText}>
                                     {player.goals}
                                 </Text>
                             </View>
                         )}
                         {player.assists > 0 && (
-                            <View style={styles.statItem}>
-                                <Icon name="shoe-cleat" size={10} color="#2196F3" />
-                                <Text variant="labelSmall" style={styles.statTextBlue}>
+                            <View style={styles(theme).statItem}>
+                                <Icon name="shoe-cleat" size={10} color={theme.colors.secondary} />
+                                <Text variant="labelSmall" style={styles(theme).statTextBlue}>
                                     {player.assists}
                                 </Text>
                             </View>
                         )}
                         {player.ownGoals > 0 && (
-                            <View style={styles.statItem}>
-                                <Icon name="soccer" size={12} color="#F44336" />
-                                <Text variant="labelSmall" style={styles.statTextRed}>
+                            <View style={styles(theme).statItem}>
+                                <Icon name="soccer" size={12} color={theme.colors.error} />
+                                <Text variant="labelSmall" style={styles(theme).statTextRed}>
                                     {player.ownGoals}
                                 </Text>
                             </View>
@@ -188,44 +189,44 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     };
 
     return (
-        <View style={styles.container}>
+        <View style={styles(theme).container}>
             {/* Team Tabs */}
-            <View style={styles.tabsContainer}>
+            <View style={styles(theme).tabsContainer}>
                 <TouchableOpacity
-                    style={styles.tabTouchable}
+                    style={styles(theme).tabTouchable}
                     onPress={() => handleTeamChange(0)}
                     activeOpacity={0.7}
                 >
                     <Surface
                         style={[
-                            styles.tab,
-                            activeTeam === 0 && styles.activeTab,
+                            styles(theme).tab,
+                            activeTeam === 0 && styles(theme).activeTab,
                         ]}
                         elevation={activeTeam === 0 ? 2 : 0}
                     >
                         <Text
                             variant="labelLarge"
-                            style={[styles.tabText, activeTeam === 0 && styles.activeTabText]}
+                            style={[styles(theme).tabText, activeTeam === 0 && styles(theme).activeTabText]}
                         >
                             Equipo 1
                         </Text>
                     </Surface>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={styles.tabTouchable}
+                    style={styles(theme).tabTouchable}
                     onPress={() => handleTeamChange(1)}
                     activeOpacity={0.7}
                 >
                     <Surface
                         style={[
-                            styles.tab,
-                            activeTeam === 1 && styles.activeTab,
+                            styles(theme).tab,
+                            activeTeam === 1 && styles(theme).activeTab,
                         ]}
                         elevation={activeTeam === 1 ? 2 : 0}
                     >
                         <Text
                             variant="labelLarge"
-                            style={[styles.tabText, activeTeam === 1 && styles.activeTabText]}
+                            style={[styles(theme).tabText, activeTeam === 1 && styles(theme).activeTabText]}
                         >
                             Equipo 2
                         </Text>
@@ -234,25 +235,25 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
             </View>
 
             {/* Football Field */}
-            <View style={styles.field}>
+            <View style={styles(theme).field}>
                 {/* Field Lines */}
-                <View style={styles.fieldLines}>
+                <View style={styles(theme).fieldLines}>
                     {/* Center Line */}
-                    <View style={styles.centerLine} />
+                    <View style={styles(theme).centerLine} />
 
                     {/* Center Circle */}
-                    <View style={styles.centerCircle} />
+                    <View style={styles(theme).centerCircle} />
 
                     {/* Top Area */}
-                    <View style={[styles.area, styles.topArea]} />
-                    <View style={[styles.smallArea, styles.topSmallArea]} />
+                    <View style={[styles(theme).area, styles(theme).topArea]} />
+                    <View style={[styles(theme).smallArea, styles(theme).topSmallArea]} />
 
                     {/* Bottom Area */}
-                    <View style={[styles.area, styles.bottomArea]} />
-                    <View style={[styles.smallArea, styles.bottomSmallArea]} />
+                    <View style={[styles(theme).area, styles(theme).bottomArea]} />
+                    <View style={[styles(theme).smallArea, styles(theme).bottomSmallArea]} />
 
                     {/* Field Border */}
-                    <View style={styles.fieldBorder} />
+                    <View style={styles(theme).fieldBorder} />
                 </View>
 
                 {/* Players */}
@@ -262,16 +263,16 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme: MD3Theme) => StyleSheet.create({
     container: {
         width: '100%',
-        backgroundColor: '#F5F5F5',
+        backgroundColor: theme.colors.background,
         borderRadius: 8,
         overflow: 'hidden',
     },
     tabsContainer: {
         flexDirection: 'row',
-        backgroundColor: '#FFF',
+        backgroundColor: theme.colors.surface,
     },
     tabTouchable: {
         flex: 1,
@@ -280,14 +281,14 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#FFF',
+        backgroundColor: theme.colors.surface,
     },
     activeTab: {
-        backgroundColor: '#2196F3',
+        backgroundColor: theme.colors.primary,
     },
     tabText: {
         fontWeight: 'bold',
-        color: '#666',
+        color: theme.colors.onSurfaceVariant,
     },
     activeTabText: {
         color: '#FFF',
@@ -450,17 +451,17 @@ const styles = StyleSheet.create({
     },
     statText: {
         fontWeight: 'bold',
-        color: '#4CAF50',
+        color: theme.colors.primary,
         fontSize: 10,
     },
     statTextBlue: {
         fontWeight: 'bold',
-        color: '#2196F3',
+        color: theme.colors.secondary,
         fontSize: 10,
     },
     statTextRed: {
         fontWeight: 'bold',
-        color: '#F44336',
+        color: theme.colors.error,
         fontSize: 10,
     },
 });

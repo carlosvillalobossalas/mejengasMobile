@@ -12,6 +12,7 @@ import {
   Divider,
   Surface,
   useTheme,
+  MD3Theme,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
@@ -83,9 +84,9 @@ export default function MatchesScreen() {
   };
 
   const getMatchResultColor = (match: Match): string => {
-    if (match.goalsTeam1 > match.goalsTeam2) return '#2196F3';
-    if (match.goalsTeam2 > match.goalsTeam1) return '#2196F3';
-    return '#FF9800';
+    if (match.goalsTeam1 > match.goalsTeam2) return theme.colors.primary;
+    if (match.goalsTeam2 > match.goalsTeam1) return theme.colors.primary;
+    return theme.colors.secondary;
   };
 
   const toggleMatchExpansion = (matchId: string) => {
@@ -100,43 +101,43 @@ export default function MatchesScreen() {
     return (
       <Card
         key={match.id}
-        style={styles.matchCard}
+        style={styles(theme).matchCard}
         onPress={() => toggleMatchExpansion(match.id)}
       >
-        <Card.Content style={styles.cardContent}>
+        <Card.Content style={styles(theme).cardContent}>
           {/* Date */}
-          <View style={styles.dateContainer}>
+          <View style={styles(theme).dateContainer}>
             <Icon name="calendar" size={16} color={theme.colors.onSurfaceVariant} />
-            <Text variant="labelMedium" style={styles.dateText}>
+            <Text variant="labelMedium" style={styles(theme).dateText}>
               {formatDate(match.date)}
             </Text>
           </View>
 
           {/* Score */}
-          <View style={styles.scoreContainer}>
-            <View style={styles.teamScore}>
-              <Text variant="headlineMedium" style={styles.teamLabel}>
+          <View style={styles(theme).scoreContainer}>
+            <View style={styles(theme).teamScore}>
+              <Text variant="headlineMedium" style={styles(theme).teamLabel}>
                 Equipo 1
               </Text>
-              <Surface style={styles.scoreSurface} elevation={2}>
-                <Text variant="displaySmall" style={styles.scoreText}>
+              <Surface style={styles(theme).scoreSurface} elevation={2}>
+                <Text variant="displaySmall" style={styles(theme).scoreText}>
                   {match.goalsTeam1}
                 </Text>
               </Surface>
             </View>
 
-            <View style={styles.vsContainer}>
-              <Text variant="titleLarge" style={styles.vsText}>
+            <View style={styles(theme).vsContainer}>
+              <Text variant="titleLarge" style={styles(theme).vsText}>
                 VS
               </Text>
             </View>
 
-            <View style={styles.teamScore}>
-              <Text variant="headlineMedium" style={styles.teamLabel}>
+            <View style={styles(theme).teamScore}>
+              <Text variant="headlineMedium" style={styles(theme).teamLabel}>
                 Equipo 2
               </Text>
-              <Surface style={styles.scoreSurface} elevation={2}>
-                <Text variant="displaySmall" style={styles.scoreText}>
+              <Surface style={styles(theme).scoreSurface} elevation={2}>
+                <Text variant="displaySmall" style={styles(theme).scoreText}>
                   {match.goalsTeam2}
                 </Text>
               </Surface>
@@ -144,23 +145,23 @@ export default function MatchesScreen() {
           </View>
 
           {/* Result Badge */}
-          <View style={styles.resultContainer}>
+          <View style={styles(theme).resultContainer}>
             <Chip
-              style={[styles.resultChip, { backgroundColor: resultColor }]}
-              textStyle={styles.resultText}
+              style={[styles(theme).resultChip, { backgroundColor: resultColor }]}
+              textStyle={styles(theme).resultText}
             >
               {result}
             </Chip>
           </View>
 
-          <Divider style={styles.divider} />
+          <Divider style={styles(theme).divider} />
 
           {/* Lineups Section */}
           {isExpanded && (
             <>
-              <View style={styles.sectionHeader}>
+              <View style={styles(theme).sectionHeader}>
                 <Icon name="soccer-field" size={20} color={theme.colors.primary} />
-                <Text variant="titleMedium" style={styles.sectionTitle}>
+                <Text variant="titleMedium" style={styles(theme).sectionTitle}>
                   Alineaciones
                 </Text>
               </View>
@@ -172,7 +173,7 @@ export default function MatchesScreen() {
                 mvpPlayerId={match.mvpPlayerId}
               />
 
-              <View style={styles.spacing} />
+              <View style={styles(theme).spacing} />
 
               {/* Players List */}
               <PlayersList
@@ -185,7 +186,7 @@ export default function MatchesScreen() {
           )}
 
           {/* Expand/Collapse Indicator */}
-          <View style={styles.expandIndicator}>
+          <View style={styles(theme).expandIndicator}>
             <Icon
               name={isExpanded ? 'chevron-up' : 'chevron-down'}
               size={24}
@@ -199,12 +200,12 @@ export default function MatchesScreen() {
 
   if (!selectedGroupId) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles(theme).centerContainer}>
         <Icon name="alert-circle" size={48} color={theme.colors.error} />
-        <Text variant="titleMedium" style={styles.errorText}>
+        <Text variant="titleMedium" style={styles(theme).errorText}>
           No hay grupo seleccionado
         </Text>
-        <Text variant="bodyMedium" style={styles.errorSubtext}>
+        <Text variant="bodyMedium" style={styles(theme).errorSubtext}>
           Por favor, seleccioná un grupo desde la pantalla de Grupos
         </Text>
       </View>
@@ -213,9 +214,9 @@ export default function MatchesScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles(theme).centerContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text variant="bodyMedium" style={styles.loadingText}>
+        <Text variant="bodyMedium" style={styles(theme).loadingText}>
           Cargando partidos...
         </Text>
       </View>
@@ -224,9 +225,9 @@ export default function MatchesScreen() {
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles(theme).centerContainer}>
         <Icon name="alert-circle" size={48} color={theme.colors.error} />
-        <Text variant="titleMedium" style={styles.errorText}>
+        <Text variant="titleMedium" style={styles(theme).errorText}>
           {error}
         </Text>
       </View>
@@ -235,12 +236,12 @@ export default function MatchesScreen() {
 
   if (matches.length === 0) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles(theme).centerContainer}>
         <Icon name="soccer" size={64} color={theme.colors.onSurfaceVariant} />
-        <Text variant="titleMedium" style={styles.emptyText}>
+        <Text variant="titleMedium" style={styles(theme).emptyText}>
           No hay partidos registrados
         </Text>
-        <Text variant="bodyMedium" style={styles.emptySubtext}>
+        <Text variant="bodyMedium" style={styles(theme).emptySubtext}>
           Los partidos aparecerán aquí cuando se registren
         </Text>
       </View>
@@ -249,15 +250,15 @@ export default function MatchesScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      style={styles(theme).container}
+      contentContainerStyle={styles(theme).contentContainer}
     >
       {/* Header */}
-      <View style={styles.header}>
-        <Text variant="headlineSmall" style={styles.headerTitle}>
+      <View style={styles(theme).header}>
+        <Text variant="headlineSmall" style={styles(theme).headerTitle}>
           Partidos
         </Text>
-        <Chip icon="soccer" style={styles.totalChip}>
+        <Chip icon="soccer" style={styles(theme).totalChip}>
           Total: {matches.length} partidos
         </Chip>
       </View>
@@ -268,7 +269,7 @@ export default function MatchesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = (theme: MD3Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
@@ -286,10 +287,12 @@ const styles = StyleSheet.create({
   },
   totalChip: {
     alignSelf: 'flex-start',
+    backgroundColor: theme.colors.onPrimary,
   },
   matchCard: {
     marginBottom: 16,
     borderRadius: 12,
+    backgroundColor: theme.colors.onPrimary
   },
   cardContent: {
     gap: 12,
@@ -326,7 +329,7 @@ const styles = StyleSheet.create({
   },
   scoreText: {
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: theme.colors.primary,
   },
   vsContainer: {
     paddingHorizontal: 16,

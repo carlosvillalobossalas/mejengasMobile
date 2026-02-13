@@ -15,6 +15,7 @@ import {
   Surface,
   Button,
   Portal,
+  MD3Theme,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/bottom-sheet';
@@ -183,9 +184,9 @@ export default function PlayersTableScreen() {
 
   if (!selectedGroupId) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles(theme).centerContainer}>
         <Icon name="alert-circle" size={48} color={theme.colors.error} />
-        <Text variant="titleMedium" style={styles.errorText}>
+        <Text variant="titleMedium" style={styles(theme).errorText}>
           No hay grupo seleccionado
         </Text>
       </View>
@@ -194,9 +195,9 @@ export default function PlayersTableScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles(theme).centerContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text variant="bodyLarge" style={styles.loadingText}>
+        <Text variant="bodyLarge" style={styles(theme).loadingText}>
           Cargando estadísticas...
         </Text>
       </View>
@@ -204,27 +205,27 @@ export default function PlayersTableScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles(theme).container}>
       {/* Header */}
-      <Surface style={styles.header} elevation={2}>
-        <View style={styles.headerContent}>
-          {/* <View style={styles.titleRow}>
+      <Surface style={styles(theme).header} elevation={2}>
+        <View style={styles(theme).headerContent}>
+          {/* <View style={styles(theme).titleRow}>
             <Icon name="soccer" size={24} color="#FFFFFF" />
-            <Text variant="titleLarge" style={styles.headerTitle}>
+            <Text variant="titleLarge" style={styles(theme).headerTitle}>
               Jugadores
             </Text>
           </View> */}
 
-          <Text variant="bodySmall" style={styles.playerCount}>
+          <Text variant="bodySmall" style={styles(theme).playerCount}>
             Total: {currentYearPlayers.length} jugadores
           </Text>
           <Button
             mode="contained"
             onPress={handleOpenYearSelector}
             icon={CalendarIcon}
-            style={styles.yearButton}
-            contentStyle={styles.yearButtonContent}
-            labelStyle={styles.yearButtonLabel}
+            style={styles(theme).yearButton}
+            contentStyle={styles(theme).yearButtonContent}
+            labelStyle={styles(theme).yearButtonLabel}
           >
             {getYearLabel(selectedYear)}
           </Button>
@@ -235,21 +236,21 @@ export default function PlayersTableScreen() {
       <Divider />
 
       {/* Table */}
-      <ScrollView style={styles.tableContainer}>
+      <ScrollView style={styles(theme).tableContainer}>
         <DataTable>
           {/* Table Header */}
-          <DataTable.Header style={styles.tableHeader}>
+          <DataTable.Header style={styles(theme).tableHeader}>
             <DataTable.Title
-              style={styles.rankColumn}
-              textStyle={styles.headerText}
+              style={styles(theme).rankColumn}
+              textStyle={styles(theme).headerText}
             >
               #
             </DataTable.Title>
             <DataTable.Title
               sortDirection={sortBy === 'name' ? sortDirection : undefined}
               onPress={() => handleSort('name')}
-              style={styles.nameColumn}
-              textStyle={styles.headerText}
+              style={styles(theme).nameColumn}
+              textStyle={styles(theme).headerText}
             >
               Jugador
             </DataTable.Title>
@@ -257,8 +258,8 @@ export default function PlayersTableScreen() {
               numeric
               sortDirection={sortBy === 'goals' ? sortDirection : undefined}
               onPress={() => handleSort('goals')}
-              style={styles.statColumn}
-              textStyle={styles.headerText}
+              style={styles(theme).statColumn}
+              textStyle={styles(theme).headerText}
             >
               <Icon name="soccer" size={16} color="#FFFFFF" />
             </DataTable.Title>
@@ -266,8 +267,8 @@ export default function PlayersTableScreen() {
               numeric
               sortDirection={sortBy === 'assists' ? sortDirection : undefined}
               onPress={() => handleSort('assists')}
-              style={styles.statColumn}
-              textStyle={styles.headerText}
+              style={styles(theme).statColumn}
+              textStyle={styles(theme).headerText}
             >
               <Icon name="shoe-cleat" size={16} color="#FFFFFF" />
             </DataTable.Title>
@@ -277,8 +278,8 @@ export default function PlayersTableScreen() {
                 sortBy === 'mvp' ? sortDirection : undefined
               }
               onPress={() => handleSort('mvp')}
-              style={styles.statColumn}
-              textStyle={styles.headerText}
+              style={styles(theme).statColumn}
+              textStyle={styles(theme).headerText}
             >
               <Icon name="star" size={16} color="#FFFFFF" />
             </DataTable.Title>
@@ -286,8 +287,8 @@ export default function PlayersTableScreen() {
               numeric
               sortDirection={sortBy === 'matches' ? sortDirection : undefined}
               onPress={() => handleSort('matches')}
-              style={styles.statColumn}
-              textStyle={styles.headerText}
+              style={styles(theme).statColumn}
+              textStyle={styles(theme).headerText}
             >
               <Icon name="stadium" size={16} color="#FFFFFF" />
             </DataTable.Title>
@@ -303,73 +304,73 @@ export default function PlayersTableScreen() {
               >
                 <DataTable.Row
                   style={[
-                    styles.tableRow,
-                    index % 2 === 0 ? styles.evenRow : styles.oddRow,
+                    styles(theme).tableRow,
+                    index % 2 === 0 ? styles(theme).evenRow : styles(theme).oddRow,
                   ]}
                 >
-                <DataTable.Cell style={styles.rankColumn}>
-                  <Text
-                    variant="bodyMedium"
-                    style={[
-                      styles.rankText,
-                      index < 3 && styles.topThreeRank,
-                    ]}
-                  >
-                    {index + 1}
-                  </Text>
-                </DataTable.Cell>
-
-                <DataTable.Cell style={styles.nameColumn}>
-                  <View style={styles.playerInfo}>
-                    {player.photoURL ? (
-                      <Avatar.Image
-                        size={32}
-                        source={{ uri: player.photoURL }}
-                      />
-                    ) : (
-                      <Avatar.Text
-                        size={32}
-                        label={getPlayerDisplay(player)?.[0]?.toUpperCase() || '?'}
-                      />
-                    )}
+                  <DataTable.Cell style={styles(theme).rankColumn}>
                     <Text
                       variant="bodyMedium"
-                      style={styles.playerName}
-                      numberOfLines={1}
+                      style={[
+                        styles(theme).rankText,
+                        index < 3 && styles(theme).topThreeRank,
+                      ]}
                     >
-                      {getPlayerDisplay(player)}
+                      {index + 1}
                     </Text>
-                  </View>
-                </DataTable.Cell>
+                  </DataTable.Cell>
 
-                <DataTable.Cell numeric style={styles.statColumn}>
-                  <Text variant="bodyMedium" style={styles.goalsText}>
-                    {player.goals}
-                  </Text>
-                </DataTable.Cell>
+                  <DataTable.Cell style={styles(theme).nameColumn}>
+                    <View style={styles(theme).playerInfo}>
+                      {player.photoURL ? (
+                        <Avatar.Image
+                          size={32}
+                          source={{ uri: player.photoURL }}
+                        />
+                      ) : (
+                        <Avatar.Text
+                          size={32}
+                          label={getPlayerDisplay(player)?.[0]?.toUpperCase() || '?'}
+                        />
+                      )}
+                      <Text
+                        variant="bodyMedium"
+                        style={styles(theme).playerName}
+                        numberOfLines={1}
+                      >
+                        {getPlayerDisplay(player)}
+                      </Text>
+                    </View>
+                  </DataTable.Cell>
 
-                <DataTable.Cell numeric style={styles.statColumn}>
-                  <Text variant="bodyMedium" style={styles.assistsText}>
-                    {player.assists}
-                  </Text>
-                </DataTable.Cell>
+                  <DataTable.Cell numeric style={styles(theme).statColumn}>
+                    <Text variant="bodyMedium" style={styles(theme).goalsText}>
+                      {player.goals}
+                    </Text>
+                  </DataTable.Cell>
 
-                <DataTable.Cell numeric style={styles.statColumn}>
-                  <Text variant="bodyMedium" style={styles.combinedText}>
-                    {player.mvp}
-                  </Text>
-                </DataTable.Cell>
+                  <DataTable.Cell numeric style={styles(theme).statColumn}>
+                    <Text variant="bodyMedium" style={styles(theme).assistsText}>
+                      {player.assists}
+                    </Text>
+                  </DataTable.Cell>
 
-                <DataTable.Cell numeric style={styles.statColumn}>
-                  <Text variant="bodyMedium">{player.matches}</Text>
-                </DataTable.Cell>
-              </DataTable.Row>
+                  <DataTable.Cell numeric style={styles(theme).statColumn}>
+                    <Text variant="bodyMedium" style={styles(theme).combinedText}>
+                      {player.mvp}
+                    </Text>
+                  </DataTable.Cell>
+
+                  <DataTable.Cell numeric style={styles(theme).statColumn}>
+                    <Text variant="bodyMedium" style={styles(theme).combinedText}>{player.matches}</Text>
+                  </DataTable.Cell>
+                </DataTable.Row>
               </TouchableOpacity>
             );
           })}
 
           {sortedPlayers.length === 0 && (
-            <View style={styles.emptyState}>
+            <View style={styles(theme).emptyState}>
               <Icon
                 name="account-off"
                 size={64}
@@ -378,7 +379,7 @@ export default function PlayersTableScreen() {
               <Text
                 variant="titleMedium"
                 style={[
-                  styles.emptyText,
+                  styles(theme).emptyText,
                   { color: theme.colors.onSurfaceDisabled },
                 ]}
               >
@@ -398,8 +399,8 @@ export default function PlayersTableScreen() {
           enablePanDownToClose
           backdropComponent={renderBackdrop}
         >
-          <View style={styles.bottomSheetContent}>
-            <Text variant="titleMedium" style={styles.bottomSheetTitle}>
+          <View style={styles(theme).bottomSheetContent}>
+            <Text variant="titleMedium" style={styles(theme).bottomSheetTitle}>
               Seleccionar Temporada
             </Text>
             <BottomSheetFlatList
@@ -409,8 +410,8 @@ export default function PlayersTableScreen() {
                 <Button
                   mode={selectedYear === item.value ? 'contained' : 'text'}
                   onPress={() => handleSelectYear(item.value)}
-                  style={styles.yearOptionButton}
-                  contentStyle={styles.yearOptionContent}
+                  style={styles(theme).yearOptionButton}
+                  contentStyle={styles(theme).yearOptionContent}
                 >
                   {item.label}
                 </Button>
@@ -431,7 +432,7 @@ export default function PlayersTableScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = (theme: MD3Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
@@ -451,7 +452,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   header: {
-    backgroundColor: '#2196F3',
+    backgroundColor: theme.colors.primary,
     paddingVertical: 16,
     paddingHorizontal: 16,
   },
@@ -505,7 +506,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tableHeader: {
-    backgroundColor: '#1976D2',
+    backgroundColor: theme.colors.primary,
   },
   headerText: {
     color: '#FFFFFF',
@@ -536,7 +537,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   topThreeRank: {
-    color: '#2196F3',
+    color: theme.colors.primary,
   },
   playerInfo: {
     flexDirection: 'row',
@@ -547,15 +548,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   goalsText: {
-    color: '#4CAF50',
+    // color: theme.colors.primary,
     fontWeight: 'bold',
   },
   assistsText: {
-    color: '#2196F3',
+    // color: theme.colors.secondary,
     fontWeight: 'bold',
   },
   combinedText: {
-    color: '#FF9800',
+    // color: theme.colors.tertiary,
     fontWeight: 'bold',
   },
   emptyState: {

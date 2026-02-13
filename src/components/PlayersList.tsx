@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Divider } from 'react-native-paper';
+import { Text, Divider, useTheme, MD3Theme } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import type { MatchPlayer } from '../repositories/matches/matchesRepository';
@@ -19,18 +19,15 @@ const getPlayerInfo = (playerId: string, allPlayers: Player[]): Player | undefin
 };
 
 
-const getPositionColor = (position: string): string => {
+const getPositionColor = (position: string, theme: MD3Theme): string => {
   switch (position) {
     case 'POR':
-      return '#FF9800';
+      return theme.colors.secondary;
     case 'DEF':
-      return '#2196F3';
     case 'MED':
-      return '#2196F3';
     case 'DEL':
-      return '#2196F3';
     default:
-      return '#2196F3';
+      return theme.colors.primary;
   }
 };
 
@@ -40,6 +37,8 @@ const PlayersList: React.FC<PlayersListProps> = ({
   allPlayers = [],
   mvpPlayerId = null,
 }) => {
+  const theme = useTheme();
+
   const renderPlayer = (player: MatchPlayer) => {
     const playerInfo = getPlayerInfo(player.id, allPlayers);
     const playerName = getPlayerDisplay(playerInfo);
@@ -47,49 +46,49 @@ const PlayersList: React.FC<PlayersListProps> = ({
     const hasStats = player.goals > 0 || player.assists > 0 || player.ownGoals > 0;
 
     return (
-      <View key={player.id} style={styles.playerRow}>
-        <View style={styles.playerInfo}>
+      <View key={player.id} style={styles(theme).playerRow}>
+        <View style={styles(theme).playerInfo}>
           <View
             style={[
-              styles.positionBadge,
-              { backgroundColor: getPositionColor(player.position) },
+              styles(theme).positionBadge,
+              { backgroundColor: getPositionColor(player.position, theme) },
             ]}
           >
-            <Text variant="labelSmall" style={styles.positionText}>
+            <Text variant="labelSmall" style={styles(theme).positionText}>
               {player.position}
             </Text>
           </View>
-          <Text variant="bodyMedium" style={styles.playerName}>
+          <Text variant="bodyMedium" style={styles(theme).playerName}>
             {playerName}
           </Text>
         </View>
 
-        <View style={styles.statsContainer}>
+        <View style={styles(theme).statsContainer}>
           {isMVP && (
-            <View style={styles.mvpBadgeList}>
+            <View style={styles(theme).mvpBadgeList}>
               <Icon name="star" size={16} color="#FFD700" />
             </View>
           )}
           {player.goals > 0 && (
-            <View style={styles.statBadge}>
-              <Icon name="soccer" size={14} color="#4CAF50" />
-              <Text variant="labelSmall" style={styles.statValue}>
+            <View style={styles(theme).statBadge}>
+              <Icon name="soccer" size={14} color={theme.colors.primary} />
+              <Text variant="labelSmall" style={styles(theme).statValue}>
                 {player.goals}
               </Text>
             </View>
           )}
           {player.assists > 0 && (
-            <View style={styles.statBadge}>
-              <Icon name="shoe-cleat" size={12} color="#2196F3" />
-              <Text variant="labelSmall" style={styles.statValueBlue}>
+            <View style={styles(theme).statBadge}>
+              <Icon name="shoe-cleat" size={12} color={theme.colors.secondary} />
+              <Text variant="labelSmall" style={styles(theme).statValueBlue}>
                 {player.assists}
               </Text>
             </View>
           )}
           {player.ownGoals > 0 && (
-            <View style={styles.statBadge}>
-              <Icon name="soccer" size={14} color="#F44336" />
-              <Text variant="labelSmall" style={styles.statValueRed}>
+            <View style={styles(theme).statBadge}>
+              <Icon name="soccer" size={14} color={theme.colors.error} />
+              <Text variant="labelSmall" style={styles(theme).statValueRed}>
                 {player.ownGoals}
               </Text>
             </View>
@@ -100,23 +99,23 @@ const PlayersList: React.FC<PlayersListProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles(theme).container}>
       {/* Team 1 */}
-      <View style={styles.teamSection}>
-        <View style={styles.teamHeader}>
-          <Text variant="titleMedium" style={styles.teamTitle}>
+      <View style={styles(theme).teamSection}>
+        <View style={styles(theme).teamHeader}>
+          <Text variant="titleMedium" style={styles(theme).teamTitle}>
             Equipo 1
           </Text>
         </View>
         {team1Players.map(player => renderPlayer(player))}
       </View>
 
-      <Divider style={styles.divider} />
+      <Divider style={styles(theme).divider} />
 
       {/* Team 2 */}
-      <View style={styles.teamSection}>
-        <View style={styles.teamHeader}>
-          <Text variant="titleMedium" style={styles.teamTitle}>
+      <View style={styles(theme).teamSection}>
+        <View style={styles(theme).teamHeader}>
+          <Text variant="titleMedium" style={styles(theme).teamTitle}>
             Equipo 2
           </Text>
         </View>
@@ -126,9 +125,9 @@ const PlayersList: React.FC<PlayersListProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme: MD3Theme) => StyleSheet.create({
   container: {
-    backgroundColor: '#FFF',
+    backgroundColor: theme.colors.surface,
     borderRadius: 8,
     padding: 16,
     gap: 16,
@@ -141,7 +140,7 @@ const styles = StyleSheet.create({
   },
   teamTitle: {
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: theme.colors.primary,
   },
   playerRow: {
     flexDirection: 'row',
@@ -188,15 +187,15 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: theme.colors.primary,
   },
   statValueBlue: {
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: theme.colors.secondary,
   },
   statValueRed: {
     fontWeight: 'bold',
-    color: '#F44336',
+    color: theme.colors.error,
   },
   divider: {
     height: 2,

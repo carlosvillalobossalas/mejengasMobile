@@ -14,6 +14,7 @@ import {
     Surface,
     Button,
     Portal,
+    MD3Theme,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/bottom-sheet';
@@ -155,9 +156,9 @@ export default function GoalkeepersTableScreen() {
 
     if (!selectedGroupId) {
         return (
-            <View style={styles.centerContainer}>
+            <View style={styles(theme).centerContainer}>
                 <Icon name="alert-circle" size={48} color={theme.colors.error} />
-                <Text variant="titleMedium" style={styles.errorText}>
+                <Text variant="titleMedium" style={styles(theme).errorText}>
                     No hay grupo seleccionado
                 </Text>
             </View>
@@ -166,9 +167,9 @@ export default function GoalkeepersTableScreen() {
 
     if (isLoading) {
         return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text variant="bodyLarge" style={styles.loadingText}>
+            <View style={styles(theme).centerContainer}>
+                <ActivityIndicator size="large" color={theme.colors.secondary} />
+                <Text variant="bodyLarge" style={styles(theme).loadingText}>
                     Cargando estadísticas...
                 </Text>
             </View>
@@ -176,20 +177,20 @@ export default function GoalkeepersTableScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <View style={styles(theme).container}>
             {/* Header */}
-            <Surface style={styles.header} elevation={2}>
-                <View style={styles.headerContent}>
-                    <Text variant="bodySmall" style={styles.goalkeeperCount}>
+            <Surface style={styles(theme).header} elevation={2}>
+                <View style={styles(theme).headerContent}>
+                    <Text variant="bodySmall" style={styles(theme).goalkeeperCount}>
                         Total: {currentYearGoalkeepers.length} porteros
                     </Text>
                     <Button
                         mode="contained"
                         onPress={handleOpenYearSelector}
                         icon={CalendarIcon}
-                        style={styles.yearButton}
-                        contentStyle={styles.yearButtonContent}
-                        labelStyle={styles.yearButtonLabel}
+                        style={styles(theme).yearButton}
+                        contentStyle={styles(theme).yearButtonContent}
+                        labelStyle={styles(theme).yearButtonLabel}
                     >
                         {getYearLabel(selectedYear)}
                     </Button>
@@ -199,21 +200,21 @@ export default function GoalkeepersTableScreen() {
             <Divider />
 
             {/* Table */}
-            <ScrollView style={styles.tableContainer}>
+            <ScrollView style={styles(theme).tableContainer}>
                 <DataTable>
                     {/* Table Header */}
-                    <DataTable.Header style={styles.tableHeader}>
+                    <DataTable.Header style={styles(theme).tableHeader}>
                         <DataTable.Title
-                            style={styles.rankColumn}
-                            textStyle={styles.headerText}
+                            style={styles(theme).rankColumn}
+                            textStyle={styles(theme).headerText}
                         >
                             #
                         </DataTable.Title>
                         <DataTable.Title
                             sortDirection={sortBy === 'name' ? sortDirection : undefined}
                             onPress={() => handleSort('name')}
-                            style={styles.nameColumn}
-                            textStyle={styles.headerText}
+                            style={styles(theme).nameColumn}
+                            textStyle={styles(theme).headerText}
                         >
                             Portero
                         </DataTable.Title>
@@ -221,8 +222,8 @@ export default function GoalkeepersTableScreen() {
                             numeric
                             sortDirection={sortBy === 'goalsReceived' ? sortDirection : undefined}
                             onPress={() => handleSort('goalsReceived')}
-                            style={styles.statColumn}
-                            textStyle={styles.headerText}
+                            style={styles(theme).statColumn}
+                            textStyle={styles(theme).headerText}
                         >
                             <Icon name="soccer" size={16} color="#FFFFFF" />
                         </DataTable.Title>
@@ -230,8 +231,8 @@ export default function GoalkeepersTableScreen() {
                             numeric
                             sortDirection={sortBy === 'cleanSheets' ? sortDirection : undefined}
                             onPress={() => handleSort('cleanSheets')}
-                            style={styles.statColumn}
-                            textStyle={styles.headerText}
+                            style={styles(theme).statColumn}
+                            textStyle={styles(theme).headerText}
                         >
                             <Icon name="shield-check" size={16} color="#FFFFFF" />
                         </DataTable.Title>
@@ -239,8 +240,8 @@ export default function GoalkeepersTableScreen() {
                             numeric
                             sortDirection={sortBy === 'matches' ? sortDirection : undefined}
                             onPress={() => handleSort('matches')}
-                            style={styles.statColumn}
-                            textStyle={styles.headerText}
+                            style={styles(theme).statColumn}
+                            textStyle={styles(theme).headerText}
                         >
                             <Icon name="stadium" size={16} color="#FFFFFF" />
                         </DataTable.Title>
@@ -258,24 +259,24 @@ export default function GoalkeepersTableScreen() {
                             <DataTable.Row
                                 key={goalkeeper.id}
                                 style={[
-                                    styles.tableRow,
-                                    index % 2 === 0 ? styles.evenRow : styles.oddRow,
+                                    styles(theme).tableRow,
+                                    index % 2 === 0 ? styles(theme).evenRow : styles(theme).oddRow,
                                 ]}
                             >
-                                <DataTable.Cell style={styles.rankColumn}>
+                                <DataTable.Cell style={styles(theme).rankColumn}>
                                     <Text
                                         variant="bodyMedium"
                                         style={[
-                                            styles.rankText,
-                                            index < 3 && styles.topThreeRank,
+                                            styles(theme).rankText,
+                                            index < 3 && styles(theme).topThreeRank,
                                         ]}
                                     >
                                         {index + 1}
                                     </Text>
                                 </DataTable.Cell>
 
-                                <DataTable.Cell style={styles.nameColumn}>
-                                    <View style={styles.goalkeeperInfo}>
+                                <DataTable.Cell style={styles(theme).nameColumn}>
+                                    <View style={styles(theme).goalkeeperInfo}>
                                         {goalkeeper.photoURL ? (
                                             <Avatar.Image
                                                 size={32}
@@ -285,11 +286,13 @@ export default function GoalkeepersTableScreen() {
                                             <Avatar.Text
                                                 size={32}
                                                 label={initial}
+                                                style={{ backgroundColor: theme.colors.secondary }}
+                                                
                                             />
                                         )}
                                         <Text
                                             variant="bodyMedium"
-                                            style={styles.goalkeeperName}
+                                            style={styles(theme).goalkeeperName}
                                             numberOfLines={1}
                                         >
                                             {displayName}
@@ -297,27 +300,27 @@ export default function GoalkeepersTableScreen() {
                                     </View>
                                 </DataTable.Cell>
 
-                                <DataTable.Cell numeric style={styles.statColumn}>
-                                    <Text variant="bodyMedium" style={styles.goalsReceivedText}>
+                                <DataTable.Cell numeric style={styles(theme).statColumn}>
+                                    <Text variant="bodyMedium" style={styles(theme).goalsReceivedText}>
                                         {goalkeeper.goalsReceived}
                                     </Text>
                                 </DataTable.Cell>
 
-                                <DataTable.Cell numeric style={styles.statColumn}>
-                                    <Text variant="bodyMedium" style={styles.cleanSheetsText}>
+                                <DataTable.Cell numeric style={styles(theme).statColumn}>
+                                    <Text variant="bodyMedium" style={styles(theme).cleanSheetsText}>
                                         {goalkeeper.cleanSheets}
                                     </Text>
                                 </DataTable.Cell>
 
-                                <DataTable.Cell numeric style={styles.statColumn}>
-                                    <Text variant="bodyMedium">{goalkeeper.matches}</Text>
+                                <DataTable.Cell numeric style={styles(theme).statColumn}>
+                                    <Text variant="bodyMedium" style={styles(theme).cleanSheetsText} >{goalkeeper.matches}</Text>
                                 </DataTable.Cell>
                             </DataTable.Row>
                         );
                     })}
 
                     {sortedGoalkeepers.length === 0 && (
-                        <View style={styles.emptyState}>
+                        <View style={styles(theme).emptyState}>
                             <Icon
                                 name="hand-back-right-off"
                                 size={64}
@@ -326,7 +329,7 @@ export default function GoalkeepersTableScreen() {
                             <Text
                                 variant="titleMedium"
                                 style={[
-                                    styles.emptyText,
+                                    styles(theme).emptyText,
                                     { color: theme.colors.onSurfaceDisabled },
                                 ]}
                             >
@@ -346,8 +349,8 @@ export default function GoalkeepersTableScreen() {
                     enablePanDownToClose
                     backdropComponent={renderBackdrop}
                 >
-                    <View style={styles.bottomSheetContent}>
-                        <Text variant="titleMedium" style={styles.bottomSheetTitle}>
+                    <View style={styles(theme).bottomSheetContent}>
+                        <Text variant="titleMedium" style={styles(theme).bottomSheetTitle}>
                             Seleccionar Temporada
                         </Text>
                         <BottomSheetFlatList
@@ -357,8 +360,8 @@ export default function GoalkeepersTableScreen() {
                                 <Button
                                     mode={selectedYear === item.value ? 'contained' : 'text'}
                                     onPress={() => handleSelectYear(item.value)}
-                                    style={styles.yearOptionButton}
-                                    contentStyle={styles.yearOptionContent}
+                                    style={styles(theme).yearOptionButton}
+                                    contentStyle={styles(theme).yearOptionContent}
                                 >
                                     {item.label}
                                 </Button>
@@ -371,7 +374,7 @@ export default function GoalkeepersTableScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const styles = (theme: MD3Theme) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F5F5F5',
@@ -391,7 +394,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
     },
     header: {
-        backgroundColor: '#FF9800',
+        backgroundColor: theme.colors.secondary,
         paddingVertical: 16,
         paddingHorizontal: 16,
     },
@@ -435,7 +438,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     tableHeader: {
-        backgroundColor: '#F57C00',
+        backgroundColor: theme.colors.secondary,
     },
     headerText: {
         color: '#FFFFFF',
@@ -466,7 +469,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     topThreeRank: {
-        color: '#FF9800',
+        color: theme.colors.secondary,
     },
     goalkeeperInfo: {
         flexDirection: 'row',
@@ -477,11 +480,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     goalsReceivedText: {
-        color: '#F44336',
         fontWeight: 'bold',
     },
     cleanSheetsText: {
-        color: '#4CAF50',
         fontWeight: 'bold',
     },
     emptyState: {

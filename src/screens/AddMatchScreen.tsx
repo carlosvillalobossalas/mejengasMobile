@@ -17,6 +17,7 @@ import {
   Chip,
   Menu,
   Snackbar,
+  MD3Theme,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import DatePicker from 'react-native-date-picker';
@@ -247,9 +248,9 @@ export default function AddMatchScreen() {
 
   if (!selectedGroupId) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles(theme).centerContainer}>
         <Icon name="alert-circle" size={48} color={theme.colors.error} />
-        <Text variant="titleMedium" style={styles.errorText}>
+        <Text variant="titleMedium" style={styles(theme).errorText}>
           No hay grupo seleccionado
         </Text>
       </View>
@@ -257,21 +258,21 @@ export default function AddMatchScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles(theme).container}>
       {/* Tabs */}
-      <View style={styles.tabsContainer}>
+      <View style={styles(theme).tabsContainer}>
         <TouchableOpacity
-          style={styles.tabButton}
+          style={styles(theme).tabButton}
           onPress={() => setActiveTab(0)}
           activeOpacity={0.7}
         >
           <Surface
-            style={[styles.tab, activeTab === 0 && styles.activeTab]}
+            style={[styles(theme).tab, activeTab === 0 && styles(theme).activeTab]}
             elevation={activeTab === 0 ? 2 : 0}
           >
             <Text
               variant="labelLarge"
-              style={[styles.tabText, activeTab === 0 && styles.activeTabText]}
+              style={[styles(theme).tabText, activeTab === 0 && styles(theme).activeTabText]}
             >
               Equipo 1
             </Text>
@@ -279,17 +280,17 @@ export default function AddMatchScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.tabButton}
+          style={styles(theme).tabButton}
           onPress={() => setActiveTab(1)}
           activeOpacity={0.7}
         >
           <Surface
-            style={[styles.tab, activeTab === 1 && styles.activeTab]}
+            style={[styles(theme).tab, activeTab === 1 && styles(theme).activeTab]}
             elevation={activeTab === 1 ? 2 : 0}
           >
             <Text
               variant="labelLarge"
-              style={[styles.tabText, activeTab === 1 && styles.activeTabText]}
+              style={[styles(theme).tabText, activeTab === 1 && styles(theme).activeTabText]}
             >
               Equipo 2
             </Text>
@@ -297,17 +298,17 @@ export default function AddMatchScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.tabButton}
+          style={styles(theme).tabButton}
           onPress={() => setActiveTab(2)}
           activeOpacity={0.7}
         >
           <Surface
-            style={[styles.tab, activeTab === 2 && styles.activeTab]}
+            style={[styles(theme).tab, activeTab === 2 && styles(theme).activeTab]}
             elevation={activeTab === 2 ? 2 : 0}
           >
             <Text
               variant="labelLarge"
-              style={[styles.tabText, activeTab === 2 && styles.activeTabText]}
+              style={[styles(theme).tabText, activeTab === 2 && styles(theme).activeTabText]}
             >
               Guardar
             </Text>
@@ -317,31 +318,31 @@ export default function AddMatchScreen() {
 
       {/* Tab Content */}
       {activeTab < 2 ? (
-        <ScrollView style={styles.content}>
+        <ScrollView style={styles(theme).content}>
           {/* Table Header */}
-          <View style={styles.tableHeader}>
-            <Text style={[styles.headerCell, styles.positionColumn]}>Pos.</Text>
-            <Text style={[styles.headerCell, styles.playerColumn]}>Jugador</Text>
-            <Text style={[styles.headerCell, styles.statColumn]}>Gol</Text>
-            <Text style={[styles.headerCell, styles.statColumn]}>Ast</Text>
-            <Text style={[styles.headerCell, styles.statColumn]}>A.G</Text>
+          <View style={styles(theme).tableHeader}>
+            <Text style={[styles(theme).headerCell, styles(theme).positionColumn]}>Pos.</Text>
+            <Text style={[styles(theme).headerCell, styles(theme).playerColumn]}>Jugador</Text>
+            <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>Gol</Text>
+            <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>Ast</Text>
+            <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>A.G</Text>
           </View>
 
           {/* Table Rows */}
           {currentTeamPlayers.map((player, index) => (
-            <View key={index} style={styles.tableRow}>
+            <View key={index} style={styles(theme).tableRow}>
               {/* Position Picker */}
-              <View style={styles.positionColumn}>
+              <View style={styles(theme).positionColumn}>
                 <Menu
                   visible={positionMenuIndex === index}
                   onDismiss={() => setPositionMenuIndex(null)}
                   anchor={
                     <TouchableOpacity
                       onPress={() => setPositionMenuIndex(index)}
-                      style={styles.positionAnchor}
+                      style={styles(theme).positionAnchor}
                     >
-                      <Surface style={styles.positionPicker} elevation={1}>
-                        <Text style={styles.positionText}>{player.position}</Text>
+                      <Surface style={styles(theme).positionPicker} elevation={1}>
+                        <Text style={styles(theme).positionText}>{player.position}</Text>
                         <Icon name="chevron-down" size={16} color="#666" />
                       </Surface>
                     </TouchableOpacity>
@@ -362,12 +363,12 @@ export default function AddMatchScreen() {
 
               {/* Player Selector */}
               <TouchableOpacity
-                style={styles.playerColumn}
+                style={styles(theme).playerColumn}
                 onPress={() => openPlayerPicker(index)}
               >
-                <Surface style={styles.playerSelector} elevation={1}>
+                <Surface style={styles(theme).playerSelector} elevation={1}>
                   <Text
-                    style={styles.playerText}
+                    style={styles(theme).playerText}
                     numberOfLines={1}
                   >
                     {player.playerName || `J${index + 1}`}
@@ -377,7 +378,7 @@ export default function AddMatchScreen() {
               </TouchableOpacity>
 
               {/* Goals */}
-              <View style={styles.statColumn}>
+              <View style={styles(theme).statColumn}>
                 <TextInput
                   mode="outlined"
                   value={player.goals}
@@ -385,13 +386,13 @@ export default function AddMatchScreen() {
                   onFocus={() => handleStatFocus(index, 'goals')}
                   onBlur={() => handleStatBlur(index, 'goals')}
                   keyboardType="number-pad"
-                  style={styles.statInput}
+                  style={styles(theme).statInput}
                   dense
                 />
               </View>
 
               {/* Assists */}
-              <View style={styles.statColumn}>
+              <View style={styles(theme).statColumn}>
                 <TextInput
                   mode="outlined"
                   value={player.assists}
@@ -399,13 +400,13 @@ export default function AddMatchScreen() {
                   onFocus={() => handleStatFocus(index, 'assists')}
                   onBlur={() => handleStatBlur(index, 'assists')}
                   keyboardType="number-pad"
-                  style={styles.statInput}
+                  style={styles(theme).statInput}
                   dense
                 />
               </View>
 
               {/* Own Goals */}
-              <View style={styles.statColumn}>
+              <View style={styles(theme).statColumn}>
                 <TextInput
                   mode="outlined"
                   value={player.ownGoals}
@@ -413,7 +414,7 @@ export default function AddMatchScreen() {
                   onFocus={() => handleStatFocus(index, 'ownGoals')}
                   onBlur={() => handleStatBlur(index, 'ownGoals')}
                   keyboardType="number-pad"
-                  style={styles.statInput}
+                  style={styles(theme).statInput}
                   dense
                 />
               </View>
@@ -421,31 +422,31 @@ export default function AddMatchScreen() {
           ))}
         </ScrollView>
       ) : (
-        <ScrollView style={styles.content} contentContainerStyle={styles.summaryContent}>
+        <ScrollView style={styles(theme).content} contentContainerStyle={styles(theme).summaryContent}>
           {/* Score Display */}
-          <Surface style={styles.scoreCard} elevation={2}>
-            <View style={styles.scoreContainer}>
-              <View style={styles.teamScore}>
-                <Text variant="titleLarge" style={styles.teamLabel}>
+          <Surface style={styles(theme).scoreCard} elevation={2}>
+            <View style={styles(theme).scoreContainer}>
+              <View style={styles(theme).teamScore}>
+                <Text variant="titleLarge" style={styles(theme).teamLabel}>
                   Equipo 1
                 </Text>
-                <View style={styles.scoreCircle}>
-                  <Text variant="displayMedium" style={styles.scoreText}>
+                <View style={styles(theme).scoreCircle}>
+                  <Text variant="displayMedium" style={styles(theme).scoreText}>
                     {team1Goals}
                   </Text>
                 </View>
               </View>
 
-              <Text variant="headlineMedium" style={styles.vsText}>
+              <Text variant="headlineMedium" style={styles(theme).vsText}>
                 VS
               </Text>
 
-              <View style={styles.teamScore}>
-                <Text variant="titleLarge" style={styles.teamLabel}>
+              <View style={styles(theme).teamScore}>
+                <Text variant="titleLarge" style={styles(theme).teamLabel}>
                   Equipo 2
                 </Text>
-                <View style={styles.scoreCircle}>
-                  <Text variant="displayMedium" style={styles.scoreText}>
+                <View style={styles(theme).scoreCircle}>
+                  <Text variant="displayMedium" style={styles(theme).scoreText}>
                     {team2Goals}
                   </Text>
                 </View>
@@ -455,7 +456,7 @@ export default function AddMatchScreen() {
             {/* Result Badge */}
             <Chip
               style={[
-                styles.resultChip,
+                styles(theme).resultChip,
                 {
                   backgroundColor:
                     team1Goals > team2Goals
@@ -465,7 +466,7 @@ export default function AddMatchScreen() {
                       : '#FF9800',
                 },
               ]}
-              textStyle={styles.resultChipText}
+              textStyle={styles(theme).resultChipText}
             >
               {team1Goals > team2Goals
                 ? 'Victoria Equipo 1'
@@ -476,8 +477,8 @@ export default function AddMatchScreen() {
           </Surface>
 
           {/* Date Picker */}
-          <Surface style={styles.dateCard} elevation={1}>
-            <Text variant="titleMedium" style={styles.dateLabel}>
+          <Surface style={styles(theme).dateCard} elevation={1}>
+            <Text variant="titleMedium" style={styles(theme).dateLabel}>
               Fecha del partido
             </Text>
             <TextInput
@@ -513,8 +514,8 @@ export default function AddMatchScreen() {
             onPress={handleSaveMatch}
             disabled={isSaving}
             loading={isSaving}
-            style={styles.saveButton}
-            contentStyle={styles.saveButtonContent}
+            style={styles(theme).saveButton}
+            contentStyle={styles(theme).saveButtonContent}
             icon="content-save"
           >
             Guardar Partido
@@ -537,18 +538,18 @@ export default function AddMatchScreen() {
           />
         )}
       >
-        <View style={styles.bottomSheetHeader}>
-          <Text variant="titleLarge" style={styles.bottomSheetTitle}>
+        <View style={styles(theme).bottomSheetHeader}>
+          <Text variant="titleLarge" style={styles(theme).bottomSheetTitle}>
             Seleccionar Jugador
           </Text>
         </View>
 
         {isLoadingPlayers ? (
-          <View style={styles.loadingContainer}>
+          <View style={styles(theme).loadingContainer}>
             <ActivityIndicator size="large" color={theme.colors.primary} />
           </View>
         ) : (
-          <BottomSheetScrollView style={styles.bottomSheetList}>
+          <BottomSheetScrollView style={styles(theme).bottomSheetList}>
             {availablePlayers.map((player, index) => (
               <React.Fragment key={player.id}>
                 <List.Item
@@ -562,9 +563,9 @@ export default function AddMatchScreen() {
             ))}
 
             {availablePlayers.length === 0 && (
-              <View style={styles.emptyPlayersContainer}>
+              <View style={styles(theme).emptyPlayersContainer}>
                 <Icon name="account-off" size={48} color="#999" />
-                <Text style={styles.emptyPlayersText}>
+                <Text style={styles(theme).emptyPlayersText}>
                   {players.length === 0 
                     ? 'No hay jugadores en este grupo'
                     : 'Todos los jugadores ya están seleccionados'}
@@ -574,7 +575,7 @@ export default function AddMatchScreen() {
           </BottomSheetScrollView>
         )}
 
-        <View style={styles.bottomSheetFooter}>
+        <View style={styles(theme).bottomSheetFooter}>
           <Button
             mode="outlined"
             onPress={() => {
@@ -600,7 +601,7 @@ export default function AddMatchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = (theme: MD3Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
@@ -631,7 +632,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
   },
   activeTab: {
-    backgroundColor: '#2196F3',
+    backgroundColor: theme.colors.primary,
   },
   tabText: {
     fontWeight: 'bold',
@@ -645,7 +646,7 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#2196F3',
+    backgroundColor: theme.colors.primary,
     padding: 12,
     gap: 8,
   },
@@ -737,13 +738,13 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: theme.colors.primaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
   },
   scoreText: {
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: theme.colors.primary,
   },
   vsText: {
     fontWeight: 'bold',

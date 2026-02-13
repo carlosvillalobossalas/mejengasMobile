@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import { useTheme } from 'react-native-paper';
 
 import type { AppDrawerParamList } from './types';
 import HomeScreen from '../screens/HomeScreen';
@@ -19,6 +20,7 @@ import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
 const Drawer = createDrawerNavigator<AppDrawerParamList>();
 
 export default function AppNavigator() {
+  const theme = useTheme();
   const { selectedGroupId, isHydrated, groups } = useAppSelector(state => state.groups);
   const currentUser = useAppSelector(state => state.auth.firestoreUser);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -60,7 +62,16 @@ export default function AppNavigator() {
   console.log("🚀 ~ AppNavigator ~ initialRoute:", initialRoute, selectedGroupId)
 
   return (
-    <Drawer.Navigator initialRouteName={initialRoute}>
+    <Drawer.Navigator
+      initialRouteName={initialRoute}
+      screenOptions={{
+        drawerActiveTintColor: theme.colors.primary,
+        drawerInactiveTintColor: theme.colors.onSurfaceVariant,
+        drawerActiveBackgroundColor: theme.colors.primaryContainer,
+        headerTintColor: theme.colors.secondary,
+        headerTitleStyle: { color: 'FFF' }
+      }}
+    >
       <Drawer.Screen
         name="Home"
         component={HomeScreen}
