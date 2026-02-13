@@ -197,3 +197,28 @@ export async function getPlayersByIds(
 
   return playersMap;
 }
+
+/**
+ * Update player name for all players associated with a userId
+ */
+export async function updatePlayerNameByUserId(
+  userId: string,
+  newName: string,
+): Promise<void> {
+  console.log(userId)
+  const playersRef = firestore().collection(PLAYERS_COLLECTION);
+  const q = playersRef.where('userId', '==', userId);
+  const snapshot = await q.get();
+  console.log(snapshot)
+
+  const batch = firestore().batch();
+
+  snapshot.docs.forEach(doc => {
+    batch.update(doc.ref, {
+      name: newName,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
+}

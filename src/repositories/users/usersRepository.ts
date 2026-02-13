@@ -76,6 +76,20 @@ export async function updateUserPhotoURL(
 }
 
 /**
+ * Update user display name
+ */
+export async function updateUserDisplayName(
+  userId: string,
+  displayName: string,
+): Promise<void> {
+  const userRef = firestore().collection(USERS_COLLECTION).doc(userId);
+  await userRef.update({
+    displayName,
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+/**
  * Search users by display name (case-insensitive partial match)
  * @param searchTerm Term to search for in displayName
  * @param limit Maximum number of results to return

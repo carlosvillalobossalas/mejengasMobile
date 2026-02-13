@@ -64,6 +64,7 @@ export async function ensureFirestoreUserForAuthUser(
   const existing = await ref.get();
 
   if (!existing.exists) {
+    // Only create new user with auth data if document doesn't exist
     await ref.set(
       {
         uid: user.uid,
@@ -76,10 +77,11 @@ export async function ensureFirestoreUserForAuthUser(
       { merge: true },
     );
   } else {
+    // If user exists, only update email and photoURL, NOT displayName
+    // displayName is managed separately by the user through the profile screen
     await ref.set(
       {
         email: user.email ?? null,
-        displayName: user.displayName ?? null,
         photoURL: user.photoURL ?? null,
         updatedAt: firestore.FieldValue.serverTimestamp(),
       },

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -13,11 +13,17 @@ import {
   useTheme,
   Surface,
   Divider,
+  TextInput,
+  Button,
+  Portal,
+  Dialog,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { fetchProfileData } from '../features/profile/profileSlice';
+import { updateUserDisplayName } from '../repositories/users/usersRepository';
+import { updatePlayerNameByUserId } from '../repositories/players/playerSeasonStatsRepository';
 
 export default function ProfileScreen() {
   const theme = useTheme();
@@ -26,11 +32,45 @@ export default function ProfileScreen() {
   const { firestoreUser } = useAppSelector(state => state.auth);
   const { data: profileData, isLoading, error } = useAppSelector(state => state.profile);
 
+  const [showEditNameDialog, setShowEditNameDialog] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
   useEffect(() => {
     if (firestoreUser?.uid) {
       dispatch(fetchProfileData({ userId: firestoreUser.uid }));
     }
   }, [dispatch, firestoreUser?.uid]);
+
+  const handleEditName = () => {
+    setNewName(profileData?.user?.displayName || '');
+    setShowEditNameDialog(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!firestoreUser?.uid || !newName.trim()) {
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      // Update both users collection and Players collection
+      await Promise.all([
+        updateUserDisplayName(firestoreUser.uid, newName.trim()),
+        updatePlayerNameByUserId(firestoreUser.uid, newName.trim()),
+      ]);
+
+      // Refresh profile data
+      await dispatch(fetchProfileData({ userId: firestoreUser.uid }));
+
+      setShowEditNameDialog(false);
+    } catch (error) {
+      console.error('Error updating name:', error);
+      // TODO: Show error toast
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -89,7 +129,12 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
 
-        <Text style={styles.userName}>{user.displayName || 'Sin nombre'}</Text>
+        <View style={styles.nameContainer}>
+          <Text style={styles.userName}>{user.displayName || 'Sin nombre'}</Text>
+          <TouchableOpacity onPress={handleEditName} style={styles.editButton}>
+            <Icon name="pencil" size={20} color={theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
         {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
       </Surface>
 
@@ -187,6 +232,34 @@ export default function ProfileScreen() {
           </Text>
         </View>
       )}
+
+      {/* Edit Name Dialog */}
+      <Portal>
+        <Dialog visible={showEditNameDialog} onDismiss={() => setShowEditNameDialog(false)}>
+          <Dialog.Title>Editar Nombre</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Nombre completo"
+              value={newName}
+              onChangeText={setNewName}
+              mode="outlined"
+              disabled={isUpdating}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowEditNameDialog(false)} disabled={isUpdating}>
+              Cancelar
+            </Button>
+            <Button
+              onPress={handleSaveName}
+              disabled={isUpdating || !newName.trim()}
+              loading={isUpdating}
+            >
+              Guardar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScrollView>
   );
 }
@@ -241,6 +314,14 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 4,
+  },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editButton: {
+    padding: 4,
   },
   userEmail: {
     fontSize: 14,

@@ -9,8 +9,10 @@ export function getPlayerDisplay(
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(player.name);
     if (!isEmail && player?.name) {
         return player.name;
+    } else if (isEmail) {
+        return player?.originalName || 'Sin nombre';
     }
-    return player?.originalName || player?.name || 'Sin nombre';
+    return player?.name || player?.originalName || 'Sin nombre';
 
 
 }
