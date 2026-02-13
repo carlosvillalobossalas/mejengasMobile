@@ -16,6 +16,7 @@ import {
   Divider,
   Chip,
   Menu,
+  Snackbar,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import DatePicker from 'react-native-date-picker';
@@ -27,6 +28,7 @@ import BottomSheet, {
 import { useAppSelector } from '../app/hooks';
 import { getAllPlayersByGroup, type Player } from '../repositories/players/playerSeasonStatsRepository';
 import { getPlayerDisplay } from '../helpers/players';
+import { saveMatch } from '../services/matches/matchSaveService';
 
 type Position = 'POR' | 'DEF' | 'MED' | 'DEL';
 
@@ -86,6 +88,9 @@ export default function AddMatchScreen() {
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [playerSheetIndex, setPlayerSheetIndex] = useState(-1);
   const [positionMenuIndex, setPositionMenuIndex] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const playerSheetRef = useRef<BottomSheet>(null);
   const playerSheetSnapPoints = useMemo(() => ['60%', '85%'], []);
 
@@ -190,14 +195,45 @@ export default function AddMatchScreen() {
     }
   };
 
-  const handleSaveMatch = () => {
-    console.log('Saving match...', {
-      date: matchDate,
-      team1: team1Players,
-      team2: team2Players,
-      team1Goals,
-      team2Goals,
-    });
+  const handleSaveMatch = async () => {
+    // Validate that all players are selected
+    const allPlayersSelected = [
+      ...team1Players,
+      ...team2Players,
+    ].every(p => p.playerId);
+
+    if (!allPlayersSelected) {
+      setSnackbarMessage('Por favor selecciona todos los jugadores');
+      setSnackbarVisible(true);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await saveMatch({
+        date: matchDate,
+        groupId: selectedGroupId!,
+        team1Players,
+        team2Players,
+        team1Goals,
+        team2Goals,
+      });
+
+      setSnackbarMessage('Partido guardado exitosamente');
+      setSnackbarVisible(true);
+
+      // Reset form
+      setTeam1Players(createDefaultTeamPlayers());
+      setTeam2Players(createDefaultTeamPlayers());
+      setMatchDate(new Date());
+      setActiveTab(0);
+    } catch (error) {
+      console.error('Error saving match:', error);
+      setSnackbarMessage('Error al guardar el partido');
+      setSnackbarVisible(true);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -475,6 +511,8 @@ export default function AddMatchScreen() {
           <Button
             mode="contained"
             onPress={handleSaveMatch}
+            disabled={isSaving}
+            loading={isSaving}
             style={styles.saveButton}
             contentStyle={styles.saveButtonContent}
             icon="content-save"
@@ -549,6 +587,15 @@ export default function AddMatchScreen() {
           </Button>
         </View>
       </BottomSheet>
+
+      {/* Snackbar for feedback */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }
