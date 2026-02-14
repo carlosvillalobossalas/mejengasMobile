@@ -23,6 +23,7 @@ import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/b
 import { useAppSelector } from '../app/hooks';
 import {
   preparePlayerStatsFromSeasonStats,
+  subscribeToPlayerStats,
   type PlayerStatsAggregate,
 } from '../endpoints/players/playerStatsEndpoints';
 import { getPlayerDisplay } from '../helpers/players';
@@ -61,23 +62,22 @@ export default function PlayersTableScreen() {
 
   // Load stats when component mounts or groupId changes
   useEffect(() => {
-    const loadStats = async () => {
-      if (!selectedGroupId) {
-        return;
-      }
+    if (!selectedGroupId) {
+      return;
+    }
 
-      setIsLoading(true);
-      try {
-        const stats = await preparePlayerStatsFromSeasonStats(selectedGroupId);
-        setAllYearStats(stats);
-      } catch (error) {
-        console.error('Error loading player stats:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    setIsLoading(true);
+
+    // Subscribe to real-time updates
+    const unsubscribe = subscribeToPlayerStats(selectedGroupId, (stats) => {
+      setAllYearStats(stats);
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription on unmount or groupId change
+    return () => {
+      unsubscribe();
     };
-
-    loadStats();
   }, [selectedGroupId]);
 
   const handleSort = (column: SortColumn) => {

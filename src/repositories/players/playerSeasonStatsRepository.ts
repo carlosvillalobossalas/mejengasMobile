@@ -111,6 +111,40 @@ export async function getAllPlayerSeasonStatsByGroup(
 }
 
 /**
+ * Subscribe to player season stats for a specific group with real-time updates
+ * Returns an unsubscribe function
+ */
+export function subscribeToPlayerSeasonStatsByGroup(
+  groupId: string,
+  callback: (statsBySeason: Record<string, PlayerSeasonStats[]>) => void,
+): () => void {
+  const statsRef = firestore().collection(PLAYER_SEASON_STATS_COLLECTION);
+  const q = statsRef.where('groupId', '==', groupId);
+
+  return q.onSnapshot(
+    snapshot => {
+      const statsBySeason: Record<string, PlayerSeasonStats[]> = {};
+
+      snapshot.docs.forEach(doc => {
+        const stat = mapPlayerSeasonStatsDoc(doc);
+        const { season } = stat;
+
+        if (!statsBySeason[season]) {
+          statsBySeason[season] = [];
+        }
+
+        statsBySeason[season].push(stat);
+      });
+
+      callback(statsBySeason);
+    },
+    error => {
+      console.error('Error in player stats subscription:', error);
+    },
+  );
+}
+
+/**
  * Get all player season stats for a specific user
  */
 export async function getAllPlayerSeasonStatsByUserId(
