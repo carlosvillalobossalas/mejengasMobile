@@ -17,7 +17,7 @@ import {
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import { useAppSelector } from '../app/hooks';
-import { getMatchesByGroupId, type Match } from '../repositories/matches/matchesRepository';
+import { getMatchesByGroupId, subscribeToMatchesByGroupId, type Match } from '../repositories/matches/matchesRepository';
 import { getPlayersByIds, type Player } from '../repositories/players/playerSeasonStatsRepository';
 import MatchLineup from '../components/MatchLineup';
 import PlayersList from '../components/PlayersList';
@@ -33,17 +33,17 @@ export default function MatchesScreen() {
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadMatches = async () => {
-      if (!selectedGroupId) {
-        setIsLoading(false);
-        return;
-      }
+    if (!selectedGroupId) {
+      setIsLoading(false);
+      return;
+    }
 
-      setIsLoading(true);
-      setError(null);
+    setIsLoading(true);
+    setError(null);
 
+    // Subscribe to matches in real-time
+    const unsubscribe = subscribeToMatchesByGroupId(selectedGroupId, async (matchesData) => {
       try {
-        const matchesData = await getMatchesByGroupId(selectedGroupId);
         setMatches(matchesData);
 
         // Get all unique player IDs
@@ -56,15 +56,18 @@ export default function MatchesScreen() {
         // Fetch player info
         const playersMap = await getPlayersByIds(Array.from(playerIds));
         setAllPlayers(Array.from(playersMap.values()));
+        setIsLoading(false);
       } catch (err) {
-        console.error('Error loading matches:', err);
-        setError('No se pudieron cargar los partidos');
-      } finally {
+        console.error('Error processing matches:', err);
+        setError('No se pudieron procesar los partidos');
         setIsLoading(false);
       }
-    };
+    });
 
-    loadMatches();
+    // Cleanup subscription on unmount or groupId change
+    return () => {
+      unsubscribe();
+    };
   }, [selectedGroupId]);
 
   const formatDate = (dateString: string): string => {

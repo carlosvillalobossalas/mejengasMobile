@@ -89,6 +89,30 @@ export async function getMatchesByGroupId(
 }
 
 /**
+ * Subscribe to matches for a specific group with real-time updates
+ * Returns an unsubscribe function
+ */
+export function subscribeToMatchesByGroupId(
+  groupId: string,
+  callback: (matches: Match[]) => void,
+): () => void {
+  const matchesRef = firestore().collection(MATCHES_COLLECTION);
+  const q = matchesRef
+    .where('groupId', '==', groupId)
+    .orderBy('date', 'desc');
+
+  return q.onSnapshot(
+    snapshot => {
+      const matches = snapshot.docs.map(mapMatchDoc);
+      callback(matches);
+    },
+    error => {
+      console.error('Error in matches subscription:', error);
+    },
+  );
+}
+
+/**
  * Get a single match by ID
  */
 export async function getMatchById(matchId: string): Promise<Match | null> {
