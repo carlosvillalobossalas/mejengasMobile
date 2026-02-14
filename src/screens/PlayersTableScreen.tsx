@@ -47,8 +47,8 @@ export default function PlayersTableScreen() {
   const theme = useTheme();
   const { selectedGroupId } = useAppSelector(state => state.groups);
 
-  const [selectedYear, setSelectedYear] = useState<string>(
-    new Date().getFullYear().toString(),
+  const [selectedYear, setSelectedYear] = useState<number | 'historico'>(
+    new Date().getFullYear(),
   );
   const [allYearStats, setAllYearStats] = useState<
     Record<string, PlayerStatsAggregate[]>
@@ -93,7 +93,7 @@ export default function PlayersTableScreen() {
     bottomSheetRef.current?.expand();
   }, []);
 
-  const handleSelectYear = useCallback((year: string) => {
+  const handleSelectYear = useCallback((year: number | 'historico') => {
     setSelectedYear(year);
     bottomSheetRef.current?.close();
   }, []);
@@ -170,16 +170,17 @@ export default function PlayersTableScreen() {
   const yearOptions = useMemo(() => {
     const years = Object.keys(allYearStats)
       .filter(y => y !== 'historico')
-      .sort((a, b) => Number(b) - Number(a));
+      .map(y => Number(y))
+      .sort((a, b) => b - a);
     return [
-      { value: 'historico', label: 'Histórico' },
-      ...years.map(year => ({ value: year, label: year })),
+      { value: 'historico' as const, label: 'Histórico' },
+      ...years.map(year => ({ value: year, label: year.toString() })),
     ];
   }, [allYearStats]);
 
-  const getYearLabel = (year: string) => {
+  const getYearLabel = (year: number | 'historico') => {
     const option = yearOptions.find(opt => opt.value === year);
-    return option?.label || year;
+    return option?.label || year.toString();
   };
 
   if (!selectedGroupId) {
@@ -405,8 +406,8 @@ export default function PlayersTableScreen() {
             </Text>
             <BottomSheetFlatList
               data={yearOptions}
-              keyExtractor={(item: { value: string; label: string }) => item.value}
-              renderItem={({ item }: { item: { value: string; label: string } }) => (
+              keyExtractor={(item: { value: number | 'historico'; label: string }) => item.value.toString()}
+              renderItem={({ item }: { item: { value: number | 'historico'; label: string } }) => (
                 <Button
                   mode={selectedYear === item.value ? 'contained' : 'text'}
                   onPress={() => handleSelectYear(item.value)}

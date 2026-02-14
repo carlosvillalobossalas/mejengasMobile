@@ -5,7 +5,7 @@ export type GoalkeeperSeasonStats = {
   playerId: string;
   userId: string;
   groupId: string;
-  season: string;
+  season: number;
   cleanSheets: number;
   goalsReceived: number;
   matches: number;
@@ -43,7 +43,7 @@ const mapGoalkeeperSeasonStatsDoc = (
     playerId: String(data.playerId ?? ''),
     userId: String(data.userId ?? ''),
     groupId: String(data.groupId ?? ''),
-    season: String(data.season ?? ''),
+    season: Number(data.season ?? 0),
     cleanSheets: Number(data.cleanSheets ?? 0),
     goalsReceived: Number(data.goalsReceived ?? 0),
     matches: Number(data.matches ?? 0),

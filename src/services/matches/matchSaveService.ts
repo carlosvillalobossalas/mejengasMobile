@@ -63,7 +63,7 @@ async function getPlayersInfo(playerIds: string[]): Promise<Map<string, string |
 async function getPlayerSeasonStats(
   playerId: string,
   groupId: string,
-  season: string,
+  season: number,
 ): Promise<FirebaseFirestoreTypes.DocumentData | null> {
   try {
     const docId = `${playerId}_${season}_${groupId}`;
@@ -85,7 +85,7 @@ async function getPlayerSeasonStats(
 async function getGoalkeeperSeasonStats(
   playerId: string,
   groupId: string,
-  season: string,
+  season: number,
 ): Promise<FirebaseFirestoreTypes.DocumentData | null> {
   try {
     const docId = `${playerId}_${season}_${groupId}`;
@@ -109,7 +109,7 @@ async function saveGoalkeeperStats(
   playerId: string,
   userId: string | undefined,
   groupId: string,
-  season: string,
+  season: number,
   goalsReceived: number,
   cleanSheets: number,
   performance: { goals: number; assists: number; ownGoals: number },
@@ -174,7 +174,7 @@ async function savePlayerStats(
   playerId: string,
   userId: string | undefined,
   groupId: string,
-  season: string,
+  season: number,
   performance: { goals: number; assists: number; ownGoals: number },
   opponentGoals: number,
   teamWon: boolean,
@@ -232,7 +232,7 @@ async function savePlayerStats(
  * Save match and update all related statistics
  */
 export async function saveMatch(match: MatchToSave): Promise<void> {
-  const season = match.date.getFullYear().toString();
+  const season = match.date.getFullYear();
   const batch = firestore().batch();
 
   // Save match document

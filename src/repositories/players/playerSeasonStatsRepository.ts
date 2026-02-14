@@ -5,7 +5,7 @@ export type PlayerSeasonStats = {
   playerId: string;
   userId: string;
   groupId: string;
-  season: string;
+  season: number;
   goals: number;
   assists: number;
   matches: number;
@@ -57,7 +57,7 @@ const mapPlayerSeasonStatsDoc = (
     playerId: String(data.playerId ?? ''),
     userId: String(data.userId ?? ''),
     groupId: String(data.groupId ?? ''),
-    season: String(data.season ?? ''),
+    season: Number(data.season ?? 0),
     goals: Number(data.goals ?? 0),
     assists: Number(data.assists ?? 0),
     matches: Number(data.matches ?? 0),
