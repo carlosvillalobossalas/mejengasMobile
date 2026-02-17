@@ -149,6 +149,68 @@ export async function fetchGroupsForUser(userId: string): Promise<Array<Group>> 
 }
 
 /**
+ * Subscribe to groups for a user with real-time updates
+ * Returns an unsubscribe function
+ */
+export function subscribeToGroupsForUser(
+  userId: string,
+  callback: (groups: Group[]) => void,
+): () => void {
+  const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
+
+  // Subscribe to group members for this user
+  const unsubscribe = membersRef
+    .where('userId', '==', userId)
+    .onSnapshot(
+      async (snapshot) => {
+        try {
+          const members = snapshot.docs.map(mapMemberDoc);
+          const groupIds = uniqueNonEmpty(members.map(m => m.groupId));
+
+          if (groupIds.length === 0) {
+            callback([]);
+            return;
+          }
+
+          const groupsRef = firestore().collection(GROUPS_COLLECTION);
+          const docId = firestore.FieldPath.documentId();
+          const groupDocs: Array<FirebaseFirestoreTypes.DocumentSnapshot> = [];
+
+          for (const idsChunk of chunk(groupIds, 10)) {
+            try {
+              const snap = await groupsRef.where(docId, 'in', idsChunk).get();
+              groupDocs.push(...snap.docs);
+            } catch {
+              const docs = await Promise.all(idsChunk.map(id => groupsRef.doc(id).get()));
+              for (const doc of docs) {
+                const existsValue = (doc as unknown as { exists?: unknown }).exists;
+                const exists =
+                  typeof existsValue === 'function'
+                    ? Boolean((existsValue as () => boolean)())
+                    : Boolean(existsValue);
+
+                if (exists) groupDocs.push(doc);
+              }
+            }
+          }
+
+          const groups = groupDocs.map(mapGroupDoc);
+          groups.sort((a, b) => a.name.localeCompare(b.name));
+
+          callback(groups);
+        } catch (error) {
+          console.error('Error in groups subscription:', error);
+        }
+      },
+      (error) => {
+        console.error('Error in group members subscription:', error);
+      },
+    );
+
+  return unsubscribe;
+}
+
+/**
  * Get multiple groups by IDs
  */
 export async function getGroupsByIds(

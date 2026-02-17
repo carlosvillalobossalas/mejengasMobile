@@ -85,6 +85,20 @@ const groupsSlice = createSlice({
       state.error = null;
       if (state.status === 'error') state.status = 'idle';
     },
+    setGroups(state, action: PayloadAction<Group[]>) {
+      state.groups = action.payload;
+      state.status = 'idle';
+      
+      // Validate existing selection
+      if (state.selectedGroupId) {
+        const stillExists = action.payload.some(
+          g => g.id === state.selectedGroupId,
+        );
+        if (!stillExists) {
+          state.selectedGroupId = null;
+        }
+      }
+    },
   },
   extraReducers: builder => {
     builder
@@ -142,5 +156,5 @@ const groupsSlice = createSlice({
   },
 });
 
-export const { setSelectedGroupId, clearGroupsError } = groupsSlice.actions;
+export const { setSelectedGroupId, clearGroupsError, setGroups } = groupsSlice.actions;
 export default groupsSlice.reducer;

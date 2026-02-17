@@ -10,30 +10,43 @@ import {
 } from 'react-native-paper';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
-import { fetchMyGroups, selectGroup } from '../features/groups/groupsSlice';
+import { selectGroup } from '../features/groups/groupsSlice';
 import { getUserById } from '../repositories/users/usersRepository';
+import { subscribeToGroupsForUser, type Group } from '../repositories/groups/groupsRepository';
 
 export default function GroupsScreen() {
   const dispatch = useAppDispatch();
   const [owners, setOwners] = useState<Record<string, string>>({});
+  const [groups, setGroupsLocal] = useState<Group[]>([]);
 
   const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
-  const { status, error, groups, selectedGroupId } = useAppSelector(
-    state => state.groups,
-  );
+  const { selectedGroupId } = useAppSelector(state => state.groups);
+  const reduxGroups = useAppSelector(state => state.groups.groups);
 
   const selectedGroup = useMemo(
     () => groups.find(g => g.id === selectedGroupId) ?? null,
     [groups, selectedGroupId],
   );
 
+  // Initialize groups from Redux
+  useEffect(() => {
+    if (reduxGroups.length > 0 && groups.length === 0) {
+      setGroupsLocal(reduxGroups);
+    }
+  }, [reduxGroups, groups.length]);
+
   useEffect(() => {
     if (!userId) return;
-    if (status === 'loading') return;
-    if (groups.length > 0) return;
 
-    dispatch(fetchMyGroups({ userId }));
-  }, [dispatch, groups.length, status, userId]);
+    // Subscribe to real-time updates of groups
+    const unsubscribe = subscribeToGroupsForUser(userId, (groupsData) => {
+      setGroupsLocal(groupsData);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [userId]);
 
   // Fetch owner names for all groups
   useEffect(() => {
@@ -60,10 +73,8 @@ export default function GroupsScreen() {
     }
   }, [groups]);
 
-  const onReload = () => {
-    if (!userId) return;
-    dispatch(fetchMyGroups({ userId }));
-  };
+  const [isLoading] = useState(false);
+  const [error] = useState<string | null>(null);
 
   const onSelectGroup = (groupId: string) => {
     if (!userId) return;
@@ -73,7 +84,7 @@ export default function GroupsScreen() {
   return (
     <View style={styles.container}>
 
-      {status === 'loading' ? (
+      {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator />
           <Text variant="bodyMedium" style={styles.loadingText}>
@@ -88,7 +99,7 @@ export default function GroupsScreen() {
         </HelperText>
       ) : null}
 
-      {groups.length === 0 && status !== 'loading' ? (
+      {groups.length === 0 && !isLoading ? (
         <Card style={styles.emptyCard}>
           <Card.Content>
             <Text variant="titleMedium">No tenés grupos todavía</Text>
