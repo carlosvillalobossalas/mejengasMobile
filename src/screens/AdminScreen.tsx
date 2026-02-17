@@ -20,7 +20,8 @@ type AdminOption = {
 export default function AdminScreen() {
   const theme = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
-  const { selectedGroupId } = useAppSelector(state => state.groups);
+  const { selectedGroupId, groups } = useAppSelector(state => state.groups);
+  const selectedGroup = groups.find(g => g.id === selectedGroupId);
 
   const adminOptions: AdminOption[] = [
     {
@@ -45,7 +46,7 @@ export default function AdminScreen() {
       description: 'Conectar jugadores con cuentas de usuario',
       icon: 'link-variant',
       color: theme.colors.primary,
-      onPress: () => console.log('Link players'),
+      onPress: () => navigation.navigate('LinkPlayers'),
     },
   ];
 
@@ -67,6 +68,11 @@ export default function AdminScreen() {
         <Text variant="headlineSmall" style={styles.headerTitle}>
           Administración de Grupo
         </Text>
+        {selectedGroup && (
+          <Text variant="titleMedium" style={styles.groupName}>
+            {selectedGroup.name}
+          </Text>
+        )}
         <Text variant="bodyMedium" style={styles.headerSubtitle}>
           Gestiona jugadores, partidos y configuraciones
         </Text>
@@ -129,6 +135,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontWeight: 'bold',
+  },
+  groupName: {
+    fontWeight: '600',
+    color: '#333',
   },
   headerSubtitle: {
     color: '#666',

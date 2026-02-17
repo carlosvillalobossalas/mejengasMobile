@@ -18,5 +18,6 @@ export type AppDrawerParamList = {
   Admin: undefined;
   AddMatch: undefined;
   AddPlayer: undefined;
+  LinkPlayers: undefined;
   Logout: undefined;
 };

@@ -168,11 +168,9 @@ export async function getAllPlayers(): Promise<Player[]> {
 }
 
 /**
- * Get all players for a specific group
+ * Get all players from a specific group
  */
-export async function getAllPlayersByGroup(
-  groupId: string,
-): Promise<Player[]> {
+export async function getAllPlayersByGroup(groupId: string): Promise<Player[]> {
   const playersRef = firestore().collection(PLAYERS_COLLECTION);
   const q = playersRef.where('groupId', '==', groupId);
   const snapshot = await q.get();

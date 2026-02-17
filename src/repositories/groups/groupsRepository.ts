@@ -16,11 +16,14 @@ type GroupMember = {
   id: string;
   groupId: string;
   userId: string;
+  playerId?: string | null;
   status: string;
   role: string;
   createdAt: string | null;
   updatedAt: string | null;
 };
+
+export type { GroupMember };
 
 const GROUPS_COLLECTION = 'groups';
 const GROUP_MEMBERS_COLLECTION = 'groupMembers';
@@ -65,6 +68,7 @@ const mapMemberDoc = (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot): GroupM
     id: doc.id,
     groupId: String(data.groupId ?? ''),
     userId: String(data.userId ?? data.userid ?? ''),
+    playerId: data.playerId ? String(data.playerId) : null,
     status: String(data.status ?? ''),
     role: String(data.role ?? ''),
     createdAt: toIsoString(data.createdAt ?? data.createdat),
@@ -218,4 +222,51 @@ export async function getUserRoleInGroup(
 
   const member = mapMemberDoc(snapshot.docs[0]);
   return member.role;
+}
+
+/**
+ * Get all group members for a specific group
+ */
+export async function getGroupMembersByGroupId(
+  groupId: string,
+): Promise<GroupMember[]> {
+  const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
+  const snapshot = await membersRef
+    .where('groupId', '==', groupId)
+    .get();
+
+  return snapshot.docs.map(mapMemberDoc);
+}
+
+/**
+ * Link a player to a group member
+ */
+export async function linkPlayerToMember(
+  memberId: string,
+  playerId: string,
+): Promise<void> {
+  const memberRef = firestore()
+    .collection(GROUP_MEMBERS_COLLECTION)
+    .doc(memberId);
+
+  await memberRef.update({
+    playerId,
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+/**
+ * Unlink a player from a group member
+ */
+export async function unlinkPlayerFromMember(
+  memberId: string,
+): Promise<void> {
+  const memberRef = firestore()
+    .collection(GROUP_MEMBERS_COLLECTION)
+    .doc(memberId);
+
+  await memberRef.update({
+    playerId: firestore.FieldValue.delete(),
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  });
 }

@@ -14,6 +14,7 @@ import InvitationsScreen from '../screens/InvitationsScreen';
 import AdminScreen from '../screens/AdminScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
 import AddPlayerScreen from '../screens/AddPlayerScreen';
+import LinkPlayersScreen from '../screens/LinkPlayersScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
 import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
@@ -154,6 +155,14 @@ export default function AppNavigator() {
         component={AddPlayerScreen}
         options={{
           title: 'Agregar Jugador',
+          drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="LinkPlayers"
+        component={LinkPlayersScreen}
+        options={{
+          title: 'Enlazar Jugadores',
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
         }}
       />
