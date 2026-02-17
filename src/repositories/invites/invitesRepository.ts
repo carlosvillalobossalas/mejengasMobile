@@ -5,6 +5,7 @@ import firestore, {
 export type Invite = {
   id: string;
   groupId: string;
+  groupName: string;
   email: string;
   invitedByName: string;
   invitedById: string;
@@ -40,6 +41,7 @@ const mapInviteDoc = (
   return {
     id: doc.id,
     groupId: String(data.groupId ?? ''),
+    groupName: String(data.groupName ?? ''),
     email: String(data.email ?? ''),
     invitedByName: String(data.invitedByName ?? ''),
     invitedById: String(data.invitedById ?? ''),
@@ -82,4 +84,49 @@ export async function rejectInvite(inviteId: string): Promise<void> {
     status: 'rejected',
     updatedAt: firestore.FieldValue.serverTimestamp(),
   });
+}
+
+/**
+ * Create a new invite
+ */
+export async function createInvite(
+  email: string,
+  groupId: string,
+  groupName: string,
+  invitedById: string,
+  invitedByName: string,
+): Promise<string> {
+  const invitesRef = firestore().collection(INVITES_COLLECTION);
+  
+  // Check if there's already a pending invite for this email and group
+  const existingInvite = await invitesRef
+    .where('email', '==', email)
+    .where('groupId', '==', groupId)
+    .where('status', '==', 'pending')
+    .get();
+
+  if (!existingInvite.empty) {
+    throw new Error('Ya existe una invitación pendiente para este usuario');
+  }
+
+  const docRef = await invitesRef.add({
+    email,
+    groupId,
+    groupName,
+    invitedById,
+    invitedByName,
+    status: 'pending',
+    createdAt: firestore.FieldValue.serverTimestamp(),
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  });
+
+  return docRef.id;
+}
+
+/**
+ * Delete an invite
+ */
+export async function deleteInvite(inviteId: string): Promise<void> {
+  const inviteRef = firestore().collection(INVITES_COLLECTION).doc(inviteId);
+  await inviteRef.delete();
 }

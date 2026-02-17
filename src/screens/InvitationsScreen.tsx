@@ -4,6 +4,7 @@ import {
   StyleSheet,
   View,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {
   Text,
@@ -20,6 +21,8 @@ import {
   getInvitesWithGroupInfo,
   type InviteWithGroup,
 } from '../endpoints/invites/invitesEndpoints';
+import { deleteInvite } from '../repositories/invites/invitesRepository';
+import { createGroupMember } from '../repositories/groups/groupsRepository';
 
 export default function InvitationsScreen() {
   const theme = useTheme();
@@ -28,39 +31,104 @@ export default function InvitationsScreen() {
   const [invites, setInvites] = useState<InviteWithGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [processingInviteId, setProcessingInviteId] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadInvites = async () => {
-      if (!firestoreUser?.email) {
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const data = await getInvitesWithGroupInfo(firestoreUser.email);
-        setInvites(data);
-      } catch (err) {
-        console.error('Error loading invites:', err);
-        setError('Error al cargar las invitaciones');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadInvites();
   }, [firestoreUser?.email]);
 
+  const loadInvites = async () => {
+    if (!firestoreUser?.email) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await getInvitesWithGroupInfo(firestoreUser.email);
+      setInvites(data);
+    } catch (err) {
+      console.error('Error loading invites:', err);
+      setError('Error al cargar las invitaciones');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleAccept = (inviteId: string) => {
-    console.log('Accept invite:', inviteId);
-    // TODO: Implementar funcionalidad
+    const invite = invites.find(i => i.id === inviteId);
+    if (!invite) return;
+
+    Alert.alert(
+      'Aceptar Invitación',
+      `¿Deseas unirte al grupo "${invite.group?.name || 'Grupo'}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Aceptar',
+          onPress: async () => {
+            if (!firestoreUser?.uid) {
+              Alert.alert('Error', 'No se pudo obtener la información del usuario');
+              return;
+            }
+
+            setProcessingInviteId(inviteId);
+            try {
+              // Create group member
+              await createGroupMember(invite.groupId, firestoreUser.uid);
+              
+              // Delete invite
+              await deleteInvite(inviteId);
+              
+              Alert.alert('Éxito', `Te has unido al grupo "${invite.group?.name || 'Grupo'}"`);
+              
+              // Reload invites
+              await loadInvites();
+            } catch (error) {
+              console.error('Error accepting invite:', error);
+              Alert.alert('Error', 'No se pudo aceptar la invitación');
+            } finally {
+              setProcessingInviteId(null);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleReject = (inviteId: string) => {
-    console.log('Reject invite:', inviteId);
-    // TODO: Implementar funcionalidad
+    const invite = invites.find(i => i.id === inviteId);
+    if (!invite) return;
+
+    Alert.alert(
+      'Rechazar Invitación',
+      `¿Estás seguro que deseas rechazar la invitación al grupo "${invite.group?.name || 'Grupo'}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Rechazar',
+          style: 'destructive',
+          onPress: async () => {
+            setProcessingInviteId(inviteId);
+            try {
+              await deleteInvite(inviteId);
+              
+              Alert.alert('Éxito', 'Invitación rechazada');
+              
+              // Reload invites
+              await loadInvites();
+            } catch (error) {
+              console.error('Error rejecting invite:', error);
+              Alert.alert('Error', 'No se pudo rechazar la invitación');
+            } finally {
+              setProcessingInviteId(null);
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (isLoading) {
@@ -103,8 +171,9 @@ export default function InvitationsScreen() {
         </Text>
       </View>
 
-      {invites.map((invite, index) => {
+      {invites.map((invite) => {
         const groupName = invite.group?.name || 'Grupo desconocido';
+        const isProcessing = processingInviteId === invite.id;
 
         return (
           <Card key={invite.id} style={styles(theme).inviteCard}>
@@ -133,6 +202,8 @@ export default function InvitationsScreen() {
                   style={styles(theme).acceptButton}
                   icon="check"
                   buttonColor={theme.colors.secondary}
+                  disabled={isProcessing}
+                  loading={isProcessing}
                 >
                   Aceptar
                 </Button>
@@ -142,6 +213,7 @@ export default function InvitationsScreen() {
                   style={styles(theme).rejectButton}
                   icon="close"
                   textColor={theme.colors.error}
+                  disabled={isProcessing}
                 >
                   Rechazar
                 </Button>

@@ -270,3 +270,25 @@ export async function unlinkPlayerFromMember(
     updatedAt: firestore.FieldValue.serverTimestamp(),
   });
 }
+
+/**
+ * Create a new group member
+ */
+export async function createGroupMember(
+  groupId: string,
+  userId: string,
+): Promise<string> {
+  const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
+  
+  const docRef = await membersRef.add({
+    groupId,
+    userId,
+    playerId: null,
+    role: 'member',
+    status: 'active',
+    createdAt: firestore.FieldValue.serverTimestamp(),
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  });
+
+  return docRef.id;
+}
