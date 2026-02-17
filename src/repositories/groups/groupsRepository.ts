@@ -354,3 +354,39 @@ export async function createGroupMember(
 
   return docRef.id;
 }
+
+/**
+ * Create a new group
+ */
+export async function createGroup(
+  name: string,
+  description: string,
+  ownerId: string,
+): Promise<string> {
+  const groupsRef = firestore().collection(GROUPS_COLLECTION);
+  
+  const docRef = await groupsRef.add({
+    name,
+    description,
+    ownerId,
+    isActive: true,
+    type: 'futbol_7',
+    visibility: 'public',
+    createdAt: firestore.FieldValue.serverTimestamp(),
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  });
+
+  // Create owner as first member with owner role
+  const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
+  await membersRef.add({
+    groupId: docRef.id,
+    userId: ownerId,
+    playerId: null,
+    role: 'owner',
+    status: 'active',
+    createdAt: firestore.FieldValue.serverTimestamp(),
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  });
+
+  return docRef.id;
+}

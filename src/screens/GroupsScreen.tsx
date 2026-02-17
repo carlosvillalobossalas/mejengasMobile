@@ -1,32 +1,34 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Alert } from 'react-native';
 import {
   Button,
   Card,
-  Divider,
   HelperText,
   Text,
   ActivityIndicator,
+  Portal,
+  Modal,
+  TextInput,
+  FAB,
 } from 'react-native-paper';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { selectGroup } from '../features/groups/groupsSlice';
 import { getUserById } from '../repositories/users/usersRepository';
-import { subscribeToGroupsForUser, type Group } from '../repositories/groups/groupsRepository';
+import { subscribeToGroupsForUser, createGroup, type Group } from '../repositories/groups/groupsRepository';
 
 export default function GroupsScreen() {
   const dispatch = useAppDispatch();
   const [owners, setOwners] = useState<Record<string, string>>({});
   const [groups, setGroupsLocal] = useState<Group[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDescription, setNewGroupDescription] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
   const { selectedGroupId } = useAppSelector(state => state.groups);
   const reduxGroups = useAppSelector(state => state.groups.groups);
-
-  const selectedGroup = useMemo(
-    () => groups.find(g => g.id === selectedGroupId) ?? null,
-    [groups, selectedGroupId],
-  );
 
   // Initialize groups from Redux
   useEffect(() => {
@@ -75,6 +77,37 @@ export default function GroupsScreen() {
 
   const [isLoading] = useState(false);
   const [error] = useState<string | null>(null);
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) {
+      Alert.alert('Error', 'Por favor ingresa un nombre para el grupo');
+      return;
+    }
+
+    if (!userId) {
+      Alert.alert('Error', 'No se pudo obtener la información del usuario');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      await createGroup(
+        newGroupName.trim(),
+        newGroupDescription.trim(),
+        userId,
+      );
+      
+      Alert.alert('Éxito', 'Grupo creado correctamente');
+      setNewGroupName('');
+      setNewGroupDescription('');
+      setShowCreateModal(false);
+    } catch (error) {
+      console.error('Error creating group:', error);
+      Alert.alert('Error', 'No se pudo crear el grupo');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const onSelectGroup = (groupId: string) => {
     if (!userId) return;
@@ -146,6 +179,73 @@ export default function GroupsScreen() {
           </Card>
         );
       })}
+
+      <FAB
+        icon="plus"
+        label="Crear Grupo"
+        style={styles.fab}
+        onPress={() => setShowCreateModal(true)}
+      />
+
+      <Portal>
+        <Modal
+          visible={showCreateModal}
+          onDismiss={() => {
+            setShowCreateModal(false);
+            setNewGroupName('');
+            setNewGroupDescription('');
+          }}
+          contentContainerStyle={styles.modalContent}
+        >
+          <Text variant="titleLarge" style={styles.modalTitle}>
+            Crear Nuevo Grupo
+          </Text>
+
+          <TextInput
+            label="Nombre del grupo"
+            value={newGroupName}
+            onChangeText={setNewGroupName}
+            mode="outlined"
+            disabled={isCreating}
+            style={styles.input}
+          />
+
+          <TextInput
+            label="Descripción (opcional)"
+            value={newGroupDescription}
+            onChangeText={setNewGroupDescription}
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+            disabled={isCreating}
+            style={styles.input}
+          />
+
+          <View style={styles.modalButtons}>
+            <Button
+              mode="outlined"
+              onPress={() => {
+                setShowCreateModal(false);
+                setNewGroupName('');
+                setNewGroupDescription('');
+              }}
+              disabled={isCreating}
+              style={styles.modalButton}
+            >
+              Cancelar
+            </Button>
+            <Button
+              mode="contained"
+              onPress={handleCreateGroup}
+              loading={isCreating}
+              disabled={isCreating}
+              style={styles.modalButton}
+            >
+              Crear
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
     </View>
   );
 }
@@ -200,5 +300,32 @@ const styles = StyleSheet.create({
   ownerText: {
     opacity: 0.5,
     marginTop: 2,
+  },
+  fab: {
+    position: 'absolute',
+    right: 25,
+    bottom: 25,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    margin: 20,
+    padding: 24,
+    borderRadius: 12,
+  },
+  modalTitle: {
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  input: {
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButton: {
+    flex: 1,
   },
 });
