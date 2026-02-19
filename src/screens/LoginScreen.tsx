@@ -23,6 +23,7 @@ import {
   clearAuthError,
   signInWithEmail,
   signInWithGoogle,
+  signInWithApple,
 } from '../features/auth/authSlice';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
@@ -50,6 +51,11 @@ export default function LoginScreen({ navigation }: Props) {
   const onGooglePress = async () => {
     dispatch(clearAuthError());
     await dispatch(signInWithGoogle());
+  };
+
+  const onApplePress = async () => {
+    dispatch(clearAuthError());
+    await dispatch(signInWithApple());
   };
 
   const onGoToRegisterPress = () => {
@@ -147,6 +153,15 @@ export default function LoginScreen({ navigation }: Props) {
             icon="google"
           >
             Continuar con Google
+          </Button>
+
+          <Button
+            mode="outlined"
+            onPress={onApplePress}
+            disabled={isBusy}
+            icon="apple"
+          >
+            Continuar con Apple
           </Button>
 
           <Button

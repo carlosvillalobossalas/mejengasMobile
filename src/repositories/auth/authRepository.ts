@@ -3,6 +3,7 @@ import firestore, {
   FirebaseFirestoreTypes,
 } from '@react-native-firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { appleAuth } from '@invertase/react-native-apple-authentication';
 
 import { googleWebClientId } from '../../config/auth';
 
@@ -164,6 +165,22 @@ export async function signInWithGoogle() {
 
   const credential = auth.GoogleAuthProvider.credential(idToken);
   return auth().signInWithCredential(credential);
+}
+
+export async function signInWithApple() {
+  const appleAuthRequestResponse = await appleAuth.performRequest({
+    requestedOperation: appleAuth.Operation.LOGIN,
+    requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+  });
+
+  if (!appleAuthRequestResponse.identityToken) {
+    throw new Error('No se pudo obtener el token de Apple');
+  }
+
+  const { identityToken, nonce } = appleAuthRequestResponse;
+  const appleCredential = auth.AppleAuthProvider.credential(identityToken, nonce);
+
+  return auth().signInWithCredential(appleCredential);
 }
 
 export async function signOut() {

@@ -8,6 +8,7 @@ import {
   registerWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithGoogle as signInWithGoogleRepo,
+  signInWithApple as signInWithAppleRepo,
   signOut as signOutRepo,
 } from '../../repositories/auth/authRepository';
 import { hydrateSelectedGroupId } from '../groups/groupsSlice';
@@ -171,6 +172,29 @@ export const signInWithGoogle = createAsyncThunk<
   }
 });
 
+export const signInWithApple = createAsyncThunk<
+  {
+    userEmail: string | null;
+    firebaseUser: FirebaseAuthTypes.User;
+    firestoreUser: FirestoreUser;
+  },
+  void
+>('auth/signInWithApple', async (_, { rejectWithValue }) => {
+  try {
+    const credential = await signInWithAppleRepo();
+    const firebaseUser = credential.user;
+    const firestoreUser = await ensureFirestoreUserForAuthUser(firebaseUser);
+
+    return {
+      userEmail: firebaseUser.email ?? null,
+      firebaseUser,
+      firestoreUser,
+    };
+  } catch (e) {
+    return rejectWithValue(toSpanishAuthErrorMessage(e));
+  }
+});
+
 export const signOutFromFirebase = createAsyncThunk<void, void>(
   'auth/signOutFromFirebase',
   async (_, { rejectWithValue }) => {
@@ -281,6 +305,23 @@ const authSlice = createSlice({
           (action.payload as string | undefined) ??
           action.error.message ??
           'Falló el inicio con Google';
+      })
+      .addCase(signInWithApple.pending, state => {
+        state.status = 'loading';
+        state.error = null;
+      })
+      .addCase(signInWithApple.fulfilled, (state, action) => {
+        state.status = 'authenticated';
+        state.userEmail = action.payload.userEmail;
+        state.firebaseUser = action.payload.firebaseUser;
+        state.firestoreUser = action.payload.firestoreUser;
+      })
+      .addCase(signInWithApple.rejected, (state, action) => {
+        state.status = 'error';
+        state.error =
+          (action.payload as string | undefined) ??
+          action.error.message ??
+          'Falló el inicio con Apple';
       })
       .addCase(refreshFirestoreUser.pending, state => {
         state.error = null;
