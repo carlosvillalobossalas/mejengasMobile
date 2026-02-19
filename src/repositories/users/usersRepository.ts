@@ -125,3 +125,10 @@ export async function searchUsersByName(
   return filtered.slice(0, limit);
 }
 
+/**
+ * Delete a user by ID from users collection
+ */
+export async function deleteUserById(userId: string): Promise<void> {
+  const userRef = firestore().collection(USERS_COLLECTION).doc(userId);
+  await userRef.delete();
+}

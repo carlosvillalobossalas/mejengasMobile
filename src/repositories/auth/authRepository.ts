@@ -187,3 +187,99 @@ export async function signOut() {
   await auth().signOut();
   await GoogleSignin.signOut().catch(() => undefined);
 }
+
+/**
+ * Delete the current user's Firebase Auth account
+ */
+export async function deleteUserAccount(): Promise<void> {
+  const currentUser = auth().currentUser;
+  if (!currentUser) {
+    throw new Error('No hay usuario autenticado');
+  }
+  
+  await currentUser.delete();
+}
+
+/**
+ * Reauthenticate user with email and password before sensitive operations
+ */
+export async function reauthenticateWithPassword(password: string): Promise<void> {
+  const currentUser = auth().currentUser;
+  if (!currentUser || !currentUser.email) {
+    throw new Error('No hay usuario autenticado');
+  }
+
+  const credential = auth.EmailAuthProvider.credential(
+    currentUser.email,
+    password,
+  );
+
+  await currentUser.reauthenticateWithCredential(credential);
+}
+
+/**
+ * Reauthenticate user with Google before sensitive operations
+ */
+export async function reauthenticateWithGoogle(): Promise<void> {
+  const currentUser = auth().currentUser;
+  if (!currentUser) {
+    throw new Error('No hay usuario autenticado');
+  }
+
+  if (!googleWebClientId) {
+    throw new Error('Falta configurar Google');
+  }
+
+  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  const signInResult: unknown = await GoogleSignin.signIn();
+  const resultRecord =
+    typeof signInResult === 'object' && signInResult !== null
+      ? (signInResult as Record<string, unknown>)
+      : null;
+
+  const directIdToken =
+    resultRecord && typeof resultRecord.idToken === 'string'
+      ? resultRecord.idToken
+      : null;
+
+  const data =
+    resultRecord && typeof resultRecord.data === 'object' && resultRecord.data
+      ? (resultRecord.data as Record<string, unknown>)
+      : null;
+
+  const nestedIdToken =
+    data && typeof data.idToken === 'string' ? (data.idToken as string) : null;
+
+  const idToken = directIdToken ?? nestedIdToken;
+
+  if (!idToken) {
+    throw new Error('No se pudo obtener el token de Google');
+  }
+
+  const credential = auth.GoogleAuthProvider.credential(idToken);
+  await currentUser.reauthenticateWithCredential(credential);
+}
+
+/**
+ * Reauthenticate user with Apple before sensitive operations
+ */
+export async function reauthenticateWithApple(): Promise<void> {
+  const currentUser = auth().currentUser;
+  if (!currentUser) {
+    throw new Error('No hay usuario autenticado');
+  }
+
+  const appleAuthRequestResponse = await appleAuth.performRequest({
+    requestedOperation: appleAuth.Operation.LOGIN,
+    requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+  });
+
+  if (!appleAuthRequestResponse.identityToken) {
+    throw new Error('No se pudo obtener el token de Apple');
+  }
+
+  const { identityToken, nonce } = appleAuthRequestResponse;
+  const appleCredential = auth.AppleAuthProvider.credential(identityToken, nonce);
+
+  await currentUser.reauthenticateWithCredential(appleCredential);
+}

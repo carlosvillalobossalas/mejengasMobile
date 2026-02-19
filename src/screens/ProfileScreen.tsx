@@ -5,7 +5,9 @@ import {
   View,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
+import auth from '@react-native-firebase/auth';
 import {
   Text,
   Card,
@@ -22,6 +24,7 @@ import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { fetchProfileData } from '../features/profile/profileSlice';
+import { deleteAccount } from '../features/auth/authSlice';
 import { updateUserDisplayName } from '../repositories/users/usersRepository';
 import { updatePlayerNameByUserId } from '../repositories/players/playerSeasonStatsRepository';
 
@@ -35,6 +38,11 @@ export default function ProfileScreen() {
   const [showEditNameDialog, setShowEditNameDialog] = useState(false);
   const [newName, setNewName] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [authProvider, setAuthProvider] = useState<'password' | 'google' | 'apple'>('password');
 
   useEffect(() => {
     if (firestoreUser?.uid) {
@@ -69,6 +77,77 @@ export default function ProfileScreen() {
       // TODO: Show error toast
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    // Detect auth provider from Firebase Auth
+    const currentUser = auth().currentUser;
+    if (!currentUser) {
+      Alert.alert('Error', 'No hay usuario autenticado');
+      return;
+    }
+
+    let detectedProvider: 'password' | 'google' | 'apple' = 'password';
+    const providers = currentUser.providerData;
+    
+    if (providers.some(p => p.providerId === 'google.com')) {
+      detectedProvider = 'google';
+    } else if (providers.some(p => p.providerId === 'apple.com')) {
+      detectedProvider = 'apple';
+    }
+
+    setAuthProvider(detectedProvider);
+
+    Alert.alert(
+      'Eliminar Cuenta',
+      '¿Estás seguro que deseas eliminar tu cuenta? Esta acción es irreversible y se eliminarán todos tus datos.',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: () => {
+            setShowDeleteDialog(true);
+          },
+        },
+      ],
+    );
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!firestoreUser?.uid) {
+      Alert.alert('Error', 'No se pudo obtener la información del usuario');
+      return;
+    }
+
+    // Validate password if email/password provider
+    if (authProvider === 'password' && !deletePassword.trim()) {
+      Alert.alert('Error', 'Por favor ingresa tu contraseña');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await dispatch(
+        deleteAccount({
+          userId: firestoreUser.uid,
+          provider: authProvider,
+          password: authProvider === 'password' ? deletePassword : undefined,
+        }),
+      ).unwrap();
+      
+      setShowDeleteDialog(false);
+      setDeletePassword('');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      const errorMessage = typeof error === 'string' ? error : 'No se pudo eliminar la cuenta. Por favor intenta de nuevo.';
+      Alert.alert('Error al eliminar cuenta', errorMessage);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -233,6 +312,22 @@ export default function ProfileScreen() {
         </View>
       )}
 
+      {/* Delete Account Section */}
+      <View style={styles.deleteAccountSection}>
+        <Button
+          mode="outlined"
+          onPress={handleDeleteAccount}
+          icon="delete-forever"
+          textColor={theme.colors.error}
+          style={[styles.deleteButton, { borderColor: theme.colors.error }]}
+        >
+          Eliminar Cuenta
+        </Button>
+        <Text style={styles.deleteAccountText}>
+          Esta acción es irreversible y eliminará todos tus datos
+        </Text>
+      </View>
+
       {/* Edit Name Dialog */}
       <Portal>
         <Dialog visible={showEditNameDialog} onDismiss={() => setShowEditNameDialog(false)}>
@@ -257,6 +352,96 @@ export default function ProfileScreen() {
             >
               Guardar
             </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Delete Account Confirmation Dialog */}
+        <Dialog
+          visible={showDeleteDialog}
+          onDismiss={() => {
+            setShowDeleteDialog(false);
+            setDeletePassword('');
+          }}
+        >
+          <Dialog.Title>Confirmar Eliminación</Dialog.Title>
+          <Dialog.Content>
+            {authProvider === 'password' && (
+              <>
+                <Text style={{ marginBottom: 16 }}>
+                  Para confirmar la eliminación de tu cuenta, por favor ingresa tu contraseña.
+                </Text>
+                <TextInput
+                  label="Contraseña"
+                  value={deletePassword}
+                  onChangeText={setDeletePassword}
+                  secureTextEntry={!showPassword}
+                  mode="outlined"
+                  disabled={isDeleting}
+                  autoCapitalize="none"
+                  right={
+                    <TextInput.Icon
+                      icon={showPassword ? 'eye-off' : 'eye'}
+                      onPress={() => setShowPassword(!showPassword)}
+                    />
+                  }
+                />
+              </>
+            )}
+            {authProvider === 'google' && (
+              <>
+                <Text style={{ marginBottom: 16 }}>
+                  Para confirmar la eliminación de tu cuenta, necesitas autenticarte nuevamente con Google.
+                </Text>
+                <Button
+                  mode="outlined"
+                  icon="google"
+                  onPress={handleConfirmDelete}
+                  disabled={isDeleting}
+                  loading={isDeleting}
+                  style={{ marginTop: 8 }}
+                >
+                  Autenticar con Google
+                </Button>
+              </>
+            )}
+            {authProvider === 'apple' && (
+              <>
+                <Text style={{ marginBottom: 16 }}>
+                  Para confirmar la eliminación de tu cuenta, necesitas autenticarte nuevamente con Apple.
+                </Text>
+                <Button
+                  mode="outlined"
+                  icon="apple"
+                  onPress={handleConfirmDelete}
+                  disabled={isDeleting}
+                  loading={isDeleting}
+                  style={{ marginTop: 8 }}
+                >
+                  Autenticar con Apple
+                </Button>
+              </>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button
+              onPress={() => {
+                setShowDeleteDialog(false);
+                setDeletePassword('');
+              }}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            {authProvider === 'password' && (
+              <Button
+                onPress={handleConfirmDelete}
+                disabled={isDeleting}
+                loading={isDeleting}
+                textColor={theme.colors.error}
+              >
+                Eliminar
+              </Button>
+            )}
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -382,6 +567,24 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 16,
     fontSize: 16,
+    color: '#757575',
+    textAlign: 'center',
+  },
+  deleteAccountSection: {
+    margin: 12,
+    marginTop: 24,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFEBEE',
+    alignItems: 'center',
+  },
+  deleteButton: {
+    marginBottom: 8,
+  },
+  deleteAccountText: {
+    fontSize: 12,
     color: '#757575',
     textAlign: 'center',
   },

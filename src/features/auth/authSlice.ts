@@ -10,7 +10,13 @@ import {
   signInWithGoogle as signInWithGoogleRepo,
   signInWithApple as signInWithAppleRepo,
   signOut as signOutRepo,
+  deleteUserAccount as deleteUserAccountRepo,
+  reauthenticateWithPassword,
+  reauthenticateWithGoogle,
+  reauthenticateWithApple,
 } from '../../repositories/auth/authRepository';
+import { deleteAllGroupMembersByUserId } from '../../repositories/groups/groupsRepository';
+import { deleteUserById } from '../../repositories/users/usersRepository';
 import { hydrateSelectedGroupId } from '../groups/groupsSlice';
 
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'error';
@@ -206,6 +212,36 @@ export const signOutFromFirebase = createAsyncThunk<void, void>(
   },
 );
 
+export const deleteAccount = createAsyncThunk<
+  void,
+  { userId: string; provider: 'password' | 'google' | 'apple'; password?: string }
+>('auth/deleteAccount', async ({ userId, provider, password }, { rejectWithValue }) => {
+  try {
+    // Reauthenticate based on provider
+    if (provider === 'password') {
+      if (!password) {
+        throw new Error('Se requiere contraseña');
+      }
+      await reauthenticateWithPassword(password);
+    } else if (provider === 'google') {
+      await reauthenticateWithGoogle();
+    } else if (provider === 'apple') {
+      await reauthenticateWithApple();
+    }
+
+    // Delete group members first
+    await deleteAllGroupMembersByUserId(userId);
+    
+    // Delete user from Firestore
+    await deleteUserById(userId);
+    
+    // Delete Firebase Auth account
+    await deleteUserAccountRepo();
+  } catch (e) {
+    return rejectWithValue(toSpanishAuthErrorMessage(e));
+  }
+});
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -338,6 +374,24 @@ const authSlice = createSlice({
         state.error = null;
         state.firebaseUser = null;
         state.firestoreUser = null;
+      })
+      .addCase(deleteAccount.pending, state => {
+        state.status = 'loading';
+        state.error = null;
+      })
+      .addCase(deleteAccount.fulfilled, state => {
+        state.status = 'idle';
+        state.userEmail = null;
+        state.error = null;
+        state.firebaseUser = null;
+        state.firestoreUser = null;
+      })
+      .addCase(deleteAccount.rejected, (state, action) => {
+        state.status = 'error';
+        state.error =
+          (action.payload as string | undefined) ??
+          action.error.message ??
+          'No se pudo eliminar la cuenta';
       });
   },
 });

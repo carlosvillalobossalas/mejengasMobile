@@ -390,3 +390,21 @@ export async function createGroup(
 
   return docRef.id;
 }
+
+/**
+ * Delete all group members for a specific user
+ */
+export async function deleteAllGroupMembersByUserId(
+  userId: string,
+): Promise<void> {
+  const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
+  
+  const snapshot = await membersRef.where('userId', '==', userId).get();
+  
+  const batch = firestore().batch();
+  snapshot.docs.forEach(doc => {
+    batch.delete(doc.ref);
+  });
+  
+  await batch.commit();
+}
