@@ -46,3 +46,21 @@ export async function uploadProfilePhoto(
 
   return downloadURL;
 }
+
+/**
+ * Deletes the user's profile photo from Firebase Storage.
+ * Safe to call even if the user never uploaded a photo — the error is
+ * swallowed so account deletion is never blocked by a missing file.
+ */
+export async function deleteProfilePhoto(userId: string): Promise<void> {
+  try {
+    const ref = getProfilePhotoRef(userId);
+    await ref.delete();
+  } catch (err: unknown) {
+    // storage/object-not-found means the user never uploaded a photo — not an error.
+    const code = (err as { code?: string }).code;
+    if (code !== 'storage/object-not-found') {
+      console.error('Error deleting profile photo from storage:', err);
+    }
+  }
+}

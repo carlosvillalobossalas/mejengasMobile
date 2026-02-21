@@ -15,8 +15,9 @@ import {
   reauthenticateWithGoogle,
   reauthenticateWithApple,
 } from '../../repositories/auth/authRepository';
-import { deleteAllGroupMembersByUserId } from '../../repositories/groups/groupsRepository';
+import { unlinkAllGroupMembersV2ByUserId } from '../../repositories/groupMembersV2/groupMembersV2Repository';
 import { deleteUserById } from '../../repositories/users/usersRepository';
+import { deleteProfilePhoto } from '../../services/storage/profilePhotoService';
 import { hydrateSelectedGroupId } from '../groups/groupsSlice';
 
 type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'error';
@@ -181,13 +182,19 @@ export const deleteAccount = createAsyncThunk<
       await reauthenticateWithApple();
     }
 
-    // Delete group members first
-    await deleteAllGroupMembersByUserId(userId);
-    
-    // Delete user from Firestore
+    // 1. Unlink user from all groupMembers_v2 across all groups.
+    //    Sets userId = null so historical match data and season stats are preserved.
+    await unlinkAllGroupMembersV2ByUserId(userId);
+
+    // 2. Delete the user document from the users collection.
     await deleteUserById(userId);
-    
-    // Delete Firebase Auth account
+
+    // 3. Delete the profile photo from Firebase Storage.
+    //    Called after Firestore writes so a storage failure doesn't orphan the user doc.
+    await deleteProfilePhoto(userId);
+
+    // 4. Delete the Firebase Auth account last — Firestore operations above
+    //    require the user to still be authenticated.
     await deleteUserAccountRepo();
   } catch (e) {
     return rejectWithValue(toSpanishAuthErrorMessage(e));

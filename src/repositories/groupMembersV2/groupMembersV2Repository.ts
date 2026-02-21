@@ -132,6 +132,32 @@ export async function updateDisplayNameByUserId(
 }
 
 /**
+ * Unlink a user from ALL their groupMembers_v2 records across all groups.
+ * Sets userId = null and isGuest = true on every record so historical
+ * match data and season stats (which reference groupMemberId, not userId) are preserved.
+ * Called as part of account deletion.
+ */
+export async function unlinkAllGroupMembersV2ByUserId(userId: string): Promise<void> {
+  const snap = await firestore()
+    .collection(COLLECTION)
+    .where('userId', '==', userId)
+    .get();
+
+  if (snap.empty) return;
+
+  const batch = firestore().batch();
+  snap.docs.forEach(doc => {
+    batch.update(doc.ref, {
+      userId: null,
+      isGuest: true,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
+}
+
+/**
  * Check if a groupMember_v2 with the given userId already exists in a group.
  * Used before accepting an invite to prevent duplicate membership.
  */
