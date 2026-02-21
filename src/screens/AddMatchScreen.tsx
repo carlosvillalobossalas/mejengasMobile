@@ -48,16 +48,35 @@ const POSITION_LABELS: Record<Position, string> = {
   DEL: 'Delantero',
 };
 
-const getDefaultPosition = (index: number): Position => {
+const PLAYERS_BY_TYPE: Record<string, number> = {
+  futbol_5: 5,
+  futbol_7: 7,
+  futbol_11: 11,
+};
+
+const getDefaultPosition = (index: number, total: number): Position => {
   if (index === 0) return 'POR';
-  if (index <= 3) return 'DEF';
-  if (index <= 5) return 'MED';
+  if (total <= 5) {
+    // POR, DEF, DEF, MED, DEL
+    if (index <= 2) return 'DEF';
+    if (index <= 3) return 'MED';
+    return 'DEL';
+  }
+  if (total <= 7) {
+    // POR, DEF x3, MED x2, DEL
+    if (index <= 3) return 'DEF';
+    if (index <= 5) return 'MED';
+    return 'DEL';
+  }
+  // 11: POR, DEF x4, MED x4, DEL x2
+  if (index <= 4) return 'DEF';
+  if (index <= 8) return 'MED';
   return 'DEL';
 };
 
-const createDefaultTeamPlayers = (): TeamPlayer[] =>
-  Array.from({ length: 7 }, (_, index) => ({
-    position: getDefaultPosition(index),
+const createDefaultTeamPlayers = (total: number): TeamPlayer[] =>
+  Array.from({ length: total }, (_, index) => ({
+    position: getDefaultPosition(index, total),
     groupMemberId: null,
     playerName: '',
     goals: '0',
@@ -76,7 +95,11 @@ const parseStatValue = (value: string) => Number.parseInt(value || '0', 10) || 0
 
 export default function AddMatchScreen() {
   const theme = useTheme();
-  const { selectedGroupId } = useAppSelector(state => state.groups);
+  const { selectedGroupId, groups } = useAppSelector(state => state.groups);
+
+  // Derive team size from the selected group's type
+  const selectedGroup = groups.find(g => g.id === selectedGroupId) ?? null;
+  const teamSize = PLAYERS_BY_TYPE[selectedGroup?.type ?? 'futbol_7'] ?? 7;
 
   const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0);
   const [matchDate, setMatchDate] = useState<Date | null>(null);
@@ -90,9 +113,15 @@ export default function AddMatchScreen() {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
-  const [team1Players, setTeam1Players] = useState<TeamPlayer[]>(createDefaultTeamPlayers);
+  const [team1Players, setTeam1Players] = useState<TeamPlayer[]>(() => createDefaultTeamPlayers(teamSize));
 
-  const [team2Players, setTeam2Players] = useState<TeamPlayer[]>(createDefaultTeamPlayers);
+  const [team2Players, setTeam2Players] = useState<TeamPlayer[]>(() => createDefaultTeamPlayers(teamSize));
+
+  // Re-initialize teams when the selected group changes (different type = different size)
+  useEffect(() => {
+    setTeam1Players(createDefaultTeamPlayers(teamSize));
+    setTeam2Players(createDefaultTeamPlayers(teamSize));
+  }, [teamSize]);
 
   // Load players when component mounts
   useEffect(() => {
@@ -148,11 +177,11 @@ export default function AddMatchScreen() {
     const team1Selected = team1Players.filter(p => p.groupMemberId !== null).length;
     const team2Selected = team2Players.filter(p => p.groupMemberId !== null).length;
 
-    if (team1Selected < 7) {
-      warnings.push(`Equipo 1: faltan ${7 - team1Selected} jugador(es) por seleccionar`);
+    if (team1Selected < teamSize) {
+      warnings.push(`Equipo 1: faltan ${teamSize - team1Selected} jugador(es) por seleccionar`);
     }
-    if (team2Selected < 7) {
-      warnings.push(`Equipo 2: faltan ${7 - team2Selected} jugador(es) por seleccionar`);
+    if (team2Selected < teamSize) {
+      warnings.push(`Equipo 2: faltan ${teamSize - team2Selected} jugador(es) por seleccionar`);
     }
 
     if (!matchDate) {
@@ -170,7 +199,7 @@ export default function AddMatchScreen() {
     }
 
     return warnings;
-  }, [team1Players, team2Players, matchDate]);
+  }, [team1Players, team2Players, matchDate, teamSize]);
 
   const canSave = validationWarnings.length === 0;
 
@@ -239,8 +268,8 @@ export default function AddMatchScreen() {
       setSnackbarVisible(true);
 
       // Reset form
-      setTeam1Players(createDefaultTeamPlayers());
-      setTeam2Players(createDefaultTeamPlayers());
+      setTeam1Players(createDefaultTeamPlayers(teamSize));
+      setTeam2Players(createDefaultTeamPlayers(teamSize));
       setMatchDate(null);
       setActiveTab(0);
     } catch (error) {
