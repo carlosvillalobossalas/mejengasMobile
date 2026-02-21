@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   ScrollView,
   View,
@@ -13,8 +13,11 @@ import {
   Surface,
   useTheme,
   MD3Theme,
+  Button,
+  Portal,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/bottom-sheet';
 
 import { useAppSelector } from '../app/hooks';
 import { subscribeToMatchesByGroupId, type Match } from '../repositories/matches/matchesRepository';
@@ -22,15 +25,22 @@ import { getGroupMembersV2ByGroupId, type GroupMemberV2 } from '../repositories/
 import MatchLineup from '../components/MatchLineup';
 import PlayersList from '../components/PlayersList';
 
+// Icon component for year button - moved outside to avoid warnings
+const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF" />;
+
 export default function MatchesScreen() {
   const theme = useTheme();
   const { selectedGroupId } = useAppSelector(state => state.groups);
 
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [allPlayers, setAllPlayers] = useState<GroupMemberV2[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | 'historico'>(
+    new Date().getFullYear(),
+  );
+  const bottomSheetRef = useRef<BottomSheet>(null);
 
   // Load group members once when group changes
   useEffect(() => {
@@ -55,7 +65,7 @@ export default function MatchesScreen() {
     setError(null);
 
     const unsubscribe = subscribeToMatchesByGroupId(selectedGroupId, matchesData => {
-      setMatches(matchesData);
+      setAllMatches(matchesData);
       setIsLoading(false);
     });
 
@@ -63,6 +73,49 @@ export default function MatchesScreen() {
       unsubscribe();
     };
   }, [selectedGroupId]);
+
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const startYear = 2025;
+    const years: number[] = [];
+    for (let y = currentYear; y >= startYear; y--) {
+      years.push(y);
+    }
+    return [
+      { value: 'historico' as const, label: 'Histórico' },
+      ...years.map(year => ({ value: year, label: year.toString() })),
+    ];
+  }, []);
+
+  const matches = useMemo(() => {
+    if (selectedYear === 'historico') return allMatches;
+    return allMatches.filter(m => new Date(m.date).getFullYear() === selectedYear);
+  }, [allMatches, selectedYear]);
+
+  const getYearLabel = (year: number | 'historico') => {
+    const option = yearOptions.find(opt => opt.value === year);
+    return option?.label || year.toString();
+  };
+
+  const handleOpenYearSelector = useCallback(() => {
+    bottomSheetRef.current?.expand();
+  }, []);
+
+  const handleSelectYear = useCallback((year: number | 'historico') => {
+    setSelectedYear(year);
+    bottomSheetRef.current?.close();
+  }, []);
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+      />
+    ),
+    [],
+  );
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
@@ -231,38 +284,80 @@ export default function MatchesScreen() {
     );
   }
 
-  if (matches.length === 0) {
-    return (
-      <View style={styles(theme).centerContainer}>
-        <Icon name="soccer" size={64} color={theme.colors.onSurfaceVariant} />
-        <Text variant="titleMedium" style={styles(theme).emptyText}>
-          No hay partidos registrados
-        </Text>
-        <Text variant="bodyMedium" style={styles(theme).emptySubtext}>
-          Los partidos aparecerán aquí cuando se registren
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <ScrollView
-      style={styles(theme).container}
-      contentContainerStyle={styles(theme).contentContainer}
-    >
+    <View style={styles(theme).container}>
       {/* Header */}
-      <View style={styles(theme).header}>
-        <Text variant="headlineSmall" style={styles(theme).headerTitle}>
-          Partidos
-        </Text>
-        <Chip icon="soccer" style={styles(theme).totalChip}>
-          Total: {matches.length} partidos
-        </Chip>
-      </View>
+      <Surface style={styles(theme).header} elevation={2}>
+        <View style={styles(theme).headerContent}>
+          <Text variant="bodySmall" style={styles(theme).matchCount}>
+            Total: {matches.length} partido{matches.length !== 1 ? 's' : ''}
+          </Text>
+          <Button
+            mode="contained"
+            onPress={handleOpenYearSelector}
+            icon={CalendarIcon}
+            style={styles(theme).yearButton}
+            contentStyle={styles(theme).yearButtonContent}
+            labelStyle={styles(theme).yearButtonLabel}
+          >
+            {getYearLabel(selectedYear)}
+          </Button>
+        </View>
+      </Surface>
+
+      <Divider />
 
       {/* Matches List */}
-      {matches.map(match => renderMatch(match))}
-    </ScrollView>
+      <ScrollView
+        style={styles(theme).scrollView}
+        contentContainerStyle={styles(theme).contentContainer}
+      >
+        {matches.length === 0 ? (
+          <View style={styles(theme).emptyState}>
+            <Icon name="soccer" size={64} color={theme.colors.onSurfaceVariant} />
+            <Text variant="titleMedium" style={styles(theme).emptyText}>
+              No hay partidos registrados
+            </Text>
+            <Text variant="bodyMedium" style={styles(theme).emptySubtext}>
+              Los partidos aparecerán aquí cuando se registren
+            </Text>
+          </View>
+        ) : (
+          matches.map(match => renderMatch(match))
+        )}
+      </ScrollView>
+
+      {/* Year Selection Bottom Sheet */}
+      <Portal>
+        <BottomSheet
+          ref={bottomSheetRef}
+          index={-1}
+          snapPoints={['50%']}
+          enablePanDownToClose
+          backdropComponent={renderBackdrop}
+        >
+          <View style={styles(theme).bottomSheetContent}>
+            <Text variant="titleMedium" style={styles(theme).bottomSheetTitle}>
+              Seleccionar Temporada
+            </Text>
+            <BottomSheetFlatList
+              data={yearOptions}
+              keyExtractor={(item: { value: number | 'historico'; label: string }) => item.value.toString()}
+              renderItem={({ item }: { item: { value: number | 'historico'; label: string } }) => (
+                <Button
+                  mode={selectedYear === item.value ? 'contained' : 'text'}
+                  onPress={() => handleSelectYear(item.value)}
+                  style={styles(theme).yearOptionButton}
+                  contentStyle={styles(theme).yearOptionContent}
+                >
+                  {item.label}
+                </Button>
+              )}
+            />
+          </View>
+        </BottomSheet>
+      </Portal>
+    </View>
   );
 }
 
@@ -271,20 +366,58 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
+  scrollView: {
+    flex: 1,
+  },
   contentContainer: {
     padding: 16,
     paddingBottom: 32,
   },
   header: {
-    marginBottom: 16,
-    gap: 8,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
-  headerTitle: {
+  headerContent: {
+    gap: 12,
+  },
+  matchCount: {
+    color: '#FFFFFF',
+    textAlign: 'center',
+    opacity: 0.9,
+  },
+  yearButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginVertical: 8,
+  },
+  yearButtonContent: {
+    paddingVertical: 4,
+  },
+  yearButtonLabel: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  bottomSheetContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  bottomSheetTitle: {
+    textAlign: 'center',
+    marginBottom: 16,
     fontWeight: 'bold',
   },
-  totalChip: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.colors.onPrimary,
+  yearOptionButton: {
+    marginVertical: 4,
+  },
+  yearOptionContent: {
+    paddingVertical: 8,
+  },
+  emptyState: {
+    padding: 48,
+    alignItems: 'center',
+    gap: 16,
   },
   matchCard: {
     marginBottom: 16,
