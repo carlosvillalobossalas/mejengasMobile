@@ -1219,6 +1219,9 @@ PODS:
   - Firebase/Messaging (12.7.0):
     - Firebase/CoreOnly
     - FirebaseMessaging (~> 12.7.0)
+  - Firebase/Storage (12.7.0):
+    - Firebase/CoreOnly
+    - FirebaseStorage (~> 12.7.0)
   - FirebaseAppCheckInterop (12.7.0)
   - FirebaseAuth (12.7.0):
     - FirebaseAppCheckInterop (~> 12.7.0)
@@ -1273,6 +1276,13 @@ PODS:
     - GoogleUtilities/UserDefaults (~> 8.1)
     - nanopb (~> 3.30910.0)
   - FirebaseSharedSwift (12.7.0)
+  - FirebaseStorage (12.7.0):
+    - FirebaseAppCheckInterop (~> 12.7.0)
+    - FirebaseAuthInterop (~> 12.7.0)
+    - FirebaseCore (~> 12.7.0)
+    - FirebaseCoreExtension (~> 12.7.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GTMSessionFetcher/Core (< 6.0, >= 3.4)
   - fmt (11.0.2)
   - glog (0.3.5)
   - GoogleDataTransport (10.1.0):
@@ -3325,6 +3335,34 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - react-native-image-picker (8.2.1):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - react-native-safe-area-context (5.6.2):
     - boost
     - DoubleConversion
@@ -4017,6 +4055,10 @@ PODS:
     - FirebaseCoreExtension
     - React-Core
     - RNFBApp
+  - RNFBStorage (23.8.1):
+    - Firebase/Storage (= 12.7.0)
+    - React-Core
+    - RNFBApp
   - RNGestureHandler (2.30.0):
     - boost
     - DoubleConversion
@@ -4364,6 +4406,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-date-picker (from `../node_modules/react-native-date-picker`)
+  - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - "react-native-vector-icons-material-design-icons (from `../node_modules/@react-native-vector-icons/material-design-icons`)"
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -4405,6 +4448,7 @@ DEPENDENCIES:
   - "RNFBAuth (from `../node_modules/@react-native-firebase/auth`)"
   - "RNFBFirestore (from `../node_modules/@react-native-firebase/firestore`)"
   - "RNFBMessaging (from `../node_modules/@react-native-firebase/messaging`)"
+  - "RNFBStorage (from `../node_modules/@react-native-firebase/storage`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - "RNGoogleSignin (from `../node_modules/@react-native-google-signin/google-signin`)"
   - RNReanimated (from `../node_modules/react-native-reanimated`)
@@ -4431,6 +4475,7 @@ SPEC REPOS:
     - FirebaseInstallations
     - FirebaseMessaging
     - FirebaseSharedSwift
+    - FirebaseStorage
     - GoogleDataTransport
     - GoogleSignIn
     - GoogleUtilities
@@ -4534,6 +4579,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-date-picker:
     :path: "../node_modules/react-native-date-picker"
+  react-native-image-picker:
+    :path: "../node_modules/react-native-image-picker"
   react-native-safe-area-context:
     :path: "../node_modules/react-native-safe-area-context"
   react-native-vector-icons-material-design-icons:
@@ -4616,6 +4663,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-firebase/firestore"
   RNFBMessaging:
     :path: "../node_modules/@react-native-firebase/messaging"
+  RNFBStorage:
+    :path: "../node_modules/@react-native-firebase/storage"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
   RNGoogleSignin:
@@ -4650,6 +4699,7 @@ SPEC CHECKSUMS:
   FirebaseInstallations: 6d05424a046b68ca146b4de4376f05b4e9262fc3
   FirebaseMessaging: b5f7bdc62b91b6102015991fb7bc6fa75f643908
   FirebaseSharedSwift: a652f2174ce29ce333d1f67df955499d2db009f6
+  FirebaseStorage: bcd86194cfd426735f19b427e5c2d0c08a3a952c
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
@@ -4700,6 +4750,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 9d33f0f79b6b5705d08d89d8fb9709d1ee655c81
   React-microtasksnativemodule: 1a5a9488d2a05c74ea276c2012df632d8221d169
   react-native-date-picker: d1d607499ff9f2e1231f902b4bda70595d71253e
+  react-native-image-picker: b99d9c1f2ddbef491eb49e1103e5c2ce78b9ab37
   react-native-safe-area-context: fea29ae0275beaa22f72d0a8be1eb0ab09c3feae
   react-native-vector-icons-material-design-icons: 76cd460b3540b80527b4a80fb7f867f7deedb498
   React-NativeModulesApple: dfce21d2c4b7eab44db0af861fcb8998d0b8ad16
@@ -4742,6 +4793,7 @@ SPEC CHECKSUMS:
   RNFBAuth: 683df2a4e2b66a7dffdbb48e0db9b770c8339624
   RNFBFirestore: 575f6579c10fd81b8cfac25ccd46d0c0363f6489
   RNFBMessaging: 9e2a2458e8dc9708e292f65960c5e3e4d8bcab24
+  RNFBStorage: 34c725f137c6146d2d92893972b611561b843b60
   RNGestureHandler: 1f7ac76fa9d6ffedfdde38ce781442ffadac8880
   RNGoogleSignin: 9c5c73089b78fd865f9a6758fc05ef7da7bd2be2
   RNReanimated: 0a23a0a9721f450580f0fdf04b9ae928cd22915a

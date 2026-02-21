@@ -109,97 +109,49 @@ export const refreshFirestoreUser = createAsyncThunk<
   return { firestoreUser: doc };
 });
 
-export const signInWithEmail = createAsyncThunk<
-  {
-    userEmail: string | null;
-    firebaseUser: FirebaseAuthTypes.User;
-    firestoreUser: FirestoreUser;
+export const signInWithEmail = createAsyncThunk<void, { email: string; password: string }>(
+  'auth/signInWithEmail',
+  async ({ email, password }, { rejectWithValue }) => {
+    try {
+      await signInWithEmailAndPassword({ email, password });
+    } catch (e) {
+      return rejectWithValue(toSpanishAuthErrorMessage(e));
+    }
   },
-  { email: string; password: string }
->('auth/signInWithEmail', async ({ email, password }, { rejectWithValue }) => {
-  try {
-    const credential = await signInWithEmailAndPassword({ email, password });
-    const firebaseUser = credential.user;
-    const firestoreUser = await ensureFirestoreUserForAuthUser(firebaseUser);
+);
 
-    return {
-      userEmail: firebaseUser.email ?? email.trim().toLowerCase(),
-      firebaseUser,
-      firestoreUser,
-    };
-  } catch (e) {
-    return rejectWithValue(toSpanishAuthErrorMessage(e));
-  }
-});
-
-export const registerWithEmail = createAsyncThunk<
-  {
-    userEmail: string | null;
-    firebaseUser: FirebaseAuthTypes.User;
-    firestoreUser: FirestoreUser;
+export const registerWithEmail = createAsyncThunk<void, { email: string; password: string }>(
+  'auth/registerWithEmail',
+  async ({ email, password }, { rejectWithValue }) => {
+    try {
+      await registerWithEmailAndPassword({ email, password });
+    } catch (e) {
+      return rejectWithValue(toSpanishAuthErrorMessage(e));
+    }
   },
-  { email: string; password: string }
->('auth/registerWithEmail', async ({ email, password }, { rejectWithValue }) => {
-  try {
-    const credential = await registerWithEmailAndPassword({ email, password });
-    const firebaseUser = credential.user;
-    const firestoreUser = await ensureFirestoreUserForAuthUser(firebaseUser);
+);
 
-    return {
-      userEmail: firebaseUser.email ?? email.trim().toLowerCase(),
-      firebaseUser,
-      firestoreUser,
-    };
-  } catch (e) {
-    return rejectWithValue(toSpanishAuthErrorMessage(e));
-  }
-});
-
-export const signInWithGoogle = createAsyncThunk<
-  {
-    userEmail: string | null;
-    firebaseUser: FirebaseAuthTypes.User;
-    firestoreUser: FirestoreUser;
+export const signInWithGoogle = createAsyncThunk<void, void>(
+  'auth/signInWithGoogle',
+  async (_, { rejectWithValue }) => {
+    try {
+      await signInWithGoogleRepo();
+    } catch (e) {
+      return rejectWithValue(toSpanishAuthErrorMessage(e));
+    }
   },
-  void
->('auth/signInWithGoogle', async (_, { rejectWithValue }) => {
-  try {
-    const credential = await signInWithGoogleRepo();
-    const firebaseUser = credential.user;
-    const firestoreUser = await ensureFirestoreUserForAuthUser(firebaseUser);
+);
 
-    return {
-      userEmail: firebaseUser.email ?? null,
-      firebaseUser,
-      firestoreUser,
-    };
-  } catch (e) {
-    return rejectWithValue(toSpanishAuthErrorMessage(e));
-  }
-});
-
-export const signInWithApple = createAsyncThunk<
-  {
-    userEmail: string | null;
-    firebaseUser: FirebaseAuthTypes.User;
-    firestoreUser: FirestoreUser;
+export const signInWithApple = createAsyncThunk<void, void>(
+  'auth/signInWithApple',
+  async (_, { rejectWithValue }) => {
+    try {
+      await signInWithAppleRepo();
+    } catch (e) {
+      return rejectWithValue(toSpanishAuthErrorMessage(e));
+    }
   },
-  void
->('auth/signInWithApple', async (_, { rejectWithValue }) => {
-  try {
-    const credential = await signInWithAppleRepo();
-    const firebaseUser = credential.user;
-    const firestoreUser = await ensureFirestoreUserForAuthUser(firebaseUser);
-
-    return {
-      userEmail: firebaseUser.email ?? null,
-      firebaseUser,
-      firestoreUser,
-    };
-  } catch (e) {
-    return rejectWithValue(toSpanishAuthErrorMessage(e));
-  }
-});
+);
 
 export const signOutFromFirebase = createAsyncThunk<void, void>(
   'auth/signOutFromFirebase',
@@ -295,11 +247,8 @@ const authSlice = createSlice({
         state.status = 'loading';
         state.error = null;
       })
-      .addCase(signInWithEmail.fulfilled, (state, action) => {
-        state.status = 'authenticated';
-        state.userEmail = action.payload.userEmail;
-        state.firebaseUser = action.payload.firebaseUser;
-        state.firestoreUser = action.payload.firestoreUser;
+      .addCase(signInWithEmail.fulfilled, () => {
+        // onAuthStateChanged handles firebaseUser, firestoreUser, and status
       })
       .addCase(signInWithEmail.rejected, (state, action) => {
         state.status = 'error';
@@ -312,11 +261,8 @@ const authSlice = createSlice({
         state.status = 'loading';
         state.error = null;
       })
-      .addCase(registerWithEmail.fulfilled, (state, action) => {
-        state.status = 'authenticated';
-        state.userEmail = action.payload.userEmail;
-        state.firebaseUser = action.payload.firebaseUser;
-        state.firestoreUser = action.payload.firestoreUser;
+      .addCase(registerWithEmail.fulfilled, () => {
+        // onAuthStateChanged handles firebaseUser, firestoreUser, and status
       })
       .addCase(registerWithEmail.rejected, (state, action) => {
         state.status = 'error';
@@ -329,11 +275,8 @@ const authSlice = createSlice({
         state.status = 'loading';
         state.error = null;
       })
-      .addCase(signInWithGoogle.fulfilled, (state, action) => {
-        state.status = 'authenticated';
-        state.userEmail = action.payload.userEmail;
-        state.firebaseUser = action.payload.firebaseUser;
-        state.firestoreUser = action.payload.firestoreUser;
+      .addCase(signInWithGoogle.fulfilled, () => {
+        // onAuthStateChanged handles firebaseUser, firestoreUser, and status
       })
       .addCase(signInWithGoogle.rejected, (state, action) => {
         state.status = 'error';
@@ -346,11 +289,8 @@ const authSlice = createSlice({
         state.status = 'loading';
         state.error = null;
       })
-      .addCase(signInWithApple.fulfilled, (state, action) => {
-        state.status = 'authenticated';
-        state.userEmail = action.payload.userEmail;
-        state.firebaseUser = action.payload.firebaseUser;
-        state.firestoreUser = action.payload.firestoreUser;
+      .addCase(signInWithApple.fulfilled, () => {
+        // onAuthStateChanged handles firebaseUser, firestoreUser, and status
       })
       .addCase(signInWithApple.rejected, (state, action) => {
         state.status = 'error';

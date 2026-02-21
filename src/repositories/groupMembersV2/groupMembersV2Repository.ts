@@ -80,6 +80,58 @@ export async function unlinkUserFromGroupMemberV2(memberId: string): Promise<voi
 }
 
 /**
+ * Update photoUrl on every groupMember_v2 that belongs to this user.
+ * Called after the user changes their profile photo so all groups reflect the new photo.
+ */
+export async function updatePhotoUrlByUserId(
+  userId: string,
+  photoUrl: string,
+): Promise<void> {
+  const snap = await firestore()
+    .collection(COLLECTION)
+    .where('userId', '==', userId)
+    .get();
+
+  if (snap.empty) return;
+
+  const batch = firestore().batch();
+  snap.docs.forEach(doc => {
+    batch.update(doc.ref, {
+      photoUrl,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
+}
+
+/**
+ * Update displayName on every groupMember_v2 that belongs to this user.
+ * Called after the user changes their display name so all groups reflect the new name.
+ */
+export async function updateDisplayNameByUserId(
+  userId: string,
+  displayName: string,
+): Promise<void> {
+  const snap = await firestore()
+    .collection(COLLECTION)
+    .where('userId', '==', userId)
+    .get();
+
+  if (snap.empty) return;
+
+  const batch = firestore().batch();
+  snap.docs.forEach(doc => {
+    batch.update(doc.ref, {
+      displayName,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
+}
+
+/**
  * Check if a groupMember_v2 with the given userId already exists in a group.
  * Used before accepting an invite to prevent duplicate membership.
  */

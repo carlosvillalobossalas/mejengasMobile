@@ -78,12 +78,12 @@ export async function ensureFirestoreUserForAuthUser(
       { merge: true },
     );
   } else {
-    // If user exists, only update email and photoURL, NOT displayName
-    // displayName is managed separately by the user through the profile screen
+    // Only sync email — displayName and photoURL are managed by the user
+    // through the profile screen and must not be overwritten from Firebase Auth,
+    // which returns null for email/Apple providers.
     await ref.set(
       {
         email: user.email ?? null,
-        photoURL: user.photoURL ?? null,
         updatedAt: firestore.FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -177,10 +177,23 @@ export async function signInWithApple() {
     throw new Error('No se pudo obtener el token de Apple');
   }
 
-  const { identityToken, nonce } = appleAuthRequestResponse;
+  const { identityToken, nonce, fullName } = appleAuthRequestResponse;
   const appleCredential = auth.AppleAuthProvider.credential(identityToken, nonce);
 
-  return auth().signInWithCredential(appleCredential);
+  const userCredential = await auth().signInWithCredential(appleCredential);
+
+  // Apple only provides fullName on the first sign-in — update Firebase Auth profile if needed.
+  if (!userCredential.user.displayName && fullName) {
+    const displayName = [fullName.givenName, fullName.familyName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (displayName) {
+      await userCredential.user.updateProfile({ displayName });
+    }
+  }
+
+  return userCredential;
 }
 
 export async function signOut() {

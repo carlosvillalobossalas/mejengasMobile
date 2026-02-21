@@ -7,7 +7,11 @@ import {
 } from '../../services/notifications/notificationsService';
 
 export default function NotificationsBootstrapper() {
-  const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
+  // Wait for the Firestore user doc to exist before registering the FCM token.
+  // Reacting to firebaseUser too early causes a race: updateUserFcmToken creates
+  // the doc before ensureFirestoreUserForAuthUser, which means createdAt and
+  // displayName never get written (the else/update branch runs instead).
+  const userId = useAppSelector(state => state.auth.firestoreUser?.id ?? null);
   const unsubscribersRef = useRef<NotificationUnsubscribers | null>(null);
 
   useEffect(() => {

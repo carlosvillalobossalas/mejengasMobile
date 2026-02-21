@@ -27,6 +27,8 @@ import { fetchProfileData } from '../features/profile/profileSlice';
 import { deleteAccount } from '../features/auth/authSlice';
 import { updateUserDisplayName } from '../repositories/users/usersRepository';
 import { updatePlayerNameByUserId } from '../repositories/players/playerSeasonStatsRepository';
+import { updateDisplayNameByUserId } from '../repositories/groupMembersV2/groupMembersV2Repository';
+import { useProfilePhoto } from '../hooks/useProfilePhoto';
 
 export default function ProfileScreen() {
   const theme = useTheme();
@@ -43,6 +45,8 @@ export default function ProfileScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authProvider, setAuthProvider] = useState<'password' | 'google' | 'apple'>('password');
+
+  const { isUploading, pickAndUpload } = useProfilePhoto();
 
   useEffect(() => {
     if (firestoreUser?.uid) {
@@ -62,10 +66,10 @@ export default function ProfileScreen() {
 
     setIsUpdating(true);
     try {
-      // Update both users collection and Players collection
       await Promise.all([
         updateUserDisplayName(firestoreUser.uid, newName.trim()),
         updatePlayerNameByUserId(firestoreUser.uid, newName.trim()),
+        updateDisplayNameByUserId(firestoreUser.uid, newName.trim()),
       ]);
 
       // Refresh profile data
@@ -197,14 +201,24 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container}>
       {/* User Info Section */}
       <Surface style={styles.profileSection}>
-        <TouchableOpacity style={styles.avatarContainer}>
-          {user.photoURL ? (
-            <Avatar.Image size={100} source={{ uri: user.photoURL }} />
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={() => firestoreUser?.uid && pickAndUpload(firestoreUser.uid)}
+          disabled={isUploading}
+        >
+          {/* Use firestoreUser.photoURL from Redux so the avatar updates
+              immediately after upload without re-fetching profile data */}
+          {firestoreUser?.photoURL ? (
+            <Avatar.Image size={100} source={{ uri: firestoreUser.photoURL }} />
           ) : (
             <Avatar.Text size={100} label={getInitials(user.displayName)} />
           )}
-          <View style={styles.cameraIconContainer}>
-            <Icon name="camera" size={20} color="#FFFFFF" />
+          <View style={[styles.cameraIconContainer, isUploading && styles.cameraIconUploading]}>
+            {isUploading ? (
+              <ActivityIndicator size={16} color="#FFFFFF" />
+            ) : (
+              <Icon name="camera" size={20} color="#FFFFFF" />
+            )}
           </View>
         </TouchableOpacity>
 
@@ -513,6 +527,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: '#FFFFFF',
+  },
+  cameraIconUploading: {
+    backgroundColor: '#90CAF9',
   },
   userName: {
     fontSize: 24,
