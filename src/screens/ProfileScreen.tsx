@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import auth from '@react-native-firebase/auth';
 import {
   Text,
@@ -19,6 +20,7 @@ import {
   Button,
   Portal,
   Dialog,
+  Snackbar,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
@@ -47,6 +49,12 @@ export default function ProfileScreen() {
   const [authProvider, setAuthProvider] = useState<'password' | 'google' | 'apple'>('password');
 
   const { isUploading, pickAndUpload } = useProfilePhoto();
+  const [showCopied, setShowCopied] = useState(false);
+
+  const handleCopyEmail = (email: string) => {
+    Clipboard.setString(email);
+    setShowCopied(true);
+  };
 
   useEffect(() => {
     if (firestoreUser?.uid) {
@@ -228,7 +236,16 @@ export default function ProfileScreen() {
             <Icon name="pencil" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
         </View>
-        {user.email && <Text style={styles.userEmail}>{user.email}</Text>}
+        {user.email && (
+          <TouchableOpacity
+            style={styles.emailRow}
+            onPress={() => handleCopyEmail(user.email!)}
+            activeOpacity={0.6}
+          >
+            <Text style={styles.userEmail}>{user.email}</Text>
+            <Icon name="content-copy" size={14} color="#9E9E9E" style={styles.copyIcon} />
+          </TouchableOpacity>
+        )}
       </Surface>
 
       {/* Historic Total Section */}
@@ -482,6 +499,15 @@ export default function ProfileScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+      <Portal>
+        <Snackbar
+          visible={showCopied}
+          onDismiss={() => setShowCopied(false)}
+          duration={2000}
+        >
+          Correo copiado al portapapeles
+        </Snackbar>
+      </Portal>
     </ScrollView>
   );
 }
@@ -551,6 +577,15 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: '#757575',
+  },
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  copyIcon: {
+    marginTop: 1,
   },
   card: {
     margin: 12,
