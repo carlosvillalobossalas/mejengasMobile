@@ -43,14 +43,6 @@ export default function AdminScreen() {
       onPress: () => navigation.navigate('AddPlayer'),
     },
     {
-      id: 'link-players',
-      title: 'Enlazar Jugadores',
-      description: 'Conectar jugadores con cuentas de usuario',
-      icon: 'link-variant',
-      color: theme.colors.primary,
-      onPress: () => navigation.navigate('LinkPlayers'),
-    },
-    {
       id: 'manage-members',
       title: 'Gestionar Miembros',
       description: 'Invitar o desvincular miembros del grupo (nuevo sistema)',
