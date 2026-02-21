@@ -301,14 +301,14 @@ export default function HomeScreen() {
                                 />
                             </View>
                         </View>
-                        <View style={styles.groupMeta}>
+                        {/* <View style={styles.groupMeta}> */}
                             {/* <Chip icon={EyeIcon} compact>
                                 {activeGroup.visibility || 'Público'}
                             </Chip>
                             <Chip icon={ShapeIcon} compact>
                                 {activeGroup.type || 'General'}
                             </Chip> */}
-                            {activeGroup.isActive && (
+                            {/* {activeGroup.isActive && (
                                 <Chip
                                     icon={CheckCircleIcon}
                                     compact
@@ -318,7 +318,7 @@ export default function HomeScreen() {
                                     Activo
                                 </Chip>
                             )}
-                        </View>
+                        </View> */}
                     </Card.Content>
                 </Card>
             )}

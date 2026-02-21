@@ -237,3 +237,22 @@ export async function getGroupMemberV2ByUserId(
   if (snap.empty) return null;
   return mapDoc(snap.docs[0]);
 }
+
+export type GroupMemberRole = 'member' | 'admin' | 'owner';
+
+/**
+ * Update the role of a groupMember_v2.
+ * Only 'member' and 'admin' are valid values.
+ */
+export async function updateGroupMemberRole(
+  memberId: string,
+  role: GroupMemberRole,
+): Promise<void> {
+  await firestore()
+    .collection(COLLECTION)
+    .doc(memberId)
+    .update({
+      role,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+}

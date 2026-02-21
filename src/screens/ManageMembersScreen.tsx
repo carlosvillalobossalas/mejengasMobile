@@ -1,437 +1,517 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  ScrollView,
-  View,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Keyboard,
+    ScrollView,
+    View,
+    StyleSheet,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Keyboard,
 } from 'react-native';
 import {
-  Text,
-  Card,
-  Button,
-  Chip,
-  Divider,
-  useTheme,
-  MD3Theme,
-  Portal,
-  Modal,
-  TextInput,
+    Text,
+    Card,
+    Button,
+    Chip,
+    Divider,
+    Menu,
+    useTheme,
+    MD3Theme,
+    Portal,
+    Modal,
+    TextInput,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import { useAppSelector } from '../app/hooks';
 import {
-  subscribeToGroupMembersV2ByGroupId,
-  unlinkUserFromGroupMemberV2,
-  type GroupMemberV2,
+    subscribeToGroupMembersV2ByGroupId,
+    unlinkUserFromGroupMemberV2,
+    updateGroupMemberRole,
+    type GroupMemberV2,
+    type GroupMemberRole,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import {
-  createInvite,
-  subscribeToPendingInvitesByGroupId,
-  type Invite,
+    createInvite,
+    subscribeToPendingInvitesByGroupId,
+    type Invite,
 } from '../repositories/invites/invitesRepository';
 
 type MemberWithInvite = GroupMemberV2 & {
-  pendingInvite: Invite | null;
+    pendingInvite: Invite | null;
 };
 
 export default function ManageMembersScreen() {
-  const theme = useTheme();
-  const { selectedGroupId, groups } = useAppSelector(state => state.groups);
-  const currentUser = useAppSelector(state => state.auth.firestoreUser);
+    const theme = useTheme();
+    const { selectedGroupId, groups } = useAppSelector(state => state.groups);
+    const currentUser = useAppSelector(state => state.auth.firestoreUser);
 
-  const [rawMembers, setRawMembers] = useState<GroupMemberV2[]>([]);
-  const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [actioningId, setActioningId] = useState<string | null>(null);
+    const [rawMembers, setRawMembers] = useState<GroupMemberV2[]>([]);
+    const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [actioningId, setActioningId] = useState<string | null>(null);
+    const [roleMenuOpenId, setRoleMenuOpenId] = useState<string | null>(null);
 
-  // Combine members and invites reactively — updates automatically when either stream changes
-  const members = useMemo<MemberWithInvite[]>(() => {
-    return rawMembers.map(m => ({
-      ...m,
-      pendingInvite: pendingInvites.find(inv => inv.groupMemberId === m.id) ?? null,
-    }));
-  }, [rawMembers, pendingInvites]);
+    // Combine members and invites reactively — updates automatically when either stream changes
+    const members = useMemo<MemberWithInvite[]>(() => {
+        return rawMembers.map(m => ({
+            ...m,
+            pendingInvite: pendingInvites.find(inv => inv.groupMemberId === m.id) ?? null,
+        }));
+    }, [rawMembers, pendingInvites]);
 
-  // Subscribe to group members in real-time
-  useEffect(() => {
-    if (!selectedGroupId) {
-      setRawMembers([]);
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    const unsubscribe = subscribeToGroupMembersV2ByGroupId(
-      selectedGroupId,
-      data => {
-        setRawMembers(data);
-        setIsLoading(false);
-      },
-      err => {
-        console.error('Error subscribing to members:', err);
-        setIsLoading(false);
-      },
-    );
-    return unsubscribe;
-  }, [selectedGroupId]);
-
-  // Subscribe to pending invites for this group in real-time
-  useEffect(() => {
-    if (!selectedGroupId) {
-      setPendingInvites([]);
-      return;
-    }
-    const unsubscribe = subscribeToPendingInvitesByGroupId(
-      selectedGroupId,
-      data => setPendingInvites(data),
-      err => console.error('Error subscribing to invites:', err),
-    );
-    return unsubscribe;
-  }, [selectedGroupId]);
-
-  // Invite modal state
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<MemberWithInvite | null>(null);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [isSending, setIsSending] = useState(false);
-
-  // ─── Unlink ─────────────────────────────────────────────────────────────────
-
-  const handleUnlink = (member: MemberWithInvite) => {
-    Alert.alert(
-      'Desvincular cuenta',
-      `¿Deseas desvincular la cuenta de usuario de "${member.displayName}"?\n\nSus estadísticas e historial de partidos se conservan.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Desvincular',
-          style: 'destructive',
-          onPress: async () => {
-            setActioningId(member.id);
-            try {
-              await unlinkUserFromGroupMemberV2(member.id);
-              // Subscription updates members automatically
-            } catch (error) {
-              const msg = error instanceof Error ? error.message : String(error);
-              Alert.alert('Error', msg);
-            } finally {
-              setActioningId(null);
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  // ─── Invite ──────────────────────────────────────────────────────────────────
-
-  const openInviteModal = (member: MemberWithInvite) => {
-    setSelectedMember(member);
-    setInviteEmail('');
-    setShowInviteModal(true);
-  };
-
-  const handleSendInvite = async () => {
-    if (!selectedMember || !selectedGroupId || !currentUser) return;
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(inviteEmail.trim())) {
-      Alert.alert('Error', 'Ingresa un correo electrónico válido');
-      return;
-    }
-
-    setIsSending(true);
-    try {
-      const activeGroup = groups.find(g => g.id === selectedGroupId);
-      await createInvite({
-        groupId: selectedGroupId,
-        groupMemberId: selectedMember.id,
-        email: inviteEmail.trim(),
-        invitedById: currentUser.uid,
-        invitedByName: currentUser.displayName ?? currentUser.email ?? 'Admin',
-        displayNameSnapshot: selectedMember.displayName,
-        groupName: activeGroup?.name ?? '',
-      });
-      setShowInviteModal(false);
-      Alert.alert('Éxito', `Invitación enviada a ${inviteEmail.trim().toLowerCase()}`);
-      // Subscription updates the invite badge automatically
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      Alert.alert('Error', msg);
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  // ─── Render helpers ──────────────────────────────────────────────────────────
-
-  if (!selectedGroupId) {
-    return (
-      <View style={styles(theme).centerContainer}>
-        <Icon name="alert-circle" size={48} color={theme.colors.error} />
-        <Text variant="titleMedium" style={styles(theme).errorText}>
-          No hay grupo seleccionado
-        </Text>
-      </View>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <View style={styles(theme).centerContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text variant="bodyMedium" style={styles(theme).subtleText}>
-          Cargando miembros...
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView style={styles(theme).container} contentContainerStyle={styles(theme).content}>
-      <View style={styles(theme).headerRow}>
-        <Icon name="account-group" size={28} color={theme.colors.primary} />
-        <Text variant="headlineSmall" style={styles(theme).title}>
-          Gestionar miembros
-        </Text>
-      </View>
-      <Text variant="bodySmall" style={styles(theme).subtitle}>
-        {members.length} {members.length === 1 ? 'jugador' : 'jugadores'} en el grupo
-      </Text>
-
-      {members.length === 0 && (
-        <Card style={styles(theme).emptyCard}>
-          <Card.Content style={styles(theme).emptyContent}>
-            <Icon name="account-off" size={48} color={theme.colors.onSurfaceVariant} />
-            <Text style={styles(theme).emptyText}>No hay miembros migrados aún</Text>
-          </Card.Content>
-        </Card>
-      )}
-
-      {members.map(member => {
-        const isActioning = actioningId === member.id;
-        const isLinked = !!member.userId;
-        const hasPendingInvite = !!member.pendingInvite;
-
-        return (
-          <Card key={member.id} style={styles(theme).card}>
-            <Card.Content>
-              {/* Header row */}
-              <View style={styles(theme).memberRow}>
-                <View style={styles(theme).memberInfo}>
-                  <Text variant="titleMedium" style={styles(theme).memberName}>
-                    {member.displayName}
-                  </Text>
-
-                  <View style={styles(theme).chipRow}>
-                    {isLinked ? (
-                      <Chip
-                        icon="link"
-                        compact
-                        style={styles(theme).linkedChip}
-                        textStyle={styles(theme).linkedChipText}
-                      >
-                        Vinculado
-                      </Chip>
-                    ) : (
-                      <Chip
-                        icon="link-off"
-                        compact
-                        style={styles(theme).unlinkedChip}
-                        textStyle={styles(theme).unlinkedChipText}
-                      >
-                        Sin cuenta
-                      </Chip>
-                    )}
-                    {hasPendingInvite && (
-                      <Chip
-                        icon="email-clock"
-                        compact
-                        style={styles(theme).pendingChip}
-                        textStyle={styles(theme).pendingChipText}
-                      >
-                        Invitación pendiente
-                      </Chip>
-                    )}
-                  </View>
-
-                  {hasPendingInvite && (
-                    <Text variant="bodySmall" style={styles(theme).pendingEmail}>
-                      → {member.pendingInvite!.email}
-                    </Text>
-                  )}
-                </View>
-
-                {/* Action button */}
-                {isLinked ? (
-                  <Button
-                    mode="outlined"
-                    compact
-                    disabled={isActioning}
-                    loading={isActioning}
-                    onPress={() => handleUnlink(member)}
-                    textColor={theme.colors.error}
-                    style={styles(theme).unlinkButton}
-                  >
-                    Desvincular
-                  </Button>
-                ) : (
-                  <Button
-                    mode="contained"
-                    compact
-                    disabled={isActioning || hasPendingInvite}
-                    loading={isActioning}
-                    onPress={() => openInviteModal(member)}
-                    style={styles(theme).inviteButton}
-                  >
-                    {hasPendingInvite ? 'Invitado' : 'Invitar'}
-                  </Button>
-                )}
-              </View>
-            </Card.Content>
-          </Card>
+    // Subscribe to group members in real-time
+    useEffect(() => {
+        if (!selectedGroupId) {
+            setRawMembers([]);
+            setIsLoading(false);
+            return;
+        }
+        setIsLoading(true);
+        const unsubscribe = subscribeToGroupMembersV2ByGroupId(
+            selectedGroupId,
+            data => {
+                setRawMembers(data);
+                setIsLoading(false);
+            },
+            err => {
+                console.error('Error subscribing to members:', err);
+                setIsLoading(false);
+            },
         );
-      })}
+        return unsubscribe;
+    }, [selectedGroupId]);
 
-      {/* Invite modal */}
-      <Portal>
-        <Modal
-          visible={showInviteModal}
-          onDismiss={() => {
-            Keyboard.dismiss();
+    // Subscribe to pending invites for this group in real-time
+    useEffect(() => {
+        if (!selectedGroupId) {
+            setPendingInvites([]);
+            return;
+        }
+        const unsubscribe = subscribeToPendingInvitesByGroupId(
+            selectedGroupId,
+            data => setPendingInvites(data),
+            err => console.error('Error subscribing to invites:', err),
+        );
+        return unsubscribe;
+    }, [selectedGroupId]);
+
+    // Invite modal state
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [selectedMember, setSelectedMember] = useState<MemberWithInvite | null>(null);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [isSending, setIsSending] = useState(false);
+
+    // ─── Unlink ─────────────────────────────────────────────────────────────────
+
+    const handleUnlink = (member: MemberWithInvite) => {
+        Alert.alert(
+            'Desvincular cuenta',
+            `¿Deseas desvincular la cuenta de usuario de "${member.displayName}"?\n\nSus estadísticas e historial de partidos se conservan.`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Desvincular',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setActioningId(member.id);
+                        try {
+                            await unlinkUserFromGroupMemberV2(member.id);
+                            // Subscription updates members automatically
+                        } catch (error) {
+                            const msg = error instanceof Error ? error.message : String(error);
+                            Alert.alert('Error', msg);
+                        } finally {
+                            setActioningId(null);
+                        }
+                    },
+                },
+            ],
+        );
+    };
+
+    // ─── Role ────────────────────────────────────────────────────────────────────
+
+    const handleRoleChange = async (member: MemberWithInvite, newRole: GroupMemberRole) => {
+        setRoleMenuOpenId(null);
+        if (member.role === newRole) return;
+        setActioningId(member.id);
+        try {
+            await updateGroupMemberRole(member.id, newRole);
+            // Subscription reflects the change automatically
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            Alert.alert('Error', msg);
+        } finally {
+            setActioningId(null);
+        }
+    };
+
+    // ─── Invite ──────────────────────────────────────────────────────────────────
+
+    const openInviteModal = (member: MemberWithInvite) => {
+        setSelectedMember(member);
+        setInviteEmail('');
+        setShowInviteModal(true);
+    };
+
+    const handleSendInvite = async () => {
+        if (!selectedMember || !selectedGroupId || !currentUser) return;
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(inviteEmail.trim())) {
+            Alert.alert('Error', 'Ingresa un correo electrónico válido');
+            return;
+        }
+
+        setIsSending(true);
+        try {
+            const activeGroup = groups.find(g => g.id === selectedGroupId);
+            await createInvite({
+                groupId: selectedGroupId,
+                groupMemberId: selectedMember.id,
+                email: inviteEmail.trim(),
+                invitedById: currentUser.uid,
+                invitedByName: currentUser.displayName ?? currentUser.email ?? 'Admin',
+                displayNameSnapshot: selectedMember.displayName,
+                groupName: activeGroup?.name ?? '',
+            });
             setShowInviteModal(false);
-          }}
-          contentContainerStyle={styles(theme).modalWrapper}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          >
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-            >
-              <View style={styles(theme).modalContent}>
-                <View style={styles(theme).modalHeader}>
-            <Icon name="email-plus" size={32} color={theme.colors.primary} />
-            <Text variant="titleLarge" style={styles(theme).modalTitle}>
-              Invitar jugador
+            Alert.alert('Éxito', `Invitación enviada a ${inviteEmail.trim().toLowerCase()}`);
+            // Subscription updates the invite badge automatically
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            Alert.alert('Error', msg);
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    // ─── Render helpers ──────────────────────────────────────────────────────────
+
+    if (!selectedGroupId) {
+        return (
+            <View style={styles(theme).centerContainer}>
+                <Icon name="alert-circle" size={48} color={theme.colors.error} />
+                <Text variant="titleMedium" style={styles(theme).errorText}>
+                    No hay grupo seleccionado
+                </Text>
+            </View>
+        );
+    }
+
+    if (isLoading) {
+        return (
+            <View style={styles(theme).centerContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text variant="bodyMedium" style={styles(theme).subtleText}>
+                    Cargando miembros...
+                </Text>
+            </View>
+        );
+    }
+
+    return (
+        <ScrollView style={styles(theme).container} contentContainerStyle={styles(theme).content}>
+            <View style={styles(theme).headerRow}>
+                <Icon name="account-group" size={28} color={theme.colors.primary} />
+                <Text variant="headlineSmall" style={styles(theme).title}>
+                    Gestionar miembros
+                </Text>
+            </View>
+            <Text variant="bodySmall" style={styles(theme).subtitle}>
+                {members.length} {members.length === 1 ? 'jugador' : 'jugadores'} en el grupo
             </Text>
-            {selectedMember && (
-              <>
-                <Text variant="bodyMedium" style={styles(theme).modalSubtitle}>
-                  Enlazar cuenta de
-                </Text>
-                <Text variant="titleMedium" style={styles(theme).modalMemberName}>
-                  {selectedMember.displayName}
-                </Text>
-              </>
+
+            {members.length === 0 && (
+                <Card style={styles(theme).emptyCard}>
+                    <Card.Content style={styles(theme).emptyContent}>
+                        <Icon name="account-off" size={48} color={theme.colors.onSurfaceVariant} />
+                        <Text style={styles(theme).emptyText}>No hay miembros migrados aún</Text>
+                    </Card.Content>
+                </Card>
             )}
-          </View>
 
-          <Divider style={styles(theme).modalDivider} />
+            {members.map(member => {
+                const isActioning = actioningId === member.id;
+                const isLinked = !!member.userId;
+                const hasPendingInvite = !!member.pendingInvite;
 
-          <TextInput
-            label="Correo electrónico"
-            value={inviteEmail}
-            onChangeText={setInviteEmail}
-            mode="outlined"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            disabled={isSending}
-            style={styles(theme).emailInput}
-          />
+                return (
+                    <Card key={member.id} style={styles(theme).card}>
+                        <Card.Content>
+                            {/* Header row */}
+                            <View style={styles(theme).memberRow}>
+                                <View style={styles(theme).memberInfo}>
+                                    <Text variant="titleMedium" style={styles(theme).memberName}>
+                                        {member.displayName}
+                                    </Text>
 
-          <View style={styles(theme).modalButtons}>
-            <Button
-              mode="outlined"
-              onPress={() => setShowInviteModal(false)}
-              disabled={isSending}
-              style={styles(theme).modalButton}
-            >
-              Cancelar
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleSendInvite}
-              loading={isSending}
-              disabled={isSending}
-              style={styles(theme).modalButton}
-            >
-              Enviar
-            </Button>
-          </View>
-        </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </Modal>
-      </Portal>
-    </ScrollView>
-  );
+                                    <View style={styles(theme).chipRow}>
+                                        {isLinked ? (
+                                            <Chip
+                                                icon="link"
+                                                compact
+                                                style={styles(theme).linkedChip}
+                                                textStyle={styles(theme).linkedChipText}
+                                            >
+                                                Vinculado
+                                            </Chip>
+                                        ) : (
+                                            <Chip
+                                                icon="link-off"
+                                                compact
+                                                style={styles(theme).unlinkedChip}
+                                                textStyle={styles(theme).unlinkedChipText}
+                                            >
+                                                Sin cuenta
+                                            </Chip>
+                                        )}
+                                        {hasPendingInvite && (
+                                            <Chip
+                                                icon="email-clock"
+                                                compact
+                                                style={styles(theme).pendingChip}
+                                                textStyle={styles(theme).pendingChipText}
+                                            >
+                                                Invitación pendiente
+                                            </Chip>
+                                        )}
+                                    </View>
+
+                                    {hasPendingInvite && (
+                                        <Text variant="bodySmall" style={styles(theme).pendingEmail}>
+                                            → {member.pendingInvite!.email}
+                                        </Text>
+                                    )}
+                                </View>
+
+                                {/* Action buttons */}
+                                {isLinked ? (
+                                    <View style={styles(theme).actionColumn}>
+                                        {/* Role menu */}
+                                        <Menu
+                                            visible={roleMenuOpenId === member.id}
+                                            onDismiss={() => setRoleMenuOpenId(null)}
+                                            anchor={
+                                                <Button
+                                                    mode="contained-tonal"
+                                                    compact
+                                                    disabled={isActioning || member.role === 'owner'}
+                                                    onPress={() => setRoleMenuOpenId(member.id)}
+                                                    icon={({ size }) => (
+                                                        <Icon
+                                                            name={
+                                                                member.role === 'admin'
+                                                                    ? 'shield-account'
+                                                                    : member.role === 'owner'
+                                                                    ? 'crown'
+                                                                    : 'account'
+                                                            }
+                                                            size={size}
+                                                            color={theme.colors.onSecondary}
+                                                        />
+                                                    )}
+                                                    style={styles(theme).roleButton}
+                                                >
+                                                    <Text style={{ color: theme.colors.onSecondary }}>
+                                                        {member.role === 'admin'
+                                                            ? 'Admin'
+                                                            : member.role === 'owner'
+                                                                ? 'Dueño'
+                                                                : 'Miembro'}
+                                                    </Text>
+                                                </Button>
+                                            }
+                                        >
+                                            <Menu.Item
+                                                leadingIcon="account"
+                                                onPress={() => handleRoleChange(member, 'member')}
+                                                title="Miembro"
+                                                disabled={member.role === 'member'}
+                                            />
+                                            <Menu.Item
+                                                leadingIcon="shield-account"
+                                                onPress={() => handleRoleChange(member, 'admin')}
+                                                title="Admin"
+                                                disabled={member.role === 'admin'}
+                                            />
+                                        </Menu>
+
+                                        {/* Unlink button */}
+                                        <Button
+                                            mode="outlined"
+                                            compact
+                                            disabled={isActioning}
+                                            loading={isActioning}
+                                            onPress={() => handleUnlink(member)}
+                                            textColor={theme.colors.error}
+                                            style={styles(theme).unlinkButton}
+                                        >
+                                            Desvincular
+                                        </Button>
+                                    </View>
+                                ) : (
+                                    <Button
+                                        mode="contained"
+                                        compact
+                                        disabled={isActioning || hasPendingInvite}
+                                        loading={isActioning}
+                                        onPress={() => openInviteModal(member)}
+                                        style={styles(theme).inviteButton}
+                                    >
+                                        {hasPendingInvite ? 'Invitado' : 'Invitar'}
+                                    </Button>
+                                )}
+                            </View>
+                        </Card.Content>
+                    </Card>
+                );
+            })}
+
+            {/* Invite modal */}
+            <Portal>
+                <Modal
+                    visible={showInviteModal}
+                    onDismiss={() => {
+                        Keyboard.dismiss();
+                        setShowInviteModal(false);
+                    }}
+                    contentContainerStyle={styles(theme).modalWrapper}
+                >
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    >
+                        <ScrollView
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
+                            showsVerticalScrollIndicator={false}
+                            bounces={false}
+                        >
+                            <View style={styles(theme).modalContent}>
+                                <View style={styles(theme).modalHeader}>
+                                    <Icon name="email-plus" size={32} color={theme.colors.primary} />
+                                    <Text variant="titleLarge" style={styles(theme).modalTitle}>
+                                        Invitar jugador
+                                    </Text>
+                                    {selectedMember && (
+                                        <>
+                                            <Text variant="bodyMedium" style={styles(theme).modalSubtitle}>
+                                                Enlazar cuenta de
+                                            </Text>
+                                            <Text variant="titleMedium" style={styles(theme).modalMemberName}>
+                                                {selectedMember.displayName}
+                                            </Text>
+                                        </>
+                                    )}
+                                </View>
+
+                                <Divider style={styles(theme).modalDivider} />
+
+                                <TextInput
+                                    label="Correo electrónico"
+                                    value={inviteEmail}
+                                    onChangeText={setInviteEmail}
+                                    mode="outlined"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                    disabled={isSending}
+                                    style={styles(theme).emailInput}
+                                />
+
+                                <View style={styles(theme).modalButtons}>
+                                    <Button
+                                        mode="outlined"
+                                        onPress={() => setShowInviteModal(false)}
+                                        disabled={isSending}
+                                        style={styles(theme).modalButton}
+                                    >
+                                        Cancelar
+                                    </Button>
+                                    <Button
+                                        mode="contained"
+                                        onPress={handleSendInvite}
+                                        loading={isSending}
+                                        disabled={isSending}
+                                        style={styles(theme).modalButton}
+                                    >
+                                        Enviar
+                                    </Button>
+                                </View>
+                            </View>
+                        </ScrollView>
+                    </KeyboardAvoidingView>
+                </Modal>
+            </Portal>
+        </ScrollView>
+    );
 }
 
 const styles = (theme: MD3Theme) =>
-  StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F5F5F5' },
-    content: { padding: 16, paddingBottom: 40 },
-    centerContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: 12,
-      padding: 24,
-    },
-    errorText: { color: theme.colors.error, textAlign: 'center' },
-    subtleText: { color: '#666' },
-    headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-    title: { fontWeight: 'bold' },
-    subtitle: { color: '#666', marginBottom: 16 },
-    emptyCard: { borderRadius: 12 },
-    emptyContent: { alignItems: 'center', paddingVertical: 32, gap: 12 },
-    emptyText: { color: '#999', textAlign: 'center' },
-    card: { marginBottom: 10, borderRadius: 12 },
-    memberRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 12,
-    },
-    memberInfo: { flex: 1, gap: 6 },
-    memberName: { fontWeight: '600' },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-    linkedChip: { backgroundColor: theme.colors.inversePrimary, alignSelf: 'flex-start' },
-    linkedChipText: { fontSize: 11 },
-    unlinkedChip: {
-      backgroundColor: theme.colors.errorContainer,
-      alignSelf: 'flex-start',
-    },
-    unlinkedChipText: { fontSize: 11, color: theme.colors.error },
-    pendingChip: { backgroundColor: '#FFF3E0', alignSelf: 'flex-start' },
-    pendingChipText: { fontSize: 11, color: '#E65100' },
-    pendingEmail: { color: '#E65100', fontSize: 12 },
-    unlinkButton: { borderColor: theme.colors.error },
-    inviteButton: {},
-    // Modal
-    modalWrapper: {
-      margin: 20,
-    },
-    modalContent: {
-      backgroundColor: 'white',
-      padding: 24,
-      borderRadius: 16,
-    },
-    modalHeader: { alignItems: 'center', gap: 8, marginBottom: 8 },
-    modalTitle: { fontWeight: 'bold' },
-    modalSubtitle: { color: '#666', textAlign: 'center', lineHeight: 22 },
-    modalMemberName: { fontWeight: 'bold', color: theme.colors.primary },
-    modalDivider: { marginVertical: 16 },
-    emailInput: { marginBottom: 20 },
-    modalButtons: { flexDirection: 'row', gap: 12 },
-    modalButton: { flex: 1 },
-  });
+    StyleSheet.create({
+        container: { flex: 1, backgroundColor: '#F5F5F5' },
+        content: { padding: 16, paddingBottom: 40 },
+        centerContainer: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 12,
+            padding: 24,
+        },
+        errorText: { color: theme.colors.error, textAlign: 'center' },
+        subtleText: { color: '#666' },
+        headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+        title: { fontWeight: 'bold' },
+        subtitle: { color: '#666', marginBottom: 16 },
+        emptyCard: { borderRadius: 12 },
+        emptyContent: { alignItems: 'center', paddingVertical: 32, gap: 12 },
+        emptyText: { color: '#999', textAlign: 'center' },
+        card: { marginBottom: 10, borderRadius: 12 },
+        memberRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+        },
+        memberInfo: { flex: 1, gap: 6 },
+        memberName: { fontWeight: '600' },
+        chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+        linkedChip: { backgroundColor: theme.colors.inversePrimary, alignSelf: 'flex-start' },
+        linkedChipText: { fontSize: 11 },
+        unlinkedChip: {
+            backgroundColor: theme.colors.errorContainer,
+            alignSelf: 'flex-start',
+        },
+        unlinkedChipText: { fontSize: 11, color: theme.colors.error },
+        pendingChip: { backgroundColor: '#FFF3E0', alignSelf: 'flex-start' },
+        pendingChipText: { fontSize: 11, color: '#E65100' },
+        pendingEmail: { color: '#E65100', fontSize: 12 },
+        unlinkButton: { borderColor: theme.colors.error },
+        inviteButton: {},
+        actionColumn: {
+            alignItems: 'flex-end',
+            gap: 6,
+        },
+        roleButton: {
+            backgroundColor: theme.colors.secondary,
+        },
+        // Modal
+        modalWrapper: {
+            margin: 20,
+        },
+        modalContent: {
+            backgroundColor: 'white',
+            padding: 24,
+            borderRadius: 16,
+        },
+        modalHeader: { alignItems: 'center', gap: 8, marginBottom: 8 },
+        modalTitle: { fontWeight: 'bold' },
+        modalSubtitle: { color: '#666', textAlign: 'center', lineHeight: 22 },
+        modalMemberName: { fontWeight: 'bold', color: theme.colors.primary },
+        modalDivider: { marginVertical: 16 },
+        emailInput: { marginBottom: 20 },
+        modalButtons: { flexDirection: 'row', gap: 12 },
+        modalButton: { flex: 1 },
+    });
