@@ -154,7 +154,7 @@ const handleMatchCreated = async (matchId, data) => {
 };
 
 exports.notifyGroupOnNewMatch = onDocumentCreated(
-  'Matches/{matchId}',
+  'matches/{matchId}',
   async event => {
     await handleMatchCreated(event.params.matchId, event.data?.data());
   },

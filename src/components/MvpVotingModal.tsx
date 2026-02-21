@@ -214,7 +214,7 @@ const styles = (theme: MD3Theme) =>
       marginHorizontal: 24,
       borderRadius: 16,
       padding: 20,
-      maxHeight: '80%',
+      height: '70%',
     },
     header: {
       flexDirection: 'row',
