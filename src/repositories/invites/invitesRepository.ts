@@ -267,3 +267,22 @@ export async function getPendingInviteForMember(
   if (snap.empty) return null;
   return mapInviteDoc(snap.docs[0]);
 }
+
+/**
+ * Subscribe to all pending invites for a group in real-time.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToPendingInvitesByGroupId(
+  groupId: string,
+  onNext: (invites: Invite[]) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  return firestore()
+    .collection(INVITES_COLLECTION)
+    .where('groupId', '==', groupId)
+    .where('status', '==', 'pending')
+    .onSnapshot(
+      snap => onNext(snap.docs.map(mapInviteDoc)),
+      err => onError?.(err),
+    );
+}

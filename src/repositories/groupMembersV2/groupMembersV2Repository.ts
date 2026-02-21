@@ -79,6 +79,25 @@ export async function getGroupMembersV2ByGroupId(
 }
 
 /**
+ * Subscribe to all groupMembers_v2 for a group with real-time updates.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToGroupMembersV2ByGroupId(
+  groupId: string,
+  onNext: (members: GroupMemberV2[]) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  return firestore()
+    .collection(COLLECTION)
+    .where('groupId', '==', groupId)
+    .orderBy('displayName', 'asc')
+    .onSnapshot(
+      snap => onNext(snap.docs.map(mapDoc)),
+      err => onError?.(err),
+    );
+}
+
+/**
  * Unlink a user from a groupMember_v2.
  * Only sets userId = null and isGuest = true.
  * Does NOT touch matches or seasonStats (they reference groupMemberId, not userId).

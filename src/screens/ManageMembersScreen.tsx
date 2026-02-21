@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ScrollView,
   View,
@@ -25,13 +25,13 @@ import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material
 
 import { useAppSelector } from '../app/hooks';
 import {
-  getGroupMembersV2ByGroupId,
+  subscribeToGroupMembersV2ByGroupId,
   unlinkUserFromGroupMemberV2,
   type GroupMemberV2,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import {
   createInvite,
-  getPendingInviteForMember,
+  subscribeToPendingInvitesByGroupId,
   type Invite,
 } from '../repositories/invites/invitesRepository';
 
@@ -44,42 +44,60 @@ export default function ManageMembersScreen() {
   const { selectedGroupId, groups } = useAppSelector(state => state.groups);
   const currentUser = useAppSelector(state => state.auth.firestoreUser);
 
-  const [members, setMembers] = useState<MemberWithInvite[]>([]);
+  const [rawMembers, setRawMembers] = useState<GroupMemberV2[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actioningId, setActioningId] = useState<string | null>(null);
+
+  // Combine members and invites reactively — updates automatically when either stream changes
+  const members = useMemo<MemberWithInvite[]>(() => {
+    return rawMembers.map(m => ({
+      ...m,
+      pendingInvite: pendingInvites.find(inv => inv.groupMemberId === m.id) ?? null,
+    }));
+  }, [rawMembers, pendingInvites]);
+
+  // Subscribe to group members in real-time
+  useEffect(() => {
+    if (!selectedGroupId) {
+      setRawMembers([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    const unsubscribe = subscribeToGroupMembersV2ByGroupId(
+      selectedGroupId,
+      data => {
+        setRawMembers(data);
+        setIsLoading(false);
+      },
+      err => {
+        console.error('Error subscribing to members:', err);
+        setIsLoading(false);
+      },
+    );
+    return unsubscribe;
+  }, [selectedGroupId]);
+
+  // Subscribe to pending invites for this group in real-time
+  useEffect(() => {
+    if (!selectedGroupId) {
+      setPendingInvites([]);
+      return;
+    }
+    const unsubscribe = subscribeToPendingInvitesByGroupId(
+      selectedGroupId,
+      data => setPendingInvites(data),
+      err => console.error('Error subscribing to invites:', err),
+    );
+    return unsubscribe;
+  }, [selectedGroupId]);
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<MemberWithInvite | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
-
-  const loadData = useCallback(async () => {
-    if (!selectedGroupId) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const rawMembers = await getGroupMembersV2ByGroupId(selectedGroupId);
-      const withInvites = await Promise.all(
-        rawMembers.map(async m => {
-          const pendingInvite = await getPendingInviteForMember(m.id);
-          return { ...m, pendingInvite };
-        }),
-      );
-      setMembers(withInvites);
-    } catch (error) {
-      console.error('Error loading members:', error);
-      Alert.alert('Error', 'No se pudieron cargar los miembros');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedGroupId]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   // ─── Unlink ─────────────────────────────────────────────────────────────────
 
@@ -96,7 +114,7 @@ export default function ManageMembersScreen() {
             setActioningId(member.id);
             try {
               await unlinkUserFromGroupMemberV2(member.id);
-              await loadData();
+              // Subscription updates members automatically
             } catch (error) {
               const msg = error instanceof Error ? error.message : String(error);
               Alert.alert('Error', msg);
@@ -140,7 +158,7 @@ export default function ManageMembersScreen() {
       });
       setShowInviteModal(false);
       Alert.alert('Éxito', `Invitación enviada a ${inviteEmail.trim().toLowerCase()}`);
-      await loadData();
+      // Subscription updates the invite badge automatically
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       Alert.alert('Error', msg);
