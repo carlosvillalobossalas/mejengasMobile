@@ -32,14 +32,14 @@ const getPositionCoordinates = (
 ): { x: number; y: number } => {
     // Goalkeeper always at bottom center
     if (position === 'POR') {
-        return { x: 50, y: 88 };
+        return { x: 50, y: 84 };
     }
 
     // Vertical positions by line
     const yPositions: Record<string, number> = {
-        DEL: 15,  // Forwards at top
-        MED: 40,  // Midfielders in center
-        DEF: 65,  // Defenders at back
+        DEL: 10,  // Forwards at top
+        MED: 37,  // Midfielders in center
+        DEF: 62,  // Defenders at back
     };
 
     // Calculate horizontal position
@@ -53,7 +53,7 @@ const getPositionCoordinates = (
         }
 
         // For 3 or more, distribute evenly with 15% and 85% margins
-        const minX = 15;
+        const minX = 13;
         const maxX = 85;
         const spacing = (maxX - minX) / (total - 1);
 
@@ -302,7 +302,7 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     field: {
         position: 'relative',
         width: '100%',
-        aspectRatio: 10 / 16,
+        aspectRatio: 10 / 16.5,
         backgroundColor: '#4CAF50',
     },
     fieldLines: {
