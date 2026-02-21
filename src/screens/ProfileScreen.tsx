@@ -363,7 +363,11 @@ export default function ProfileScreen() {
 
       {/* Edit Name Dialog */}
       <Portal>
-        <Dialog visible={showEditNameDialog} onDismiss={() => setShowEditNameDialog(false)}>
+        <Dialog
+          visible={showEditNameDialog}
+          onDismiss={() => setShowEditNameDialog(false)}
+          style={styles.editNameDialog}
+        >
           <Dialog.Title>Editar Nombre</Dialog.Title>
           <Dialog.Content>
             <TextInput
@@ -623,5 +627,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#757575',
     textAlign: 'center',
+  },
+  editNameDialog: {
+    // Push the dialog above the keyboard so the TextInput stays visible when it opens
+    marginBottom: 200,
   },
 });
