@@ -21,10 +21,9 @@ import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/b
 
 import { useAppSelector } from '../app/hooks';
 import {
-    prepareGoalkeeperStatsFromMatches,
+    subscribeToGoalkeeperStats,
     type GoalkeeperStats,
 } from '../endpoints/goalkeepers/goalkeepersStatsEndpoints';
-import { getPlayerInitial, getPlayerDisplay } from '../helpers/players';
 
 type SortColumn = 'name' | 'goalsReceived' | 'cleanSheets' | 'matches' | 'mvp';
 type SortDirection = 'ascending' | 'descending';
@@ -47,25 +46,22 @@ export default function GoalkeepersTableScreen() {
     const [sortDirection, setSortDirection] = useState<SortDirection>('descending');
     const bottomSheetRef = useRef<BottomSheet>(null);
 
-    // Load stats when component mounts or groupId changes
+    // Subscribe to real-time updates
     useEffect(() => {
-        const loadStats = async () => {
-            if (!selectedGroupId) {
-                return;
-            }
+        if (!selectedGroupId) {
+            return;
+        }
 
-            setIsLoading(true);
-            try {
-                const stats = await prepareGoalkeeperStatsFromMatches(selectedGroupId);
-                setAllYearStats(stats);
-            } catch (error) {
-                console.error('Error loading goalkeeper stats:', error);
-            } finally {
-                setIsLoading(false);
-            }
+        setIsLoading(true);
+
+        const unsubscribe = subscribeToGoalkeeperStats(selectedGroupId, stats => {
+            setAllYearStats(stats);
+            setIsLoading(false);
+        });
+
+        return () => {
+            unsubscribe();
         };
-
-        loadStats();
     }, [selectedGroupId]);
 
     const handleSort = (column: SortColumn) => {
@@ -109,9 +105,8 @@ export default function GoalkeepersTableScreen() {
 
             switch (sortBy) {
                 case 'name':
-                    // Use helper to get display name for sorting
-                    aValue = getPlayerDisplay({ name: a.name, originalName: a.originalName });
-                    bValue = getPlayerDisplay({ name: b.name, originalName: b.originalName });
+                    aValue = a.name ?? '';
+                    bValue = b.name ?? '';
                     break;
                 case 'goalsReceived':
                     aValue = a.goalsReceived;
@@ -262,11 +257,8 @@ export default function GoalkeepersTableScreen() {
 
                     {/* Table Rows */}
                     {sortedGoalkeepers.map((goalkeeper, index) => {
-                        const displayName = getPlayerDisplay({
-                            name: goalkeeper.name,
-                            originalName: goalkeeper.originalName,
-                        });
-                        const initial = getPlayerInitial(displayName);
+                        const displayName = goalkeeper.name ?? 'Desconocido';
+                        const initial = displayName[0]?.toUpperCase() ?? '?';
 
                         return (
                             <DataTable.Row

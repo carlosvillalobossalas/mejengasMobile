@@ -47,6 +47,9 @@ function buildStats(
         // Skip goalkeeper-only docs (no playerStats block)
         if (!playerStats || !groupMemberId) return;
 
+        // Skip players with no matches in this season
+        if ((playerStats.matches ?? 0) === 0) return;
+
         const member = membersMap.get(groupMemberId);
         const seasonKey = String(season);
 
