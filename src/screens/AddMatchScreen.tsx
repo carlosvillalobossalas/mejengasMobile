@@ -25,15 +25,14 @@ import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material
 import DatePicker from 'react-native-date-picker';
 
 import { useAppSelector } from '../app/hooks';
-import { getAllPlayersByGroup, type Player } from '../repositories/players/playerSeasonStatsRepository';
-import { getPlayerDisplay } from '../helpers/players';
+import { getGroupMembersV2ByGroupId, type GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import { saveMatch } from '../services/matches/matchSaveService';
 
 type Position = 'POR' | 'DEF' | 'MED' | 'DEL';
 
 type TeamPlayer = {
   position: Position;
-  playerId: string | null;
+  groupMemberId: string | null;
   playerName: string;
   goals: string;
   assists: string;
@@ -59,7 +58,7 @@ const getDefaultPosition = (index: number): Position => {
 const createDefaultTeamPlayers = (): TeamPlayer[] =>
   Array.from({ length: 7 }, (_, index) => ({
     position: getDefaultPosition(index),
-    playerId: null,
+    groupMemberId: null,
     playerName: '',
     goals: '0',
     assists: '0',
@@ -80,9 +79,9 @@ export default function AddMatchScreen() {
   const { selectedGroupId } = useAppSelector(state => state.groups);
 
   const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0);
-  const [matchDate, setMatchDate] = useState(new Date());
+  const [matchDate, setMatchDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [players, setPlayers] = useState<GroupMemberV2[]>([]);
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(true);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [isPlayerPickerVisible, setIsPlayerPickerVisible] = useState(false);
@@ -104,15 +103,11 @@ export default function AddMatchScreen() {
 
       setIsLoadingPlayers(true);
       try {
-        const playersData = await getAllPlayersByGroup(selectedGroupId);
-        const sortedPlayers = playersData.sort((a, b) => {
-          const nameA = a.name || a.originalName || '';
-          const nameB = b.name || b.originalName || '';
-          return nameA.localeCompare(nameB);
-        });
-        setPlayers(sortedPlayers);
+        const membersData = await getGroupMembersV2ByGroupId(selectedGroupId);
+        // Already sorted by displayName from the repository query
+        setPlayers(membersData);
       } catch (error) {
-        console.error('Error loading players:', error);
+        console.error('Error loading group members:', error);
       } finally {
         setIsLoadingPlayers(false);
       }
@@ -128,24 +123,56 @@ export default function AddMatchScreen() {
     const goals = team1Players.reduce((sum, player) => sum + parseStatValue(player.goals), 0);
     const opponentOwnGoals = team2Players.reduce((sum, player) => sum + parseStatValue(player.ownGoals), 0);
     return goals + opponentOwnGoals;
-  }, [JSON.stringify(team1Players.map(p => ({ id: p.playerId, goals: p.goals }))), JSON.stringify(team2Players.map(p => ({ id: p.playerId, ownGoals: p.ownGoals })))]);
+  }, [JSON.stringify(team1Players.map(p => ({ id: p.groupMemberId, goals: p.goals }))), JSON.stringify(team2Players.map(p => ({ id: p.groupMemberId, ownGoals: p.ownGoals })))]);
 
   const team2Goals = useMemo(() => {
     const goals = team2Players.reduce((sum, player) => sum + parseStatValue(player.goals), 0);
     const opponentOwnGoals = team1Players.reduce((sum, player) => sum + parseStatValue(player.ownGoals), 0);
     return goals + opponentOwnGoals;
-  }, [JSON.stringify(team2Players.map(p => ({ id: p.playerId, goals: p.goals }))), JSON.stringify(team1Players.map(p => ({ id: p.playerId, ownGoals: p.ownGoals })))]);
+  }, [JSON.stringify(team2Players.map(p => ({ id: p.groupMemberId, goals: p.goals }))), JSON.stringify(team1Players.map(p => ({ id: p.groupMemberId, ownGoals: p.ownGoals })))]);
 
   const selectedPlayerIds = useMemo(() => {
     const ids = new Set<string>();
-    team1Players.forEach(p => p.playerId && ids.add(p.playerId));
-    team2Players.forEach(p => p.playerId && ids.add(p.playerId));
+    team1Players.forEach(p => p.groupMemberId && ids.add(p.groupMemberId));
+    team2Players.forEach(p => p.groupMemberId && ids.add(p.groupMemberId));
     return ids;
-  }, [JSON.stringify(team1Players.map(p => p.playerId)), JSON.stringify(team2Players.map(p => p.playerId))]);
+  }, [JSON.stringify(team1Players.map(p => p.groupMemberId)), JSON.stringify(team2Players.map(p => p.groupMemberId))]);
 
   const availablePlayers = useMemo(() => {
     return players.filter(player => !selectedPlayerIds.has(player.id));
   }, [players, selectedPlayerIds]);
+
+  const validationWarnings = useMemo(() => {
+    const warnings: string[] = [];
+
+    const team1Selected = team1Players.filter(p => p.groupMemberId !== null).length;
+    const team2Selected = team2Players.filter(p => p.groupMemberId !== null).length;
+
+    if (team1Selected < 7) {
+      warnings.push(`Equipo 1: faltan ${7 - team1Selected} jugador(es) por seleccionar`);
+    }
+    if (team2Selected < 7) {
+      warnings.push(`Equipo 2: faltan ${7 - team2Selected} jugador(es) por seleccionar`);
+    }
+
+    if (!matchDate) {
+      warnings.push('Selecciona una fecha para el partido');
+    }
+
+    const team1PorCount = team1Players.filter(p => p.position === 'POR').length;
+    const team2PorCount = team2Players.filter(p => p.position === 'POR').length;
+
+    if (team1PorCount !== 1) {
+      warnings.push(`Equipo 1 debe tener exactamente 1 portero (tiene ${team1PorCount})`);
+    }
+    if (team2PorCount !== 1) {
+      warnings.push(`Equipo 2 debe tener exactamente 1 portero (tiene ${team2PorCount})`);
+    }
+
+    return warnings;
+  }, [team1Players, team2Players, matchDate]);
+
+  const canSave = validationWarnings.length === 0;
 
   const handlePositionChange = useCallback((index: number, position: Position) => {
     const updated = [...currentTeamPlayers];
@@ -153,14 +180,14 @@ export default function AddMatchScreen() {
     setCurrentTeamPlayers(updated);
   }, [currentTeamPlayers, setCurrentTeamPlayers]);
 
-  const handlePlayerSelect = useCallback((player: Player) => {
+  const handlePlayerSelect = useCallback((member: GroupMemberV2) => {
     if (selectedRowIndex === null) return;
 
     const updated = [...currentTeamPlayers];
-    updated[selectedRowIndex].playerId = player.id;
-    updated[selectedRowIndex].playerName = getPlayerDisplay(player);
+    updated[selectedRowIndex].groupMemberId = member.id;
+    updated[selectedRowIndex].playerName = member.displayName;
     setCurrentTeamPlayers(updated);
-    
+
     setIsPlayerPickerVisible(false);
     setSelectedRowIndex(null);
   }, [selectedRowIndex, currentTeamPlayers, setCurrentTeamPlayers]);
@@ -194,17 +221,8 @@ export default function AddMatchScreen() {
   }, []);
 
   const handleSaveMatch = async () => {
-    // Validate that all players are selected
-    const allPlayersSelected = [
-      ...team1Players,
-      ...team2Players,
-    ].every(p => p.playerId);
-
-    if (!allPlayersSelected) {
-      setSnackbarMessage('Por favor selecciona todos los jugadores');
-      setSnackbarVisible(true);
-      return;
-    }
+    // Button is disabled when canSave is false, but guard here for safety
+    if (!canSave || !matchDate) return;
 
     setIsSaving(true);
     try {
@@ -223,7 +241,7 @@ export default function AddMatchScreen() {
       // Reset form
       setTeam1Players(createDefaultTeamPlayers());
       setTeam2Players(createDefaultTeamPlayers());
-      setMatchDate(new Date());
+      setMatchDate(null);
       setActiveTab(0);
     } catch (error) {
       console.error('Error saving match:', error);
@@ -479,7 +497,8 @@ export default function AddMatchScreen() {
               Fecha del partido
             </Text>
             <TextInput
-              value={formatDate(matchDate)}
+              value={matchDate ? formatDate(matchDate) : ''}
+              placeholder="Seleccionar fecha"
               mode="outlined"
               editable={false}
               right={<TextInput.Icon icon="calendar" onPress={() => setShowDatePicker(true)} />}
@@ -492,7 +511,7 @@ export default function AddMatchScreen() {
             mode="date"
             modal
             open={showDatePicker}
-            date={matchDate}
+            date={matchDate ?? new Date()}
             onConfirm={(date) => {
               setShowDatePicker(false);
               const startOfDay = new Date(date);
@@ -505,11 +524,23 @@ export default function AddMatchScreen() {
             onCancel={() => setShowDatePicker(false)}
           />
 
+          {/* Validation Warnings */}
+          {validationWarnings.length > 0 && (
+            <Surface style={styles(theme).warningsCard} elevation={0}>
+              {validationWarnings.map((warning, index) => (
+                <View key={index} style={styles(theme).warningRow}>
+                  <Icon name="alert-circle" size={16} color={theme.colors.error} />
+                  <Text style={styles(theme).warningText}>{warning}</Text>
+                </View>
+              ))}
+            </Surface>
+          )}
+
           {/* Save Button */}
           <Button
             mode="contained"
             onPress={handleSaveMatch}
-            disabled={isSaving}
+            disabled={isSaving || !canSave}
             loading={isSaving}
             style={styles(theme).saveButton}
             contentStyle={styles(theme).saveButtonContent}
@@ -545,11 +576,11 @@ export default function AddMatchScreen() {
                 </View>
               ) : (
                 <ScrollView style={styles(theme).modalList}>
-                  {availablePlayers.map((player, index) => (
-                    <React.Fragment key={player.id}>
+                  {availablePlayers.map((member, index) => (
+                    <React.Fragment key={member.id}>
                       <List.Item
-                        title={getPlayerDisplay(player)}
-                        onPress={() => handlePlayerSelect(player)}
+                        title={member.displayName}
+                        onPress={() => handlePlayerSelect(member)}
                         left={(props) => <List.Icon {...props} icon="account" />}
                         right={(props) => <List.Icon {...props} icon="chevron-right" />}
                       />
@@ -820,5 +851,21 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   },
   closeButton: {
     marginTop: 16,
+  },
+  warningsCard: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: theme.colors.errorContainer,
+    gap: 8,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  warningText: {
+    flex: 1,
+    color: theme.colors.error,
+    fontSize: 13,
   },
 });

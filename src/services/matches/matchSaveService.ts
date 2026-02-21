@@ -2,7 +2,7 @@ import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firest
 
 export type TeamPlayer = {
   position: 'POR' | 'DEF' | 'MED' | 'DEL';
-  playerId: string | null;
+  groupMemberId: string | null;
   playerName: string;
   goals: string;
   assists: string;
@@ -18,356 +18,158 @@ export type MatchToSave = {
   team2Goals: number;
 };
 
-type UpdateStats = {
+type PlayerStats = {
   goals: number;
   assists: number;
   ownGoals: number;
+  won: boolean;
+  lost: boolean;
+  draw: boolean;
+  isGoalkeeper: boolean;
+  // Only relevant for goalkeepers
+  goalsConceded?: number;
+  cleanSheet?: number;
 };
 
-const MATCHES_COLLECTION = 'Matches';
-const PLAYER_SEASON_STATS_COLLECTION = 'PlayerSeasonStats';
-const GOALKEEPER_SEASON_STATS_COLLECTION = 'GoalkeeperSeasonStats';
-const PLAYERS_COLLECTION = 'Players';
+const MATCHES_COLLECTION = 'matches';
+const SEASON_STATS_COLLECTION = 'seasonStats';
 
 /**
- * Get batch player info for multiple playerIds
+ * Adds two batch operations on the seasonStats doc for a single player:
+ * 1. set({ merge: true }) with base identity fields to ensure the doc exists
+ *    without overwriting any existing stats blocks.
+ * 2. update() with FieldValue.increment via dot-notation on the specific block
+ *    (goalkeeperStats.* for POR, playerStats.* for all others).
+ *
+ * No pre-read is needed. FieldValue.increment initializes a missing field to
+ * the given value, so the first match for a new player is handled correctly.
+ * Using both ops in the same batch is safe and atomic.
  */
-async function getPlayersInfo(playerIds: string[]): Promise<Map<string, string | undefined>> {
-  const result = new Map<string, string | undefined>();
-
-  // Batch fetch in groups of 10 (Firestore limit)
-  const batchSize = 10;
-  for (let i = 0; i < playerIds.length; i += batchSize) {
-    const batch = playerIds.slice(i, i + batchSize);
-    try {
-      const snapshot = await firestore()
-        .collection(PLAYERS_COLLECTION)
-        .where(firestore.FieldPath.documentId(), 'in', batch)
-        .get();
-
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        result.set(doc.id, data?.userId as string | undefined);
-      });
-    } catch (error) {
-      console.error('Error fetching players batch:', error);
-    }
-  }
-
-  return result;
-}
-
-/**
- * Get existing season stats for a player
- */
-async function getPlayerSeasonStats(
-  playerId: string,
-  groupId: string,
-  season: number,
-): Promise<FirebaseFirestoreTypes.DocumentData | null> {
-  try {
-    const docId = `${playerId}_${season}_${groupId}`;
-    const doc = await firestore()
-      .collection(PLAYER_SEASON_STATS_COLLECTION)
-      .doc(docId)
-      .get();
-
-    return doc.exists() ? (doc.data() ?? null) : null;
-  } catch (error) {
-    console.error('Error fetching player season stats:', error);
-    return null;
-  }
-}
-
-/**
- * Get existing goalkeeper season stats
- */
-async function getGoalkeeperSeasonStats(
-  playerId: string,
-  groupId: string,
-  season: number,
-): Promise<FirebaseFirestoreTypes.DocumentData | null> {
-  try {
-    const docId = `${playerId}_${season}_${groupId}`;
-    const doc = await firestore()
-      .collection(GOALKEEPER_SEASON_STATS_COLLECTION)
-      .doc(docId)
-      .get();
-
-    return doc.exists() ? (doc.data() ?? null) : null;
-  } catch (error) {
-    console.error('Error fetching goalkeeper season stats:', error);
-    return null;
-  }
-}
-
-/**
- * Save or update goalkeeper stats for a season
- */
-async function saveGoalkeeperStats(
+function addSeasonStatsToBatch(
   batch: FirebaseFirestoreTypes.WriteBatch,
-  playerId: string,
-  userId: string | undefined,
+  groupMemberId: string,
   groupId: string,
   season: number,
-  goalsReceived: number,
-  cleanSheets: number,
-  performance: { goals: number; assists: number; ownGoals: number },
-  teamWon: boolean,
-  teamLost: boolean,
-  isDraw: boolean,
-): Promise<void> {
-  const docId = `${playerId}_${season}_${groupId}`;
-  const docRef = firestore().collection(GOALKEEPER_SEASON_STATS_COLLECTION).doc(docId);
+  stats: PlayerStats,
+): void {
+  const docId = `${groupId}_${season}_${groupMemberId}`;
+  const ref = firestore().collection(SEASON_STATS_COLLECTION).doc(docId);
 
-  const existing = await getGoalkeeperSeasonStats(playerId, groupId, season);
+  // Guarantee the document exists. merge: true means existing stats blocks
+  // are never overwritten — only the identity fields are merged in.
+  batch.set(ref, { groupId, season, groupMemberId }, { merge: true });
 
-  if (existing) {
-    // Update existing record - aggregate stats
-    const updateData = {
-      goalsReceived: (existing.goalsReceived ?? 0) + goalsReceived,
-      cleanSheets: (existing.cleanSheets ?? 0) + cleanSheets,
-      goals: (existing.goals ?? 0) + performance.goals,
-      assists: (existing.assists ?? 0) + performance.assists,
-      ownGoals: (existing.ownGoals ?? 0) + performance.ownGoals,
-      matches: (existing.matches ?? 0) + 1,
-      won: (existing.won ?? 0) + (teamWon ? 1 : 0),
-      lost: (existing.lost ?? 0) + (teamLost ? 1 : 0),
-      draw: (existing.draw ?? 0) + (isDraw ? 1 : 0),
-      userId: userId ?? existing.userId,
+  if (stats.isGoalkeeper) {
+    batch.update(ref, {
+      'goalkeeperStats.matches': firestore.FieldValue.increment(1),
+      'goalkeeperStats.goalsConceded': firestore.FieldValue.increment(stats.goalsConceded ?? 0),
+      'goalkeeperStats.cleanSheets': firestore.FieldValue.increment(stats.cleanSheet ?? 0),
+      'goalkeeperStats.goals': firestore.FieldValue.increment(stats.goals),
+      'goalkeeperStats.assists': firestore.FieldValue.increment(stats.assists),
+      'goalkeeperStats.ownGoals': firestore.FieldValue.increment(stats.ownGoals),
+      'goalkeeperStats.won': firestore.FieldValue.increment(stats.won ? 1 : 0),
+      'goalkeeperStats.lost': firestore.FieldValue.increment(stats.lost ? 1 : 0),
+      'goalkeeperStats.draw': firestore.FieldValue.increment(stats.draw ? 1 : 0),
       updatedAt: firestore.FieldValue.serverTimestamp(),
-    };
-
-    batch.update(docRef, updateData);
+    });
   } else {
-    // Create new record
-    const newData: any = {
-      playerId,
-      groupId,
-      season,
-      goalsReceived,
-      cleanSheets,
-      goals: performance.goals,
-      assists: performance.assists,
-      ownGoals: performance.ownGoals,
-      matches: 1,
-      won: teamWon ? 1 : 0,
-      lost: teamLost ? 1 : 0,
-      draw: isDraw ? 1 : 0,
-      createdAt: firestore.FieldValue.serverTimestamp(),
+    batch.update(ref, {
+      'playerStats.matches': firestore.FieldValue.increment(1),
+      'playerStats.goals': firestore.FieldValue.increment(stats.goals),
+      'playerStats.assists': firestore.FieldValue.increment(stats.assists),
+      'playerStats.ownGoals': firestore.FieldValue.increment(stats.ownGoals),
+      'playerStats.won': firestore.FieldValue.increment(stats.won ? 1 : 0),
+      'playerStats.lost': firestore.FieldValue.increment(stats.lost ? 1 : 0),
+      'playerStats.draw': firestore.FieldValue.increment(stats.draw ? 1 : 0),
       updatedAt: firestore.FieldValue.serverTimestamp(),
-    };
-
-    if (userId) {
-      newData.userId = userId;
-    }
-
-    batch.set(docRef, newData);
+    });
   }
 }
 
 /**
- * Save or update player stats for a season
- */
-async function savePlayerStats(
-  batch: FirebaseFirestoreTypes.WriteBatch,
-  playerId: string,
-  userId: string | undefined,
-  groupId: string,
-  season: number,
-  performance: { goals: number; assists: number; ownGoals: number },
-  opponentGoals: number,
-  teamWon: boolean,
-  teamLost: boolean,
-  isDraw: boolean,
-): Promise<void> {
-  const docId = `${playerId}_${season}_${groupId}`;
-  const docRef = firestore().collection(PLAYER_SEASON_STATS_COLLECTION).doc(docId);
-
-  const existing = await getPlayerSeasonStats(playerId, groupId, season);
-
-  if (existing) {
-    // Update existing record - aggregate stats
-    const updateData = {
-      goals: (existing.goals ?? 0) + performance.goals,
-      assists: (existing.assists ?? 0) + performance.assists,
-      ownGoals: (existing.ownGoals ?? 0) + performance.ownGoals,
-      cleanSheets: (existing.cleanSheets ?? 0) + (opponentGoals === 0 ? 1 : 0),
-      matches: (existing.matches ?? 0) + 1,
-      won: (existing.won ?? 0) + (teamWon ? 1 : 0),
-      lost: (existing.lost ?? 0) + (teamLost ? 1 : 0),
-      draw: (existing.draw ?? 0) + (isDraw ? 1 : 0),
-      userId: userId ?? existing.userId,
-      updatedAt: firestore.FieldValue.serverTimestamp(),
-    };
-
-    batch.update(docRef, updateData);
-  } else {
-    // Create new record
-    const newData: any = {
-      playerId,
-      groupId,
-      season,
-      goals: performance.goals,
-      assists: performance.assists,
-      ownGoals: performance.ownGoals,
-      cleanSheets: opponentGoals === 0 ? 1 : 0,
-      matches: 1,
-      won: teamWon ? 1 : 0,
-      lost: teamLost ? 1 : 0,
-      draw: isDraw ? 1 : 0,
-      createdAt: firestore.FieldValue.serverTimestamp(),
-      updatedAt: firestore.FieldValue.serverTimestamp(),
-    };
-
-    if (userId) {
-      newData.userId = userId;
-    }
-
-    batch.set(docRef, newData);
-  }
-}
-
-/**
- * Save match and update all related statistics
+ * Save a match to the 'matches' collection and atomically update all affected
+ * seasonStats documents in a single batch — no pre-reads required.
+ *
+ * - Uses groupMemberId exclusively (never playerId).
+ * - POR → goalkeeperStats block; DEF/MED/DEL → playerStats block.
+ * - goalsConceded = goals scored by the opposing team.
+ * - cleanSheets: incremented only when rival goals == 0.
+ * - won/lost/draw: based on team membership.
  */
 export async function saveMatch(match: MatchToSave): Promise<void> {
   const season = match.date.getFullYear();
+  const { team1Goals, team2Goals, groupId } = match;
+
+  const team1Won = team1Goals > team2Goals;
+  const team2Won = team2Goals > team1Goals;
+  const isDraw = team1Goals === team2Goals;
+
   const batch = firestore().batch();
 
-  // Save match document
+  // Write the match document
   const matchRef = firestore().collection(MATCHES_COLLECTION).doc();
-  const matchData = {
-    groupId: match.groupId,
+  batch.set(matchRef, {
+    groupId,
+    season,
     date: firestore.Timestamp.fromDate(match.date),
-    goalsTeam1: match.team1Goals,
-    goalsTeam2: match.team2Goals,
+    registeredDate: firestore.FieldValue.serverTimestamp(),
+    goalsTeam1: team1Goals,
+    goalsTeam2: team2Goals,
+    mvpGroupMemberId: null,
     players1: match.team1Players.map(p => ({
-      id: p.playerId,
+      groupMemberId: p.groupMemberId,
       position: p.position,
       goals: parseInt(p.goals, 10) || 0,
       assists: parseInt(p.assists, 10) || 0,
       ownGoals: parseInt(p.ownGoals, 10) || 0,
     })),
     players2: match.team2Players.map(p => ({
-      id: p.playerId,
+      groupMemberId: p.groupMemberId,
       position: p.position,
       goals: parseInt(p.goals, 10) || 0,
       assists: parseInt(p.assists, 10) || 0,
       ownGoals: parseInt(p.ownGoals, 10) || 0,
     })),
-    registeredDate: firestore.FieldValue.serverTimestamp(),
-    createdAt: firestore.FieldValue.serverTimestamp(),
-    updatedAt: firestore.FieldValue.serverTimestamp(),
-  };
-
-  batch.set(matchRef, matchData);
-
-  // Determine match result
-  const team1Won = match.team1Goals > match.team2Goals;
-  const team2Won = match.team2Goals > match.team1Goals;
-  const isDraw = match.team1Goals === match.team2Goals;
-
-  // Get all playerIds to fetch their info in batch
-  const allPlayerIds = [
-    ...match.team1Players.filter(p => p.playerId).map(p => p.playerId!),
-    ...match.team2Players.filter(p => p.playerId).map(p => p.playerId!),
-  ];
-  const uniquePlayerIds = Array.from(new Set(allPlayerIds));
-  const playersInfo = await getPlayersInfo(uniquePlayerIds);
+  });
 
   // Process Team 1 players
   for (const player of match.team1Players) {
-    if (!player.playerId) continue;
-
-    const userId = playersInfo.get(player.playerId);
-
-    if (player.position === 'POR') {
-      // Handle goalkeeper
-      await saveGoalkeeperStats(
-        batch,
-        player.playerId,
-        userId,
-        match.groupId,
-        season,
-        match.team2Goals,
-        match.team2Goals === 0 ? 1 : 0,
-        {
-          goals: parseInt(player.goals, 10) || 0,
-          assists: parseInt(player.assists, 10) || 0,
-          ownGoals: parseInt(player.ownGoals, 10) || 0,
-        },
-        team1Won,
-        team2Won,
-        isDraw,
-      );
-    } else {
-      // Handle outfield player
-      await savePlayerStats(
-        batch,
-        player.playerId,
-        userId,
-        match.groupId,
-        season,
-        {
-          goals: parseInt(player.goals, 10) || 0,
-          assists: parseInt(player.assists, 10) || 0,
-          ownGoals: parseInt(player.ownGoals, 10) || 0,
-        },
-        match.team2Goals,
-        team1Won,
-        team2Won,
-        isDraw,
-      );
-    }
+    if (!player.groupMemberId) continue;
+    const isGoalkeeper = player.position === 'POR';
+    addSeasonStatsToBatch(batch, player.groupMemberId, groupId, season, {
+      goals: parseInt(player.goals, 10) || 0,
+      assists: parseInt(player.assists, 10) || 0,
+      ownGoals: parseInt(player.ownGoals, 10) || 0,
+      won: team1Won,
+      lost: team2Won,
+      draw: isDraw,
+      isGoalkeeper,
+      ...(isGoalkeeper && {
+        goalsConceded: team2Goals,
+        cleanSheet: team2Goals === 0 ? 1 : 0,
+      }),
+    });
   }
 
   // Process Team 2 players
   for (const player of match.team2Players) {
-    if (!player.playerId) continue;
-
-    const userId = playersInfo.get(player.playerId);
-
-    if (player.position === 'POR') {
-      // Handle goalkeeper
-      await saveGoalkeeperStats(
-        batch,
-        player.playerId,
-        userId,
-        match.groupId,
-        season,
-        match.team1Goals,
-        match.team1Goals === 0 ? 1 : 0,
-        {
-          goals: parseInt(player.goals, 10) || 0,
-          assists: parseInt(player.assists, 10) || 0,
-          ownGoals: parseInt(player.ownGoals, 10) || 0,
-        },
-        team2Won,
-        team1Won,
-        isDraw,
-      );
-    } else {
-      // Handle outfield player
-      await savePlayerStats(
-        batch,
-        player.playerId,
-        userId,
-        match.groupId,
-        season,
-        {
-          goals: parseInt(player.goals, 10) || 0,
-          assists: parseInt(player.assists, 10) || 0,
-          ownGoals: parseInt(player.ownGoals, 10) || 0,
-        },
-        match.team1Goals,
-        team2Won,
-        team1Won,
-        isDraw,
-      );
-    }
+    if (!player.groupMemberId) continue;
+    const isGoalkeeper = player.position === 'POR';
+    addSeasonStatsToBatch(batch, player.groupMemberId, groupId, season, {
+      goals: parseInt(player.goals, 10) || 0,
+      assists: parseInt(player.assists, 10) || 0,
+      ownGoals: parseInt(player.ownGoals, 10) || 0,
+      won: team2Won,
+      lost: team1Won,
+      draw: isDraw,
+      isGoalkeeper,
+      ...(isGoalkeeper && {
+        goalsConceded: team1Goals,
+        cleanSheet: team1Goals === 0 ? 1 : 0,
+      }),
+    });
   }
 
-  // Commit all changes in a single transaction
+  // Commit match doc + all seasonStats updates in a single atomic operation
   await batch.commit();
 }
