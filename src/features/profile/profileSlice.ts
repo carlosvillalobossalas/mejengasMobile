@@ -1,14 +1,14 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
 import {
-  getProfileData,
-  type ProfileData,
-} from '../../endpoints/profile/profileEndpoints';
+  getUserProfileData,
+  type UserProfileData,
+} from '../../endpoints/groupMembers/groupMemberProfileEndpoints';
 
 type ProfileState = {
   isLoading: boolean;
   error: string | null;
-  data: ProfileData | null;
+  data: UserProfileData | null;
 };
 
 const initialState: ProfileState = {
@@ -17,10 +17,12 @@ const initialState: ProfileState = {
   data: null,
 };
 
-export const fetchProfileData = createAsyncThunk<ProfileData, { userId: string }>(
+export const fetchProfileData = createAsyncThunk<UserProfileData, { userId: string }>(
   'profile/fetchProfileData',
   async ({ userId }) => {
-    return await getProfileData(userId);
+    const data = await getUserProfileData(userId);
+    if (!data) throw new Error('No se encontró información del usuario');
+    return data;
   },
 );
 
