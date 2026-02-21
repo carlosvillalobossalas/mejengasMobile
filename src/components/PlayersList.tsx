@@ -4,18 +4,17 @@ import { Text, Divider, useTheme, MD3Theme } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import type { MatchPlayer } from '../repositories/matches/matchesRepository';
-import type { Player } from '../repositories/players/playerSeasonStatsRepository';
-import { getPlayerDisplay } from '../helpers/players';
+import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 
 type PlayersListProps = {
   team1Players: MatchPlayer[];
   team2Players: MatchPlayer[];
-  allPlayers: Player[];
-  mvpPlayerId?: string | null;
+  allPlayers: GroupMemberV2[];
+  mvpGroupMemberId?: string | null;
 };
 
-const getPlayerInfo = (playerId: string, allPlayers: Player[]): Player | undefined => {
-  return allPlayers.find(p => p.id === playerId);
+const getPlayerInfo = (groupMemberId: string, allPlayers: GroupMemberV2[]): GroupMemberV2 | undefined => {
+  return allPlayers.find(p => p.id === groupMemberId);
 };
 
 
@@ -35,18 +34,18 @@ const PlayersList: React.FC<PlayersListProps> = ({
   team1Players = [],
   team2Players = [],
   allPlayers = [],
-  mvpPlayerId = null,
+  mvpGroupMemberId = null,
 }) => {
   const theme = useTheme();
 
   const renderPlayer = (player: MatchPlayer) => {
-    const playerInfo = getPlayerInfo(player.id, allPlayers);
-    const playerName = getPlayerDisplay(playerInfo);
-    const isMVP = mvpPlayerId && player.id === mvpPlayerId;
+    const playerInfo = getPlayerInfo(player.groupMemberId, allPlayers);
+    const playerName = playerInfo?.displayName ?? 'Desconocido';
+    const isMVP = mvpGroupMemberId && player.groupMemberId === mvpGroupMemberId;
     const hasStats = player.goals > 0 || player.assists > 0 || player.ownGoals > 0;
 
     return (
-      <View key={player.id} style={styles(theme).playerRow}>
+      <View key={player.groupMemberId} style={styles(theme).playerRow}>
         <View style={styles(theme).playerInfo}>
           <View
             style={[

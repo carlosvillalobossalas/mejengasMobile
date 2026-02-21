@@ -1,7 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 export type MatchPlayer = {
-  id: string;
+  groupMemberId: string;
   position: 'POR' | 'DEF' | 'MED' | 'DEL';
   goals: number;
   assists: number;
@@ -11,17 +11,17 @@ export type MatchPlayer = {
 export type Match = {
   id: string;
   groupId: string;
+  season: number;
   date: string;
   goalsTeam1: number;
   goalsTeam2: number;
   players1: MatchPlayer[];
   players2: MatchPlayer[];
-  mvpPlayerId?: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
+  mvpGroupMemberId?: string | null;
+  registeredDate: string | null;
 };
 
-const MATCHES_COLLECTION = 'Matches';
+const MATCHES_COLLECTION = 'matches';
 
 const toIsoString = (value: unknown): string | null => {
   if (!value) {
@@ -48,7 +48,7 @@ const mapPlayerArray = (data: unknown): MatchPlayer[] => {
   return data
     .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
     .map(player => ({
-      id: String(player.id ?? ''),
+      groupMemberId: String(player.groupMemberId ?? ''),
       position: (player.position as 'POR' | 'DEF' | 'MED' | 'DEL') ?? 'DEF',
       goals: Number(player.goals ?? 0),
       assists: Number(player.assists ?? 0),
@@ -62,14 +62,14 @@ const mapMatchDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Match => {
   return {
     id: doc.id,
     groupId: String(data.groupId ?? ''),
+    season: Number(data.season ?? 0),
     date: toIsoString(data.date) ?? new Date().toISOString(),
     goalsTeam1: Number(data.goalsTeam1 ?? 0),
     goalsTeam2: Number(data.goalsTeam2 ?? 0),
     players1: mapPlayerArray(data.players1),
     players2: mapPlayerArray(data.players2),
-    mvpPlayerId: data.mvpPlayerId ? String(data.mvpPlayerId) : null,
-    createdAt: toIsoString(data.createdAt),
-    updatedAt: toIsoString(data.updatedAt),
+    mvpGroupMemberId: data.mvpGroupMemberId ? String(data.mvpGroupMemberId) : null,
+    registeredDate: toIsoString(data.registeredDate),
   };
 };
 

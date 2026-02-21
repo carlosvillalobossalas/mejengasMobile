@@ -1,23 +1,28 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Avatar, Text, Chip, Surface, useTheme, MD3Theme } from 'react-native-paper';
+import { Avatar, Text, Surface, useTheme, MD3Theme } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import type { MatchPlayer } from '../repositories/matches/matchesRepository';
-import type { Player } from '../repositories/players/playerSeasonStatsRepository';
-import { getPlayerInitial, getPlayerShortDisplay } from '../helpers/players';
+import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 
 type MatchLineupProps = {
     team1Players: MatchPlayer[];
     team2Players: MatchPlayer[];
-    allPlayers: Player[];
-    mvpPlayerId?: string | null;
+    allPlayers: GroupMemberV2[];
+    mvpGroupMemberId?: string | null;
     selectedTeam?: number;
     onTeamChange?: (team: number) => void;
 };
 
-const getPlayerInfo = (playerId: string, allPlayers: Player[]): Player | undefined => {
-    return allPlayers.find(p => p.id === playerId);
+const getShortName = (displayName: string): string => {
+    const parts = displayName.trim().split(' ');
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]} ${parts[1][0]}.`;
+};
+
+const getPlayerInfo = (groupMemberId: string, allPlayers: GroupMemberV2[]): GroupMemberV2 | undefined => {
+    return allPlayers.find(p => p.id === groupMemberId);
 };
 
 const getPositionCoordinates = (
@@ -65,7 +70,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     team1Players = [],
     team2Players = [],
     allPlayers = [],
-    mvpPlayerId = null,
+    mvpGroupMemberId = null,
     selectedTeam = 0,
     onTeamChange,
 }) => {
@@ -80,23 +85,23 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     const currentPlayers = activeTeam === 0 ? team1Players : team2Players;
 
     const renderPlayer = (player: MatchPlayer) => {
-        if (!player || !player.id) return null;
+        if (!player || !player.groupMemberId) return null;
 
-        const playerInfo = getPlayerInfo(player.id, allPlayers);
+        const playerInfo = getPlayerInfo(player.groupMemberId, allPlayers);
         if (!playerInfo) return null;
-        const playerName = getPlayerShortDisplay(playerInfo);
-        const playerPhoto = playerInfo?.photoURL;
+        const playerName = getShortName(playerInfo.displayName);
+        const playerPhoto = playerInfo.photoUrl;
         // Group players by position to calculate indices
         const playersInPosition = currentPlayers.filter(p => p && p.position === player.position);
-        const indexInPosition = playersInPosition.findIndex(p => p.id === player.id);
+        const indexInPosition = playersInPosition.findIndex(p => p.groupMemberId === player.groupMemberId);
 
         const coords = getPositionCoordinates(player.position, indexInPosition, playersInPosition.length);
         const hasStats = (player.goals > 0 || player.assists > 0 || player.ownGoals > 0);
-        const isMVP = mvpPlayerId && player.id === mvpPlayerId;
+        const isMVP = mvpGroupMemberId && player.groupMemberId === mvpGroupMemberId;
 
         return (
             <View
-                key={player.id}
+                key={player.groupMemberId}
                 style={[
                     styles(theme).playerContainer,
                     {
@@ -118,7 +123,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                         />
                     ) : (
                         <Avatar.Text
-                            label={getPlayerInitial(playerName)}
+                            label={playerName[0]?.toUpperCase() ?? '?'}
                             size={60}
                             labelStyle={styles(theme).avatarLabel}
                             style={[
@@ -137,15 +142,16 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                     )}
 
                     {/* Position Badge */}
-                    <Chip
+                    <View
                         style={[
                             styles(theme).positionChip,
                             { borderColor: player.position === 'POR' ? theme.colors.secondary : theme.colors.primary },
                         ]}
-                        textStyle={styles(theme).positionText}
                     >
-                        {player.position}
-                    </Chip>
+                        <Text style={styles(theme).positionText}>
+                            {player.position}
+                        </Text>
+                    </View>
                 </View>
 
                 {/* Player Name */}
@@ -411,20 +417,20 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     },
     positionChip: {
         position: 'absolute',
-        top: -12,
-        left: 26,
-        height: 23,
-        width: 46,
+        top: -8,
+        left: 32,
+        height: 22,
+        width: 42,
         backgroundColor: '#FFF',
         borderWidth: 2,
-        display: 'flex',
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     positionText: {
         fontSize: 10,
         fontWeight: 'bold',
-        marginVertical: 0,
-        marginHorizontal: 1,
-        width: '100%',
+        textAlign: 'center',
     },
     nameSurface: {
         backgroundColor: 'rgba(255, 255, 255, 0.95)',

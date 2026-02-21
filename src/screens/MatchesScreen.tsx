@@ -17,8 +17,8 @@ import {
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import { useAppSelector } from '../app/hooks';
-import { getMatchesByGroupId, subscribeToMatchesByGroupId, type Match } from '../repositories/matches/matchesRepository';
-import { getPlayersByIds, type Player } from '../repositories/players/playerSeasonStatsRepository';
+import { subscribeToMatchesByGroupId, type Match } from '../repositories/matches/matchesRepository';
+import { getGroupMembersV2ByGroupId, type GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import MatchLineup from '../components/MatchLineup';
 import PlayersList from '../components/PlayersList';
 
@@ -27,11 +27,24 @@ export default function MatchesScreen() {
   const { selectedGroupId } = useAppSelector(state => state.groups);
 
   const [matches, setMatches] = useState<Match[]>([]);
-  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
+  const [allPlayers, setAllPlayers] = useState<GroupMemberV2[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
 
+  // Load group members once when group changes
+  useEffect(() => {
+    if (!selectedGroupId) {
+      setAllPlayers([]);
+      return;
+    }
+
+    getGroupMembersV2ByGroupId(selectedGroupId)
+      .then(members => setAllPlayers(members))
+      .catch(err => console.error('Error loading group members:', err));
+  }, [selectedGroupId]);
+
+  // Subscribe to matches in real-time
   useEffect(() => {
     if (!selectedGroupId) {
       setIsLoading(false);
@@ -41,30 +54,11 @@ export default function MatchesScreen() {
     setIsLoading(true);
     setError(null);
 
-    // Subscribe to matches in real-time
-    const unsubscribe = subscribeToMatchesByGroupId(selectedGroupId, async (matchesData) => {
-      try {
-        setMatches(matchesData);
-
-        // Get all unique player IDs
-        const playerIds = new Set<string>();
-        matchesData.forEach(match => {
-          match.players1.forEach(p => playerIds.add(p.id));
-          match.players2.forEach(p => playerIds.add(p.id));
-        });
-
-        // Fetch player info
-        const playersMap = await getPlayersByIds(Array.from(playerIds));
-        setAllPlayers(Array.from(playersMap.values()));
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Error processing matches:', err);
-        setError('No se pudieron procesar los partidos');
-        setIsLoading(false);
-      }
+    const unsubscribe = subscribeToMatchesByGroupId(selectedGroupId, matchesData => {
+      setMatches(matchesData);
+      setIsLoading(false);
     });
 
-    // Cleanup subscription on unmount or groupId change
     return () => {
       unsubscribe();
     };
@@ -173,7 +167,7 @@ export default function MatchesScreen() {
                 team1Players={match.players1}
                 team2Players={match.players2}
                 allPlayers={allPlayers}
-                mvpPlayerId={match.mvpPlayerId}
+                mvpGroupMemberId={match.mvpGroupMemberId}
               />
 
               <View style={styles(theme).spacing} />
@@ -183,7 +177,7 @@ export default function MatchesScreen() {
                 team1Players={match.players1}
                 team2Players={match.players2}
                 allPlayers={allPlayers}
-                mvpPlayerId={match.mvpPlayerId}
+                mvpGroupMemberId={match.mvpGroupMemberId}
               />
             </>
           )}
