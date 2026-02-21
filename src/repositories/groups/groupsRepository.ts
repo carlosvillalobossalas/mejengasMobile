@@ -8,6 +8,7 @@ export type Group = {
   isActive: boolean;
   type: string;
   visibility: string;
+  hasFixedTeams: boolean;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -58,6 +59,7 @@ const mapGroupDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Group => {
     updatedAt: toIsoString(data.updatedat ?? data.updatedAt),
     type: String(data.type ?? ''),
     visibility: String(data.visibility ?? ''),
+    hasFixedTeams: Boolean(data.hasFixedTeams ?? false),
   };
 };
 
@@ -428,6 +430,8 @@ export async function createGroup(
   name: string,
   description: string,
   ownerId: string,
+  type: string,
+  hasFixedTeams: boolean,
 ): Promise<string> {
   const groupsRef = firestore().collection(GROUPS_COLLECTION);
   
@@ -436,7 +440,8 @@ export async function createGroup(
     description,
     ownerId,
     isActive: true,
-    type: 'futbol_7',
+    type,
+    hasFixedTeams,
     visibility: 'public',
     createdAt: firestore.FieldValue.serverTimestamp(),
     updatedAt: firestore.FieldValue.serverTimestamp(),

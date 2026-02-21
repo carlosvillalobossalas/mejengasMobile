@@ -44,6 +44,27 @@ const mapDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): GroupMemberV2 => 
 };
 
 /**
+ * Create a new guest member in groupMembers_v2.
+ * Used when manually adding a player to a group who doesn't have an account.
+ */
+export async function createGuestGroupMemberV2(
+  groupId: string,
+  displayName: string,
+): Promise<string> {
+  const docRef = await firestore().collection(COLLECTION).add({
+    groupId,
+    displayName,
+    userId: null,
+    photoUrl: null,
+    isGuest: true,
+    role: "member",
+    createdAt: firestore.FieldValue.serverTimestamp(),
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  });
+  return docRef.id;
+}
+
+/**
  * Get all groupMembers_v2 for a group
  */
 export async function getGroupMembersV2ByGroupId(

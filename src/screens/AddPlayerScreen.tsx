@@ -5,7 +5,7 @@ import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material
 import { useNavigation } from '@react-navigation/native';
 
 import { useAppSelector } from '../app/hooks';
-import { createPlayer } from '../repositories/players/playersRepository';
+import { createGuestGroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 
 export default function AddPlayerScreen() {
   const theme = useTheme();
@@ -34,16 +34,16 @@ export default function AddPlayerScreen() {
 
     setIsSaving(true);
     try {
-      await createPlayer(selectedGroupId, trimmedName);
+      await createGuestGroupMemberV2(selectedGroupId, trimmedName);
 
       setSnackbarMessage('Jugador creado exitosamente');
       setSnackbarVisible(true);
       setPlayerName('');
 
       // Navigate back after short delay
-      setTimeout(() => {
-        navigation.goBack();
-      }, 1500);
+    //   setTimeout(() => {
+    //     navigation.goBack();
+    //   }, 1500);
     } catch (error) {
       console.error('Error creating player:', error);
       setSnackbarMessage('Error al crear el jugador');

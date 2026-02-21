@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Alert } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Alert,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+  Keyboard,
+} from 'react-native';
 import {
   Button,
   Card,
@@ -10,6 +18,9 @@ import {
   Modal,
   TextInput,
   FAB,
+  SegmentedButtons,
+  Switch,
+  useTheme,
 } from 'react-native-paper';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
@@ -17,13 +28,24 @@ import { selectGroup } from '../features/groups/groupsSlice';
 import { getUserById } from '../repositories/users/usersRepository';
 import { subscribeToGroupsForUser, createGroup, type Group } from '../repositories/groups/groupsRepository';
 
+type GroupType = 'futbol_7' | 'futbol_5' | 'futbol_11';
+
+const GROUP_TYPE_OPTIONS = [
+  { value: 'futbol_5', label: 'Fútbol 5' },
+  { value: 'futbol_7', label: 'Fútbol 7' },
+  { value: 'futbol_11', label: 'Fútbol 11' },
+];
+
 export default function GroupsScreen() {
   const dispatch = useAppDispatch();
+  const theme = useTheme()
   const [owners, setOwners] = useState<Record<string, string>>({});
   const [groups, setGroupsLocal] = useState<Group[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
+  const [newGroupType, setNewGroupType] = useState<GroupType>('futbol_7');
+  const [hasFixedTeams, setHasFixedTeams] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
   const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
@@ -95,11 +117,15 @@ export default function GroupsScreen() {
         newGroupName.trim(),
         newGroupDescription.trim(),
         userId,
+        newGroupType,
+        hasFixedTeams,
       );
       
       Alert.alert('Éxito', 'Grupo creado correctamente');
       setNewGroupName('');
       setNewGroupDescription('');
+      setNewGroupType('futbol_7');
+      setHasFixedTeams(false);
       setShowCreateModal(false);
     } catch (error) {
       console.error('Error creating group:', error);
@@ -191,15 +217,28 @@ export default function GroupsScreen() {
         <Modal
           visible={showCreateModal}
           onDismiss={() => {
+            Keyboard.dismiss();
             setShowCreateModal(false);
             setNewGroupName('');
             setNewGroupDescription('');
+            setNewGroupType('futbol_7');
+            setHasFixedTeams(false);
           }}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={styles.modalWrapper}
         >
-          <Text variant="titleLarge" style={styles.modalTitle}>
-            Crear Nuevo Grupo
-          </Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <View style={styles.modalContent}>
+                <Text variant="titleLarge" style={styles.modalTitle}>
+                  Crear Nuevo Grupo
+                </Text>
 
           <TextInput
             label="Nombre del grupo"
@@ -221,6 +260,36 @@ export default function GroupsScreen() {
             style={styles.input}
           />
 
+          <Text variant="labelLarge" style={styles.fieldLabel}>Tipo de partido</Text>
+          <SegmentedButtons
+            value={newGroupType}
+            onValueChange={value => setNewGroupType(value as GroupType)}
+            buttons={GROUP_TYPE_OPTIONS}
+            style={styles.segmentedButtons}
+            theme={{
+              colors: {
+                secondaryContainer: theme.colors.primary,
+                onSecondaryContainer: '#FFFFFF',
+              },
+            }}
+          />
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchTextContainer}>
+              <Text variant="labelLarge">Equipos definidos</Text>
+              <Text variant="bodySmall" style={styles.switchDescription}>
+                {hasFixedTeams
+                  ? 'Cada equipo tiene jugadores fijos asignados'
+                  : 'Los equipos se arman libremente por partido'}
+              </Text>
+            </View>
+            <Switch
+              value={hasFixedTeams}
+              onValueChange={setHasFixedTeams}
+              disabled={isCreating}
+            />
+          </View>
+
           <View style={styles.modalButtons}>
             <Button
               mode="outlined"
@@ -228,6 +297,8 @@ export default function GroupsScreen() {
                 setShowCreateModal(false);
                 setNewGroupName('');
                 setNewGroupDescription('');
+                setNewGroupType('futbol_7');
+                setHasFixedTeams(false);
               }}
               disabled={isCreating}
               style={styles.modalButton}
@@ -244,6 +315,9 @@ export default function GroupsScreen() {
               Crear
             </Button>
           </View>
+        </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </Modal>
       </Portal>
     </View>
@@ -306,9 +380,11 @@ const styles = StyleSheet.create({
     right: 25,
     bottom: 25,
   },
+  modalWrapper: {
+    margin: 20,
+  },
   modalContent: {
     backgroundColor: 'white',
-    margin: 20,
     padding: 24,
     borderRadius: 12,
   },
@@ -327,5 +403,26 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+  },
+  fieldLabel: {
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  segmentedButtons: {
+    marginBottom: 20,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 12,
+  },
+  switchTextContainer: {
+    flex: 1,
+    gap: 2,
+  },
+  switchDescription: {
+    opacity: 0.6,
   },
 });
