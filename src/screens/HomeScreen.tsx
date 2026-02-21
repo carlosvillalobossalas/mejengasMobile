@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     groupCard: {
-        marginBottom: 20,
+        marginBottom: 15,
         borderRadius: 16,
         backgroundColor: '#FFFFFF',
     },
@@ -476,7 +476,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 12,
     },
     groupInfo: {
         flex: 1,
