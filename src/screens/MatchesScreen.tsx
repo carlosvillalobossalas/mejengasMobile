@@ -25,7 +25,9 @@ import { subscribeToMatchesByGroupId, type Match } from '../repositories/matches
 import { getGroupMembersV2ByGroupId, type GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import MatchLineup from '../components/MatchLineup';
 import PlayersList from '../components/PlayersList';
+import MvpVotingModal from '../components/MvpVotingModal';
 import { shareMatchOnWhatsApp } from '../services/matches/matchShareService';
+import { useMvpVoting } from '../hooks/useMvpVoting';
 
 // Icon component for year button - moved outside to avoid warnings
 const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF" />;
@@ -33,6 +35,7 @@ const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF"
 export default function MatchesScreen() {
   const theme = useTheme();
   const { selectedGroupId } = useAppSelector(state => state.groups);
+  const { firebaseUser } = useAppSelector(state => state.auth);
 
   const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [allPlayers, setAllPlayers] = useState<GroupMemberV2[]>([]);
@@ -42,7 +45,18 @@ export default function MatchesScreen() {
   const [selectedYear, setSelectedYear] = useState<number | 'historico'>(
     new Date().getFullYear(),
   );
+  // ID of the match the voting modal is open for — derived from live allMatches
+  const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
+
+  const {
+    currentUserGroupMemberId,
+    canVoteInMatch,
+    castVote,
+    isVoting,
+    voteError,
+    clearVoteError,
+  } = useMvpVoting(selectedGroupId, firebaseUser?.uid ?? null);
 
   // Load group members once when group changes
   useEffect(() => {
@@ -107,6 +121,21 @@ export default function MatchesScreen() {
     setSelectedYear(year);
     bottomSheetRef.current?.close();
   }, []);
+
+  // Derives from live subscription data so mvpVotes reflects in real-time
+  const selectedVotingMatch = useMemo(
+    () => (selectedVotingMatchId ? allMatches.find(m => m.id === selectedVotingMatchId) ?? null : null),
+    [selectedVotingMatchId, allMatches],
+  );
+
+  const handleVote = useCallback(
+    async (votedGroupMemberId: string) => {
+      if (!selectedVotingMatchId) return;
+      await castVote(selectedVotingMatchId, votedGroupMemberId);
+      // Keep the modal open so the user sees their registered vote
+    },
+    [selectedVotingMatchId, castVote],
+  );
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -215,6 +244,22 @@ export default function MatchesScreen() {
               {result}
             </Chip>
           </View>
+
+          {/* MVP vote button — only shown when the user participated and voting is open */}
+          {canVoteInMatch(match) && (
+            <Button
+              mode={currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId] ? 'outlined' : 'contained-tonal'}
+              icon="star-circle-outline"
+              onPress={() => setSelectedVotingMatchId(match.id)}
+              style={styles(theme).voteMatchButton}
+              contentStyle={styles(theme).voteMatchButtonContent}
+              compact
+            >
+              {currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId]
+                ? 'Cambiar voto'
+                : 'Votar MVP'}
+            </Button>
+          )}
 
           <Divider style={styles(theme).divider} />
 
@@ -369,6 +414,22 @@ export default function MatchesScreen() {
           </View>
         </BottomSheet>
       </Portal>
+
+      {/* MVP Voting Modal */}
+      <MvpVotingModal
+        visible={selectedVotingMatchId !== null}
+        match={selectedVotingMatch}
+        allPlayers={allPlayers}
+        currentUserGroupMemberId={currentUserGroupMemberId}
+        isVoting={isVoting}
+        voteError={voteError}
+        onVote={handleVote}
+        onDismiss={() => {
+          setSelectedVotingMatchId(null);
+          clearVoteError();
+        }}
+        onClearError={clearVoteError}
+      />
     </View>
   );
 }
@@ -535,6 +596,13 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   errorSubtext: {
     textAlign: 'center',
     color: '#666',
+  },
+  voteMatchButton: {
+    alignSelf: 'center',
+    marginVertical: 2,
+  },
+  voteMatchButtonContent: {
+    paddingHorizontal: 4,
   },
   emptyText: {
     textAlign: 'center',
