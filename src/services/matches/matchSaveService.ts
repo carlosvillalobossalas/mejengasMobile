@@ -108,6 +108,11 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
 
   // Write the match document
   const matchRef = firestore().collection(MATCHES_COLLECTION).doc();
+  // Both timestamps derived from the same client-side reference point
+  // so they are consistent with each other.
+  const opensAt = firestore.Timestamp.fromDate(new Date());
+  const closesAt = firestore.Timestamp.fromMillis(opensAt.toMillis() + 24 * 60 * 60 * 1000);
+
   batch.set(matchRef, {
     groupId,
     season,
@@ -130,6 +135,15 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
       assists: parseInt(p.assists, 10) || 0,
       ownGoals: parseInt(p.ownGoals, 10) || 0,
     })),
+    // MVP voting window: open immediately, closes in 24 h
+    mvpVoting: {
+      status: 'open',
+      opensAt,
+      closesAt,
+      calculatedAt: null,
+    },
+    // Empty votes map — keys are voterGroupMemberIds, values are votedGroupMemberIds
+    mvpVotes: {},
   });
 
   // Process Team 1 players
