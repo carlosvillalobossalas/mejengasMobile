@@ -179,6 +179,29 @@ export async function unlinkAllGroupMembersV2ByUserId(userId: string): Promise<v
 }
 
 /**
+ * Search groupMembers_v2 by displayName within a specific group.
+ * Performs client-side filtering since Firestore does not support
+ * case-insensitive "contains" queries natively.
+ */
+export async function searchGroupMembersByDisplayName(
+  groupId: string,
+  searchTerm: string,
+): Promise<GroupMemberV2[]> {
+  const normalized = searchTerm.trim().toLowerCase();
+  if (!normalized || normalized.length < 2) return [];
+
+  const snap = await firestore()
+    .collection(COLLECTION)
+    .where('groupId', '==', groupId)
+    .orderBy('displayName', 'asc')
+    .get();
+
+  return snap.docs
+    .map(mapDoc)
+    .filter(member => member.displayName.toLowerCase().includes(normalized));
+}
+
+/**
  * Check if a groupMember_v2 with the given userId already exists in a group.
  * Used before accepting an invite to prevent duplicate membership.
  */

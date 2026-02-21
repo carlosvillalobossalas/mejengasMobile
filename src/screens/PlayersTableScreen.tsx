@@ -297,7 +297,6 @@ export default function PlayersTableScreen() {
 
           {/* Table Rows */}
           {sortedPlayers.map((player, index) => {
-            console.log(player.name, player.id)
             return (
               <TouchableOpacity
                 key={player.id}
@@ -424,7 +423,7 @@ export default function PlayersTableScreen() {
 
         {/* Player Profile Modal */}
         <PlayerProfileModal
-          userId={selectedPlayer?.userId || null}
+          groupMemberId={selectedPlayer?.id || null}
           playerName={selectedPlayer?.name}
           playerPhotoURL={selectedPlayer?.photoURL}
           bottomSheetRef={playerProfileModalRef}

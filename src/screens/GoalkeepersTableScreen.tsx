@@ -4,6 +4,7 @@ import {
     StyleSheet,
     View,
     ActivityIndicator,
+    TouchableOpacity,
 } from 'react-native';
 import {
     Text,
@@ -24,6 +25,7 @@ import {
     subscribeToGoalkeeperStats,
     type GoalkeeperStats,
 } from '../endpoints/goalkeepers/goalkeepersStatsEndpoints';
+import PlayerProfileModal from '../components/PlayerProfileModal';
 
 type SortColumn = 'name' | 'goalsReceived' | 'cleanSheets' | 'matches' | 'mvp';
 type SortDirection = 'ascending' | 'descending';
@@ -45,6 +47,8 @@ export default function GoalkeepersTableScreen() {
     const [sortBy, setSortBy] = useState<SortColumn>('mvp');
     const [sortDirection, setSortDirection] = useState<SortDirection>('descending');
     const bottomSheetRef = useRef<BottomSheet>(null);
+    const playerProfileModalRef = useRef<BottomSheet>(null);
+    const [selectedGoalkeeper, setSelectedGoalkeeper] = useState<GoalkeeperStats | null>(null);
 
     // Subscribe to real-time updates
     useEffect(() => {
@@ -75,6 +79,11 @@ export default function GoalkeepersTableScreen() {
 
     const handleOpenYearSelector = useCallback(() => {
         bottomSheetRef.current?.expand();
+    }, []);
+
+    const handleGoalkeeperPress = useCallback((goalkeeper: GoalkeeperStats) => {
+        setSelectedGoalkeeper(goalkeeper);
+        playerProfileModalRef.current?.expand();
     }, []);
 
     const handleSelectYear = useCallback((year: string) => {
@@ -261,8 +270,12 @@ export default function GoalkeepersTableScreen() {
                         const initial = displayName[0]?.toUpperCase() ?? '?';
 
                         return (
-                            <DataTable.Row
+                            <TouchableOpacity
                                 key={goalkeeper.id}
+                                onPress={() => handleGoalkeeperPress(goalkeeper)}
+                                activeOpacity={0.7}
+                            >
+                            <DataTable.Row
                                 style={[
                                     styles(theme).tableRow,
                                     index % 2 === 0 ? styles(theme).evenRow : styles(theme).oddRow,
@@ -325,6 +338,7 @@ export default function GoalkeepersTableScreen() {
                                     <Text variant="bodyMedium" style={styles(theme).cleanSheetsText} >{goalkeeper.matches}</Text>
                                 </DataTable.Cell>
                             </DataTable.Row>
+                            </TouchableOpacity>
                         );
                     })}
 
@@ -378,6 +392,14 @@ export default function GoalkeepersTableScreen() {
                         />
                     </View>
                 </BottomSheet>
+
+                {/* Goalkeeper Profile Modal */}
+                <PlayerProfileModal
+                    groupMemberId={selectedGoalkeeper?.id || null}
+                    playerName={selectedGoalkeeper?.name}
+                    playerPhotoURL={selectedGoalkeeper?.photoURL}
+                    bottomSheetRef={playerProfileModalRef}
+                />
             </Portal>
         </View>
     );

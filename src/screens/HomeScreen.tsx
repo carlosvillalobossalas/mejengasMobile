@@ -20,7 +20,10 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import { useAppSelector, useDebounce } from '../app/hooks';
 import type { AppDrawerParamList } from '../navigation/types';
 import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
-import { searchUsersAndPlayers, type SearchResult } from '../endpoints/search/searchEndpoints';
+import {
+    searchGroupMembersByDisplayName,
+    type GroupMemberV2,
+} from '../repositories/groupMembersV2/groupMembersV2Repository';
 import PlayerProfileModal from '../components/PlayerProfileModal';
 
 type ActionCard = {
@@ -43,12 +46,11 @@ export default function HomeScreen() {
     const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
     const [searchQuery, setSearchQuery] = useState('');
     const [userRole, setUserRole] = useState<string | null>(null);
-    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    const [searchResults, setSearchResults] = useState<GroupMemberV2[]>([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-    const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-    const [selectedUserName, setSelectedUserName] = useState<string | undefined>(undefined);
-    const [selectedUserPhoto, setSelectedUserPhoto] = useState<string | undefined>(undefined);
+    const [selectedGroupMemberId, setSelectedGroupMemberId] = useState<string | null>(null);
+    const [selectedMemberName, setSelectedMemberName] = useState<string | undefined>(undefined);
+    const [selectedMemberPhoto, setSelectedMemberPhoto] = useState<string | undefined>(undefined);
     const bottomSheetRef = useRef<BottomSheet | null>(null);
     const searchbarRef = useRef<any>(null);
     const debouncedSearchQuery = useDebounce(searchQuery, 700);
@@ -84,7 +86,7 @@ export default function HomeScreen() {
         loadUserRole();
     }, [selectedGroupId, currentUser?.uid]);
 
-    // Execute search when debounced query changes
+    // Execute search when debounced query or selected group changes
     useEffect(() => {
         const executeSearch = async () => {
             if (!debouncedSearchQuery || debouncedSearchQuery.trim().length < 2) {
@@ -93,12 +95,19 @@ export default function HomeScreen() {
                 return;
             }
 
+            // Search is scoped to the currently selected group
+            if (!selectedGroupId) {
+                setSearchResults([]);
+                setIsSearching(false);
+                return;
+            }
+
             setIsSearching(true);
             try {
-                const results = await searchUsersAndPlayers(debouncedSearchQuery, 8);
+                const results = await searchGroupMembersByDisplayName(selectedGroupId, debouncedSearchQuery);
                 setSearchResults(results);
             } catch (error) {
-                console.error('Error searching users and players:', error);
+                console.error('Error searching group members:', error);
                 setSearchResults([]);
             } finally {
                 setIsSearching(false);
@@ -106,23 +115,15 @@ export default function HomeScreen() {
         };
 
         executeSearch();
-    }, [debouncedSearchQuery]);
+    }, [debouncedSearchQuery, selectedGroupId]);
 
-    const handleSelectPlayer = (result: SearchResult) => {
+    const handleSelectMember = (member: GroupMemberV2) => {
         // Blur searchbar to hide keyboard and remove focus
         searchbarRef.current?.blur();
 
-        if (result.type === 'user') {
-            setSelectedUserId(result.userId);
-            setSelectedPlayerId(null);
-            setSelectedUserName(result.displayName || result.email || undefined);
-            setSelectedUserPhoto(result.photoURL || undefined);
-        } else {
-            setSelectedUserId(null);
-            setSelectedPlayerId(result.playerId);
-            setSelectedUserName(result.name);
-            setSelectedUserPhoto(result.photoURL);
-        }
+        setSelectedGroupMemberId(member.id);
+        setSelectedMemberName(member.displayName);
+        setSelectedMemberPhoto(member.photoUrl || undefined);
 
         setSearchQuery('');
         setSearchResults([]);
@@ -213,49 +214,37 @@ export default function HomeScreen() {
                 {/* Search Results */}
                 {searchResults.length > 0 && (
                     <Card style={styles.searchResultsCard} elevation={4}>
-                        {searchResults.map((result, index) => {
-                            const title = result.type === 'user'
-                                ? (result.displayName || 'Sin nombre')
-                                : result.name;
-                            const description = result.type === 'user'
-                                ? result.email
-                                : (result.originalName || 'Jugador');
-                            const photoURL = result.type === 'user'
-                                ? result.photoURL
-                                : result.photoURL;
-
-                            return (
-                                <View key={result.id}>
-                                    <List.Item
-                                        title={title}
-                                        description={description}
-                                        left={photoURL ? () => (
-                                            <Avatar.Image
-                                                size={40}
-                                                source={{ uri: photoURL }}
-                                                style={styles.searchAvatar}
-                                            />
-                                        ) : () => (
-                                            <Avatar.Icon
-                                                size={40}
-                                                icon={result.type === 'user' ? 'account' : 'soccer'}
-                                                style={styles.searchAvatar}
-                                            />
-                                        )}
-                                        right={() => (
-                                            <Icon
-                                                name="chevron-right"
-                                                size={24}
-                                                color={theme.colors.onSurfaceVariant}
-                                            />
-                                        )}
-                                        onPress={() => handleSelectPlayer(result)}
-                                        style={styles.searchResultItem}
-                                    />
-                                    {index < searchResults.length - 1 && <Divider />}
-                                </View>
-                            );
-                        })}
+                        {searchResults.map((member, index) => (
+                            <View key={member.id}>
+                                <List.Item
+                                    title={member.displayName}
+                                    description={member.isGuest ? 'Jugador invitado' : 'Miembro del grupo'}
+                                    left={member.photoUrl ? () => (
+                                        <Avatar.Image
+                                            size={40}
+                                            source={{ uri: member.photoUrl! }}
+                                            style={styles.searchAvatar}
+                                        />
+                                    ) : () => (
+                                        <Avatar.Icon
+                                            size={40}
+                                            icon="account"
+                                            style={styles.searchAvatar}
+                                        />
+                                    )}
+                                    right={() => (
+                                        <Icon
+                                            name="chevron-right"
+                                            size={24}
+                                            color={theme.colors.onSurfaceVariant}
+                                        />
+                                    )}
+                                    onPress={() => handleSelectMember(member)}
+                                    style={styles.searchResultItem}
+                                />
+                                {index < searchResults.length - 1 && <Divider />}
+                            </View>
+                        ))}
                     </Card>
                 )}
 
@@ -368,10 +357,9 @@ export default function HomeScreen() {
             {/* Player Profile Modal */}
             <Portal>
                 <PlayerProfileModal
-                    userId={selectedUserId}
-                    playerId={selectedPlayerId}
-                    playerName={selectedUserName}
-                    playerPhotoURL={selectedUserPhoto}
+                    groupMemberId={selectedGroupMemberId}
+                    playerName={selectedMemberName}
+                    playerPhotoURL={selectedMemberPhoto}
                     bottomSheetRef={bottomSheetRef}
                 />
             </Portal>
