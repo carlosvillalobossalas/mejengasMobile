@@ -5,6 +5,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import {
   Text,
@@ -280,21 +283,36 @@ export default function ManageMembersScreen() {
       <Portal>
         <Modal
           visible={showInviteModal}
-          onDismiss={() => setShowInviteModal(false)}
-          contentContainerStyle={styles(theme).modalContent}
+          onDismiss={() => {
+            Keyboard.dismiss();
+            setShowInviteModal(false);
+          }}
+          contentContainerStyle={styles(theme).modalWrapper}
         >
-          <View style={styles(theme).modalHeader}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <View style={styles(theme).modalContent}>
+                <View style={styles(theme).modalHeader}>
             <Icon name="email-plus" size={32} color={theme.colors.primary} />
             <Text variant="titleLarge" style={styles(theme).modalTitle}>
               Invitar jugador
             </Text>
             {selectedMember && (
-              <Text variant="bodyMedium" style={styles(theme).modalSubtitle}>
-                Enlazar cuenta de{'\n'}
-                <Text style={styles(theme).modalMemberName}>
+              <>
+                <Text variant="bodyMedium" style={styles(theme).modalSubtitle}>
+                  Enlazar cuenta de
+                </Text>
+                <Text variant="titleMedium" style={styles(theme).modalMemberName}>
                   {selectedMember.displayName}
                 </Text>
-              </Text>
+              </>
             )}
           </View>
 
@@ -331,6 +349,9 @@ export default function ManageMembersScreen() {
               Enviar
             </Button>
           </View>
+        </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </Modal>
       </Portal>
     </ScrollView>
@@ -379,9 +400,11 @@ const styles = (theme: MD3Theme) =>
     unlinkButton: { borderColor: theme.colors.error },
     inviteButton: {},
     // Modal
+    modalWrapper: {
+      margin: 20,
+    },
     modalContent: {
       backgroundColor: 'white',
-      margin: 20,
       padding: 24,
       borderRadius: 16,
     },
