@@ -4,6 +4,7 @@ import {
   View,
   StyleSheet,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import {
   Text,
@@ -24,6 +25,7 @@ import { subscribeToMatchesByGroupId, type Match } from '../repositories/matches
 import { getGroupMembersV2ByGroupId, type GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import MatchLineup from '../components/MatchLineup';
 import PlayersList from '../components/PlayersList';
+import { shareMatchOnWhatsApp } from '../services/matches/matchShareService';
 
 // Icon component for year button - moved outside to avoid warnings
 const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF" />;
@@ -155,12 +157,22 @@ export default function MatchesScreen() {
         onPress={() => toggleMatchExpansion(match.id)}
       >
         <Card.Content style={styles(theme).cardContent}>
-          {/* Date */}
-          <View style={styles(theme).dateContainer}>
-            <Icon name="calendar" size={16} color={theme.colors.onSurfaceVariant} />
-            <Text variant="labelMedium" style={styles(theme).dateText}>
-              {formatDate(match.date)}
-            </Text>
+          {/* Date + Share row */}
+          <View style={styles(theme).cardTopRow}>
+            <View style={styles(theme).dateContainer}>
+              <Icon name="calendar" size={16} color={theme.colors.onSurfaceVariant} />
+              <Text variant="labelMedium" style={styles(theme).dateText}>
+                {formatDate(match.date)}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => shareMatchOnWhatsApp(match, allPlayers)}
+              style={styles(theme).shareButton}
+              activeOpacity={0.7}
+            >
+              <Icon name="whatsapp" size={22} color="#25D366" />
+            </TouchableOpacity>
           </View>
 
           {/* Score */}
@@ -431,6 +443,15 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  shareButton: {
+    padding: 4,
   },
   dateText: {
     textTransform: 'capitalize',
