@@ -136,3 +136,16 @@
 - Don't leave unused code
 - Don't leave errors or warnings in the code
 - Check if componentes or functions have the attributes, properties or parameters to work correctly before generating code
+
+
+## Core Identity
+- users: authentication only
+- groupMembers: sports identity inside group
+- seasonStats: aggregated per group per season per groupMember
+- matches: historical source of truth
+
+## Rules
+- Never reference userId inside matches
+- Never compute rankings from matches
+- Always update seasonStats after match creation
+- One groupMember per user per group

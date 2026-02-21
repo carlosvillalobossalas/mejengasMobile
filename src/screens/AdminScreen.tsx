@@ -1,19 +1,18 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View, Alert } from 'react-native';
-import { Card, Text, useTheme, Portal, Modal, TextInput, Button } from 'react-native-paper';
+import React from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Card, Text, useTheme } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
 
 import type { AppDrawerParamList } from '../navigation/types';
 import { useAppSelector } from '../app/hooks';
-import { createInvite } from '../repositories/invites/invitesRepository';
 
 type AdminOption = {
   id: string;
   title: string;
   description: string;
-  icon: 'soccer' | 'account-plus' | 'link-variant' | 'email-plus';
+  icon: 'soccer' | 'account-plus' | 'link-variant' | 'account-group';
   color: string;
   onPress: () => void;
 };
@@ -22,51 +21,9 @@ export default function AdminScreen() {
   const theme = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
   const { selectedGroupId, groups } = useAppSelector(state => state.groups);
-  const currentUser = useAppSelector(state => state.auth.firestoreUser);
   const selectedGroup = groups.find(g => g.id === selectedGroupId);
-  
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [isSending, setIsSending] = useState(false);
 
-  const handleSendInvite = async () => {
-    if (!inviteEmail.trim()) {
-      Alert.alert('Error', 'Por favor ingresa un correo electrónico');
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(inviteEmail.trim())) {
-      Alert.alert('Error', 'Por favor ingresa un correo electrónico válido');
-      return;
-    }
-
-    if (!selectedGroupId || !selectedGroup || !currentUser) {
-      Alert.alert('Error', 'No se pudo obtener la información necesaria');
-      return;
-    }
-
-    setIsSending(true);
-    try {
-      await createInvite(
-        inviteEmail.trim().toLowerCase(),
-        selectedGroupId,
-        selectedGroup.name,
-        currentUser.uid,
-        currentUser.displayName || currentUser.email || 'Usuario',
-      );
-      
-      Alert.alert('Éxito', 'Invitación enviada correctamente');
-      setInviteEmail('');
-      setShowInviteModal(false);
-    } catch (error) {
-      console.error('Error sending invite:', error);
-      const errorMessage = error instanceof Error ? error.message : 'No se pudo enviar la invitación';
-      Alert.alert('Error', errorMessage);
-    } finally {
-      setIsSending(false);
-    }
-  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const adminOptions: AdminOption[] = [
     {
@@ -94,12 +51,12 @@ export default function AdminScreen() {
       onPress: () => navigation.navigate('LinkPlayers'),
     },
     {
-      id: 'invite-users',
-      title: 'Invitar Usuarios',
-      description: 'Enviar invitación para unirse al grupo',
-      icon: 'email-plus',
-      color: theme.colors.secondary,
-      onPress: () => setShowInviteModal(true),
+      id: 'manage-members',
+      title: 'Gestionar Miembros',
+      description: 'Invitar o desvincular miembros del grupo (nuevo sistema)',
+      icon: 'account-group',
+      color: theme.colors.primary,
+      onPress: () => navigation.navigate('ManageMembers'),
     },
   ];
 
@@ -157,62 +114,6 @@ export default function AdminScreen() {
           </Card.Content>
         </Card>
       ))}
-
-      <Portal>
-        <Modal
-          visible={showInviteModal}
-          onDismiss={() => {
-            setShowInviteModal(false);
-            setInviteEmail('');
-          }}
-          contentContainerStyle={styles.modalContent}
-        >
-          <View style={styles.modalHeader}>
-            <Icon name="email-plus" size={32} color={theme.colors.primary} />
-            <Text variant="titleLarge" style={styles.modalTitle}>
-              Invitar Usuario
-            </Text>
-            <Text variant="bodyMedium" style={styles.modalSubtitle}>
-              Envía una invitación para unirse a {selectedGroup?.name}
-            </Text>
-          </View>
-
-          <TextInput
-            label="Correo electrónico"
-            value={inviteEmail}
-            onChangeText={setInviteEmail}
-            mode="outlined"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            disabled={isSending}
-            style={styles.emailInput}
-          />
-
-          <View style={styles.modalButtons}>
-            <Button
-              mode="outlined"
-              onPress={() => {
-                setShowInviteModal(false);
-                setInviteEmail('');
-              }}
-              disabled={isSending}
-              style={styles.modalButton}
-            >
-              Cancelar
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleSendInvite}
-              loading={isSending}
-              disabled={isSending}
-              style={styles.modalButton}
-            >
-              Enviar
-            </Button>
-          </View>
-        </Modal>
-      </Portal>
     </ScrollView>
   );
 }
@@ -280,32 +181,35 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 13,
   },
-  modalContent: {
-    backgroundColor: 'white',
-    margin: 20,
-    padding: 24,
+  // ── Temporary migration styles ─────────────────────────────────────────────
+  migrationCard: {
+    marginTop: 8,
+    marginBottom: 12,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF6F00',
+    backgroundColor: '#FFF8E1',
   },
-  modalHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
-    gap: 8,
-  },
-  modalTitle: {
-    fontWeight: 'bold',
-  },
-  modalSubtitle: {
-    color: '#666',
-    textAlign: 'center',
-  },
-  emailInput: {
-    marginBottom: 20,
-  },
-  modalButtons: {
+  migrationHeader: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
   },
-  modalButton: {
-    flex: 1,
+  migrationTitle: {
+    fontWeight: 'bold',
+    color: '#FF6F00',
   },
+  migrationSubtitle: {
+    color: '#795548',
+    marginBottom: 12,
+  },
+  migrationButton: {
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  migrationButtonContent: {
+    paddingVertical: 4,
+  },
+  // ──────────────────────────────────────────────────────────────────────────
 });
