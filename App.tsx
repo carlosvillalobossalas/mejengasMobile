@@ -14,6 +14,7 @@ import { PaperProvider, MD3LightTheme as DefaultTheme, } from 'react-native-pape
 import { Provider as ReduxProvider } from 'react-redux';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
+import { navigationRef } from './src/navigation/navigationRef';
 import { store } from './src/app/store';
 import AuthBootstrapper from './src/features/auth/AuthBootstrapper';
 import NotificationsBootstrapper from './src/features/notifications/NotificationsBootstrapper';
@@ -79,7 +80,7 @@ function App() {
             theme={{ ...DefaultTheme, colors: customTheme.colors }}
           >
             <StatusBar barStyle={'light-content'} />
-            <NavigationContainer>
+            <NavigationContainer ref={navigationRef}>
               <AuthBootstrapper />
               <NotificationsBootstrapper />
               <RootNavigator />

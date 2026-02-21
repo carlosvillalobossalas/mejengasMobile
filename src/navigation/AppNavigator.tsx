@@ -19,6 +19,7 @@ import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
 import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
 import { signOutFromFirebase } from '../features/auth/authSlice';
+import { useNotificationNavigation } from '../hooks/useNotificationNavigation';
 
 const Drawer = createDrawerNavigator<AppDrawerParamList>();
 
@@ -36,6 +37,9 @@ export default function AppNavigator() {
 
   const isOwner = activeGroup?.ownerId === currentUser?.uid;
   const isAdmin = userRole === 'admin' || userRole === 'owner' || isOwner;
+
+  // Navigate to the correct screen when a notification is tapped
+  useNotificationNavigation();
 
   const handleLogout = () => {
     Alert.alert(
