@@ -109,6 +109,11 @@ export default function AppNavigator() {
         options={{ title: 'Inicio' }}
       />
       <Drawer.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ title: 'Mi Perfil' }}
+      />
+      <Drawer.Screen
         name="Groups"
         component={GroupsScreen}
         options={{ title: 'Grupos' }}
@@ -127,11 +132,6 @@ export default function AppNavigator() {
         name="Matches"
         component={MatchesScreen}
         options={{ title: 'Partidos' }}
-      />
-      <Drawer.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ title: 'Mi Perfil' }}
       />
       <Drawer.Screen
         name="Invitations"
