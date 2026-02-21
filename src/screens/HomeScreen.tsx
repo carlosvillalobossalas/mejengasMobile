@@ -20,7 +20,7 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import { useAppSelector, useDebounce } from '../app/hooks';
 import type { AppDrawerParamList } from '../navigation/types';
 import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
-import { searchUsersByName, type User } from '../repositories/users/usersRepository';
+import { searchUsersAndPlayers, type SearchResult } from '../endpoints/search/searchEndpoints';
 import PlayerProfileModal from '../components/PlayerProfileModal';
 
 type ActionCard = {
@@ -43,9 +43,10 @@ export default function HomeScreen() {
     const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
     const [searchQuery, setSearchQuery] = useState('');
     const [userRole, setUserRole] = useState<string | null>(null);
-    const [searchResults, setSearchResults] = useState<User[]>([]);
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
     const [selectedUserName, setSelectedUserName] = useState<string | undefined>(undefined);
     const [selectedUserPhoto, setSelectedUserPhoto] = useState<string | undefined>(undefined);
     const bottomSheetRef = useRef<BottomSheet | null>(null);
@@ -94,10 +95,10 @@ export default function HomeScreen() {
 
             setIsSearching(true);
             try {
-                const results = await searchUsersByName(debouncedSearchQuery, 8);
+                const results = await searchUsersAndPlayers(debouncedSearchQuery, 8);
                 setSearchResults(results);
             } catch (error) {
-                console.error('Error searching users:', error);
+                console.error('Error searching users and players:', error);
                 setSearchResults([]);
             } finally {
                 setIsSearching(false);
@@ -107,13 +108,22 @@ export default function HomeScreen() {
         executeSearch();
     }, [debouncedSearchQuery]);
 
-    const handleSelectPlayer = (user: User) => {
+    const handleSelectPlayer = (result: SearchResult) => {
         // Blur searchbar to hide keyboard and remove focus
         searchbarRef.current?.blur();
 
-        setSelectedUserId(user.uid);
-        setSelectedUserName(user.displayName || undefined);
-        setSelectedUserPhoto(user.photoURL || undefined);
+        if (result.type === 'user') {
+            setSelectedUserId(result.userId);
+            setSelectedPlayerId(null);
+            setSelectedUserName(result.displayName || result.email || undefined);
+            setSelectedUserPhoto(result.photoURL || undefined);
+        } else {
+            setSelectedUserId(null);
+            setSelectedPlayerId(result.playerId);
+            setSelectedUserName(result.name);
+            setSelectedUserPhoto(result.photoURL);
+        }
+
         setSearchQuery('');
         setSearchResults([]);
 
@@ -203,31 +213,49 @@ export default function HomeScreen() {
                 {/* Search Results */}
                 {searchResults.length > 0 && (
                     <Card style={styles.searchResultsCard} elevation={4}>
-                        {searchResults.map((user, index) => (
-                            <React.Fragment key={user.id}>
-                                <List.Item
-                                    title={user.displayName || 'Sin nombre'}
-                                    description={user.email}
-                                    left={user.photoURL ? () => (
-                                        <Avatar.Image
-                                            size={40}
-                                            source={{ uri: user.photoURL! }}
-                                            style={styles.searchAvatar}
-                                        />
-                                    ) : undefined}
-                                    right={() => (
-                                        <Icon
-                                            name="chevron-right"
-                                            size={24}
-                                            color={theme.colors.onSurfaceVariant}
-                                        />
-                                    )}
-                                    onPress={() => handleSelectPlayer(user)}
-                                    style={styles.searchResultItem}
-                                />
-                                {index < searchResults.length - 1 && <Divider />}
-                            </React.Fragment>
-                        ))}
+                        {searchResults.map((result, index) => {
+                            const title = result.type === 'user'
+                                ? (result.displayName || 'Sin nombre')
+                                : result.name;
+                            const description = result.type === 'user'
+                                ? result.email
+                                : (result.originalName || 'Jugador');
+                            const photoURL = result.type === 'user'
+                                ? result.photoURL
+                                : result.photoURL;
+
+                            return (
+                                <View key={result.id}>
+                                    <List.Item
+                                        title={title}
+                                        description={description}
+                                        left={photoURL ? () => (
+                                            <Avatar.Image
+                                                size={40}
+                                                source={{ uri: photoURL }}
+                                                style={styles.searchAvatar}
+                                            />
+                                        ) : () => (
+                                            <Avatar.Icon
+                                                size={40}
+                                                icon={result.type === 'user' ? 'account' : 'soccer'}
+                                                style={styles.searchAvatar}
+                                            />
+                                        )}
+                                        right={() => (
+                                            <Icon
+                                                name="chevron-right"
+                                                size={24}
+                                                color={theme.colors.onSurfaceVariant}
+                                            />
+                                        )}
+                                        onPress={() => handleSelectPlayer(result)}
+                                        style={styles.searchResultItem}
+                                    />
+                                    {index < searchResults.length - 1 && <Divider />}
+                                </View>
+                            );
+                        })}
                     </Card>
                 )}
 
@@ -341,6 +369,7 @@ export default function HomeScreen() {
             <Portal>
                 <PlayerProfileModal
                     userId={selectedUserId}
+                    playerId={selectedPlayerId}
                     playerName={selectedUserName}
                     playerPhotoURL={selectedUserPhoto}
                     bottomSheetRef={bottomSheetRef}

@@ -259,6 +259,7 @@ export default function ProfileScreen() {
       {statsByGroup.map((item, index) => {
         const groupName = item.group?.name || 'Grupo desconocido';
         const season = item.stats.season;
+        const isPlayer = item.type === 'player';
 
         return (
           <Card key={`${item.stats.id}-${index}`} style={styles.card}>
@@ -272,17 +273,35 @@ export default function ProfileScreen() {
               </View>
 
               <View style={styles.statsGrid}>
-                <View style={styles.statItem}>
-                  <Icon name="soccer" size={28} color="#2196F3" />
-                  <Text style={styles.statValue}>{item.stats.goals}</Text>
-                  <Text style={styles.statLabel}>Goles</Text>
-                </View>
+                {isPlayer ? (
+                  <>
+                    <View style={styles.statItem}>
+                      <Icon name="soccer" size={28} color="#2196F3" />
+                      <Text style={styles.statValue}>{'goals' in item.stats ? item.stats.goals : 0}</Text>
+                      <Text style={styles.statLabel}>Goles</Text>
+                    </View>
 
-                <View style={styles.statItem}>
-                  <Icon name="shoe-sneaker" size={28} color="#4CAF50" />
-                  <Text style={styles.statValue}>{item.stats.assists}</Text>
-                  <Text style={styles.statLabel}>Asistencias</Text>
-                </View>
+                    <View style={styles.statItem}>
+                      <Icon name="shoe-sneaker" size={28} color="#4CAF50" />
+                      <Text style={styles.statValue}>{'assists' in item.stats ? item.stats.assists : 0}</Text>
+                      <Text style={styles.statLabel}>Asistencias</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.statItem}>
+                      <Icon name="shield-check" size={28} color="#2196F3" />
+                      <Text style={styles.statValue}>{'cleanSheets' in item.stats ? item.stats.cleanSheets : 0}</Text>
+                      <Text style={styles.statLabel}>Vallas invictas</Text>
+                    </View>
+
+                    <View style={styles.statItem}>
+                      <Icon name="soccer" size={28} color="#F44336" />
+                      <Text style={styles.statValue}>{'goalsReceived' in item.stats ? item.stats.goalsReceived : 0}</Text>
+                      <Text style={styles.statLabel}>Goles recibidos</Text>
+                    </View>
+                  </>
+                )}
 
                 <View style={styles.statItem}>
                   <Icon name="tshirt-crew" size={28} color="#FF9800" />

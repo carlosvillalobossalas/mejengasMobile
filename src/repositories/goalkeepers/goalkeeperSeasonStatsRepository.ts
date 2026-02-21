@@ -9,7 +9,10 @@ export type GoalkeeperSeasonStats = {
   cleanSheets: number;
   goalsReceived: number;
   matches: number;
-  mvp?: number;
+  won: number;
+  draw: number;
+  lost: number;
+  mvp: number;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -47,9 +50,12 @@ const mapGoalkeeperSeasonStatsDoc = (
     cleanSheets: Number(data.cleanSheets ?? 0),
     goalsReceived: Number(data.goalsReceived ?? 0),
     matches: Number(data.matches ?? 0),
+    won: Number(data.won ?? 0),
+    draw: Number(data.draw ?? 0),
+    lost: Number(data.lost ?? 0),
+    mvp: Number(data.mvp ?? 0),
     createdAt: toIsoString(data.createdAt),
     updatedAt: toIsoString(data.updatedAt),
-    mvp: Number(data.mvp ?? 0),
   };
 };
 
@@ -77,4 +83,30 @@ export async function getAllGoalkeeperSeasonStatsByGroup(
   });
 
   return statsBySeason;
+}
+
+/**
+ * Get all goalkeeper season stats for a specific user
+ */
+export async function getAllGoalkeeperSeasonStatsByUserId(
+  userId: string,
+): Promise<GoalkeeperSeasonStats[]> {
+  const statsRef = firestore().collection(GOALKEEPER_SEASON_STATS_COLLECTION);
+  const q = statsRef.where('userId', '==', userId);
+  const snapshot = await q.get();
+
+  return snapshot.docs.map(mapGoalkeeperSeasonStatsDoc);
+}
+
+/**
+ * Get all goalkeeper season stats by playerId
+ */
+export async function getAllGoalkeeperSeasonStatsByPlayerId(
+  playerId: string,
+): Promise<GoalkeeperSeasonStats[]> {
+  const statsRef = firestore().collection(GOALKEEPER_SEASON_STATS_COLLECTION);
+  const q = statsRef.where('playerId', '==', playerId);
+  const snapshot = await q.get();
+
+  return snapshot.docs.map(mapGoalkeeperSeasonStatsDoc);
 }

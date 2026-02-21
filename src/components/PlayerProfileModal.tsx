@@ -9,6 +9,7 @@ import {
   Avatar,
   useTheme,
   Divider,
+  Chip,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
@@ -17,7 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getProfileData, type ProfileData } from '../endpoints/profile/profileEndpoints';
 
 type PlayerProfileModalProps = {
-  userId: string | null;
+  userId?: string | null;
+  playerId?: string | null;
   playerName?: string;
   playerPhotoURL?: string;
   bottomSheetRef: React.RefObject<BottomSheet | null>;
@@ -25,6 +27,7 @@ type PlayerProfileModalProps = {
 
 export default function PlayerProfileModal({
   userId,
+  playerId,
   playerName,
   playerPhotoURL,
   bottomSheetRef,
@@ -38,7 +41,7 @@ export default function PlayerProfileModal({
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (!userId) {
+      if (!userId && !playerId) {
         setProfileData(null);
         return;
       }
@@ -47,7 +50,7 @@ export default function PlayerProfileModal({
       setError(null);
 
       try {
-        const data = await getProfileData(userId);
+        const data = await getProfileData(userId || undefined, playerId || undefined);
         setProfileData(data);
       } catch (err) {
         console.error('Error loading player profile:', err);
@@ -57,10 +60,10 @@ export default function PlayerProfileModal({
       }
     };
 
-    if (userId) {
+    if (userId || playerId) {
       loadProfile();
     }
-  }, [userId]);
+  }, [userId, playerId]);
 
   const renderBackdrop = (props: any) => (
     <BottomSheetBackdrop
@@ -180,40 +183,95 @@ export default function PlayerProfileModal({
                 {profileData.statsByGroup.map((item, index) => {
                   const groupName = item.group?.name || 'Grupo desconocido';
                   const season = item.stats.season;
+                  const isGoalkeeper = item.type === 'goalkeeper';
 
                   return (
                     <View key={`${item.stats.id}-${index}`} style={styles.seasonCard}>
                       <View style={styles.seasonHeader}>
-                        <Text style={styles.seasonGroupName}>{groupName}</Text>
-                        <Text style={styles.seasonYear}>Temporada {season}</Text>
+                        <View>
+                          <Text style={styles.seasonGroupName}>{groupName}</Text>
+                          <Text style={styles.seasonYear}>Temporada {season}</Text>
+                        </View>
+                        <Chip
+                          compact
+                          style={[
+                            styles.typeChip,
+                            isGoalkeeper ? styles.goalkeeperChip : styles.playerChip,
+                          ]}
+                          textStyle={styles.typeChipText}
+                        >
+                          {isGoalkeeper ? 'Portero' : 'Jugador'}
+                        </Chip>
                       </View>
 
                       <View style={styles.statsGrid}>
-                        <View style={styles.statItem}>
-                          <Icon name="soccer" size={24} color="#2196F3" />
-                          <Text style={styles.statValue}>{item.stats.goals}</Text>
-                          <Text style={styles.statLabel}>Goles</Text>
-                        </View>
+                        {isGoalkeeper ? (
+                          // Goalkeeper stats
+                          <>
+                            <View style={styles.statItem}>
+                              <Icon name="shield-check" size={24} color="#4CAF50" />
+                              <Text style={styles.statValue}>
+                                {'cleanSheets' in item.stats ? item.stats.cleanSheets : 0}
+                              </Text>
+                              <Text style={styles.statLabel}>Vallas invictas</Text>
+                            </View>
 
-                        <View style={styles.statItem}>
-                          <Icon name="shoe-sneaker" size={24} color="#4CAF50" />
-                          <Text style={styles.statValue}>{item.stats.assists}</Text>
-                          <Text style={styles.statLabel}>Asistencias</Text>
-                        </View>
+                            <View style={styles.statItem}>
+                              <Icon name="soccer" size={24} color="#F44336" />
+                              <Text style={styles.statValue}>
+                                {'goalsReceived' in item.stats ? item.stats.goalsReceived : 0}
+                              </Text>
+                              <Text style={styles.statLabel}>Goles recibidos</Text>
+                            </View>
 
-                        <View style={styles.statItem}>
-                          <Icon name="tshirt-crew" size={24} color="#FF9800" />
-                          <Text style={styles.statValue}>
-                            {formatRecord(item.stats.won, item.stats.draw, item.stats.lost)}
-                          </Text>
-                          <Text style={styles.statLabel}>V-E-D</Text>
-                        </View>
+                            <View style={styles.statItem}>
+                              <Icon name="tshirt-crew" size={24} color="#FF9800" />
+                              <Text style={styles.statValue}>
+                                {formatRecord(item.stats.won, item.stats.draw, item.stats.lost)}
+                              </Text>
+                              <Text style={styles.statLabel}>V-E-D</Text>
+                            </View>
 
-                        <View style={styles.statItem}>
-                          <Icon name="star" size={24} color="#FFC107" />
-                          <Text style={styles.statValue}>{item.stats.mvp}</Text>
-                          <Text style={styles.statLabel}>MVPs</Text>
-                        </View>
+                            <View style={styles.statItem}>
+                              <Icon name="star" size={24} color="#FFC107" />
+                              <Text style={styles.statValue}>{item.stats.mvp}</Text>
+                              <Text style={styles.statLabel}>MVPs</Text>
+                            </View>
+                          </>
+                        ) : (
+                          // Player stats
+                          <>
+                            <View style={styles.statItem}>
+                              <Icon name="soccer" size={24} color="#2196F3" />
+                              <Text style={styles.statValue}>
+                                {'goals' in item.stats ? item.stats.goals : 0}
+                              </Text>
+                              <Text style={styles.statLabel}>Goles</Text>
+                            </View>
+
+                            <View style={styles.statItem}>
+                              <Icon name="shoe-sneaker" size={24} color="#4CAF50" />
+                              <Text style={styles.statValue}>
+                                {'assists' in item.stats ? item.stats.assists : 0}
+                              </Text>
+                              <Text style={styles.statLabel}>Asistencias</Text>
+                            </View>
+
+                            <View style={styles.statItem}>
+                              <Icon name="tshirt-crew" size={24} color="#FF9800" />
+                              <Text style={styles.statValue}>
+                                {formatRecord(item.stats.won, item.stats.draw, item.stats.lost)}
+                              </Text>
+                              <Text style={styles.statLabel}>V-E-D</Text>
+                            </View>
+
+                            <View style={styles.statItem}>
+                              <Icon name="star" size={24} color="#FFC107" />
+                              <Text style={styles.statValue}>{item.stats.mvp}</Text>
+                              <Text style={styles.statLabel}>MVPs</Text>
+                            </View>
+                          </>
+                        )}
                       </View>
                     </View>
                   );
@@ -313,6 +371,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   seasonHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
   seasonGroupName: {
@@ -323,6 +384,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#757575',
     marginTop: 2,
+  },
+  typeChip: {
+    height: 24,
+  },
+  typeChipText: {
+    fontSize: 11,
+    marginVertical: 0,
+  },
+  playerChip: {
+    backgroundColor: 'rgba(33, 150, 243, 0.15)',
+  },
+  goalkeeperChip: {
+    backgroundColor: 'rgba(156, 39, 176, 0.15)',
   },
   emptyContainer: {
     alignItems: 'center',

@@ -411,11 +411,13 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     },
     positionChip: {
         position: 'absolute',
-        top: -24,
+        top: -12,
+        left: 26,
         height: 23,
-        width: 56,
+        width: 46,
         backgroundColor: '#FFF',
         borderWidth: 2,
+        display: 'flex',
     },
     positionText: {
         fontSize: 10,

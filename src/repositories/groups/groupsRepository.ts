@@ -302,35 +302,101 @@ export async function getGroupMembersByGroupId(
 
 /**
  * Link a player to a group member
+ * Updates groupMember, PlayerSeasonStats and GoalkeeperSeasonStats collections
  */
 export async function linkPlayerToMember(
   memberId: string,
   playerId: string,
+  userId: string,
 ): Promise<void> {
+  const batch = firestore().batch();
+
+  // Update groupMember with playerId
   const memberRef = firestore()
     .collection(GROUP_MEMBERS_COLLECTION)
     .doc(memberId);
 
-  await memberRef.update({
+  batch.update(memberRef, {
     playerId,
     updatedAt: firestore.FieldValue.serverTimestamp(),
   });
+
+  // Update all PlayerSeasonStats with this playerId to have the new userId
+  const playerStatsSnapshot = await firestore()
+    .collection('PlayerSeasonStats')
+    .where('playerId', '==', playerId)
+    .get();
+
+  playerStatsSnapshot.docs.forEach(doc => {
+    batch.update(doc.ref, {
+      userId,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  // Update all GoalkeeperSeasonStats with this playerId to have the new userId
+  const goalkeeperStatsSnapshot = await firestore()
+    .collection('GoalkeeperSeasonStats')
+    .where('playerId', '==', playerId)
+    .get();
+
+  goalkeeperStatsSnapshot.docs.forEach(doc => {
+    batch.update(doc.ref, {
+      userId,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
 }
 
 /**
  * Unlink a player from a group member
+ * Updates groupMember, PlayerSeasonStats and GoalkeeperSeasonStats collections
  */
 export async function unlinkPlayerFromMember(
   memberId: string,
+  playerId: string,
 ): Promise<void> {
+  const batch = firestore().batch();
+
+  // Remove playerId from groupMember
   const memberRef = firestore()
     .collection(GROUP_MEMBERS_COLLECTION)
     .doc(memberId);
 
-  await memberRef.update({
+  batch.update(memberRef, {
     playerId: firestore.FieldValue.delete(),
     updatedAt: firestore.FieldValue.serverTimestamp(),
   });
+
+  // Remove userId from all PlayerSeasonStats with this playerId
+  const playerStatsSnapshot = await firestore()
+    .collection('PlayerSeasonStats')
+    .where('playerId', '==', playerId)
+    .get();
+
+  playerStatsSnapshot.docs.forEach(doc => {
+    batch.update(doc.ref, {
+      userId: firestore.FieldValue.delete(),
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  // Remove userId from all GoalkeeperSeasonStats with this playerId
+  const goalkeeperStatsSnapshot = await firestore()
+    .collection('GoalkeeperSeasonStats')
+    .where('playerId', '==', playerId)
+    .get();
+
+  goalkeeperStatsSnapshot.docs.forEach(doc => {
+    batch.update(doc.ref, {
+      userId: firestore.FieldValue.delete(),
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
 }
 
 /**

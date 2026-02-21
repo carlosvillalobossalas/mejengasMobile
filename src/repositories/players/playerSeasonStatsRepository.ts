@@ -158,6 +158,19 @@ export async function getAllPlayerSeasonStatsByUserId(
 }
 
 /**
+ * Get all player season stats by playerId
+ */
+export async function getAllPlayerSeasonStatsByPlayerId(
+  playerId: string,
+): Promise<PlayerSeasonStats[]> {
+  const statsRef = firestore().collection(PLAYER_SEASON_STATS_COLLECTION);
+  const q = statsRef.where('playerId', '==', playerId);
+  const snapshot = await q.get();
+
+  return snapshot.docs.map(mapPlayerSeasonStatsDoc);
+}
+
+/**
  * Get all players from the players collection
  */
 export async function getAllPlayers(): Promise<Player[]> {

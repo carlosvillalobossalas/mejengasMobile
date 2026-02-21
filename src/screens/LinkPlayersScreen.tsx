@@ -124,6 +124,8 @@ export default function LinkPlayersScreen() {
   };
 
   const handleUnlinkPlayer = (member: MemberWithUser) => {
+    if (!member.playerId) return;
+
     Alert.alert(
       'Desenlazar Jugador',
       `¿Estás seguro que deseas desenlazar el jugador de ${member.userName || member.userEmail}?`,
@@ -135,7 +137,7 @@ export default function LinkPlayersScreen() {
           onPress: async () => {
             setIsLinking(true);
             try {
-              await unlinkPlayerFromMember(member.id);
+              await unlinkPlayerFromMember(member.id, member.playerId!);
               await loadData();
             } catch (error) {
               console.error('Error unlinking player:', error);
@@ -156,7 +158,7 @@ export default function LinkPlayersScreen() {
     setShowPlayerModal(false);
 
     try {
-      await linkPlayerToMember(selectedMember.id, player.id);
+      await linkPlayerToMember(selectedMember.id, player.id, selectedMember.userId);
       await loadData();
       Alert.alert('Éxito', 'Jugador enlazado correctamente');
     } catch (error) {
@@ -363,7 +365,7 @@ export default function LinkPlayersScreen() {
               filteredPlayers.map((player) => (
                 <List.Item
                   key={player.id}
-                  title={player.name || player.originalName}
+                  title={player.originalName || player.name}
                 //   description={
                 //     player.originalName && player.name
                 //       ? `Original: ${player.originalName}`
