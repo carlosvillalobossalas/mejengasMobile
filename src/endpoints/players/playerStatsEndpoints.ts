@@ -1,220 +1,186 @@
-import {
-    getAllPlayerSeasonStatsByGroup,
-    getAllPlayersByGroup,
-    subscribeToPlayerSeasonStatsByGroup,
-} from '../../repositories/players/playerSeasonStatsRepository';
+import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 export type PlayerStatsAggregate = {
-    id: string;
+    id: string; // groupMemberId
     goals: number;
     assists: number;
+    ownGoals: number;
     matches: number;
     won: number;
     draw: number;
     lost: number;
     mvp: number;
-    name?: string;
+    name?: string;    // displayName from groupMembers_v2
     photoURL?: string;
-    originalName?: string;
     userId?: string;
 };
 
+type MemberInfo = {
+    displayName: string;
+    photoUrl: string | null;
+    userId: string | null;
+};
+
+const SEASON_STATS_COLLECTION = 'seasonStats';
+const GROUP_MEMBERS_COLLECTION = 'groupMembers_v2';
 
 /**
- * Combine stats from PlayerSeasonStats with player info
- * Returns stats grouped by season plus a historic aggregate
+ * Pure function that recomputes the full stats result from the two latest
+ * snapshots. Called whenever either snapshot changes.
  */
-export async function preparePlayerStatsFromSeasonStats(
-    groupId: string,
-): Promise<Record<string, PlayerStatsAggregate[]>> {
-    try {
-        // Get stats and players in parallel
-        const [statsBySeason, players] = await Promise.all([
-            getAllPlayerSeasonStatsByGroup(groupId),
-            getAllPlayersByGroup(groupId),
-        ]);
+function buildStats(
+    membersMap: Map<string, MemberInfo>,
+    statsSnapshot: FirebaseFirestoreTypes.QuerySnapshot,
+): Record<string, PlayerStatsAggregate[]> {
+    const bySeason: Record<string, Record<string, PlayerStatsAggregate>> = {};
+    const historicMap: Record<string, PlayerStatsAggregate> = {};
 
-        // Convert players array to Map for fast lookup
-        const playersMap = new Map(players.map(p => [p.id, p]));
-
-        const stats: Record<string, PlayerStatsAggregate[]> = {
-            historico: [],
+    statsSnapshot.docs.forEach(doc => {
+        const d = doc.data() as {
+            groupMemberId: string;
+            season: number;
+            playerStats?: Record<string, number>;
         };
 
-        // Calculate historic totals for each player
-        const historicTotals: Record<string, PlayerStatsAggregate> = {};
+        const { groupMemberId, season, playerStats } = d;
 
-        Object.keys(statsBySeason).forEach(season => {
-            statsBySeason[season].forEach(stat => {
-                if (!historicTotals[stat.playerId]) {
-                    historicTotals[stat.playerId] = {
-                        id: stat.playerId,
-                        goals: 0,
-                        assists: 0,
-                        matches: 0,
-                        won: 0,
-                        draw: 0,
-                        lost: 0,
-                        mvp: 0,
-                    };
-                }
+        // Skip goalkeeper-only docs (no playerStats block)
+        if (!playerStats || !groupMemberId) return;
 
-                historicTotals[stat.playerId].goals += stat.goals || 0;
-                historicTotals[stat.playerId].assists += stat.assists || 0;
-                historicTotals[stat.playerId].matches += stat.matches || 0;
-                historicTotals[stat.playerId].won += stat.won || 0;
-                historicTotals[stat.playerId].draw += stat.draw || 0;
-                historicTotals[stat.playerId].lost += stat.lost || 0;
-                historicTotals[stat.playerId].mvp += stat.mvp || 0;
-            });
-        });
+        const member = membersMap.get(groupMemberId);
+        const seasonKey = String(season);
 
-        // Convert historic to array and combine with player data
-        stats.historico = Object.values(historicTotals).map(stat => {
-            const fullPlayer = playersMap.get(stat.id);
-            return {
-                ...stat,
-                name: fullPlayer?.name,
-                photoURL: fullPlayer?.photoURL,
-                originalName: fullPlayer?.originalName,
-                userId: fullPlayer?.userId,
+        const entry: PlayerStatsAggregate = {
+            id: groupMemberId,
+            matches: playerStats.matches ?? 0,
+            goals: playerStats.goals ?? 0,
+            assists: playerStats.assists ?? 0,
+            ownGoals: playerStats.ownGoals ?? 0,
+            won: playerStats.won ?? 0,
+            draw: playerStats.draw ?? 0,
+            lost: playerStats.lost ?? 0,
+            mvp: playerStats.mvps ?? 0,
+            name: member?.displayName,
+            photoURL: member?.photoUrl ?? undefined,
+            userId: member?.userId ?? undefined,
+        };
+
+        // Accumulate per season
+        if (!bySeason[seasonKey]) {
+            bySeason[seasonKey] = {};
+        }
+        bySeason[seasonKey][groupMemberId] = entry;
+
+        // Accumulate historic totals across all seasons
+        if (!historicMap[groupMemberId]) {
+            historicMap[groupMemberId] = {
+                id: groupMemberId,
+                matches: 0,
+                goals: 0,
+                assists: 0,
+                ownGoals: 0,
+                won: 0,
+                draw: 0,
+                lost: 0,
+                mvp: 0,
+                name: member?.displayName,
+                photoURL: member?.photoUrl ?? undefined,
+                userId: member?.userId ?? undefined,
             };
-        });
+        }
 
-        // For each season, combine with player data
-        Object.keys(statsBySeason).forEach(season => {
-            stats[season] = statsBySeason[season].map(stat => {
-                const fullPlayer = playersMap.get(stat.playerId);
-                return {
-                    id: stat.playerId,
-                    goals: stat.goals || 0,
-                    assists: stat.assists || 0,
-                    matches: stat.matches || 0,
-                    won: stat.won || 0,
-                    draw: stat.draw || 0,
-                    lost: stat.lost || 0,
-                    mvp: stat.mvp || 0,
-                    name: fullPlayer?.name,
-                    photoURL: fullPlayer?.photoURL,
-                    originalName: fullPlayer?.originalName,
-                    userId: fullPlayer?.userId,
-                };
-            });
-        });
+        historicMap[groupMemberId].matches += entry.matches;
+        historicMap[groupMemberId].goals += entry.goals;
+        historicMap[groupMemberId].assists += entry.assists;
+        historicMap[groupMemberId].ownGoals += entry.ownGoals;
+        historicMap[groupMemberId].won += entry.won;
+        historicMap[groupMemberId].draw += entry.draw;
+        historicMap[groupMemberId].lost += entry.lost;
+        historicMap[groupMemberId].mvp += entry.mvp;
+    });
 
-        return stats;
-    } catch (error) {
-        console.error('Error preparing player stats:', error);
-        return { historico: [] };
-    }
+    const result: Record<string, PlayerStatsAggregate[]> = {
+        historico: Object.values(historicMap),
+    };
+
+    Object.keys(bySeason).forEach(seasonKey => {
+        result[seasonKey] = Object.values(bySeason[seasonKey]);
+    });
+
+    return result;
 }
 
 /**
- * Subscribe to player stats with real-time updates
- * Returns an unsubscribe function
+ * Subscribe to real-time player stats for a group.
+ *
+ * Opens TWO concurrent onSnapshot listeners:
+ *   1. groupMembers_v2 - provides displayName, photoUrl, userId per member.
+ *   2. seasonStats     - provides playerStats blocks per season.
+ *
+ * Both listeners share state via closure. Whenever either fires, buildStats()
+ * recomputes the full result from the latest data of both collections.
+ * This means a rename in groupMembers_v2 instantly updates the table without
+ * waiting for a seasonStats change.
+ *
+ * Returns an unsubscribe function that tears down both listeners.
  */
 export function subscribeToPlayerStats(
     groupId: string,
     callback: (stats: Record<string, PlayerStatsAggregate[]>) => void,
 ): () => void {
-    let playersMap = new Map<string, any>();
-    let currentStats: Record<string, PlayerStatsAggregate[]> = { historico: [] };
+    // Shared state between the two listeners
+    let membersMap = new Map<string, MemberInfo>();
+    let latestStatsSnapshot: FirebaseFirestoreTypes.QuerySnapshot | null = null;
 
-    // First, load players once
-    const loadPlayersAndSubscribe = async () => {
-        try {
-            const players = await getAllPlayersByGroup(groupId);
-            playersMap = new Map(players.map(p => [p.id, p]));
-
-            // Then subscribe to stats changes
-            return subscribeToPlayerSeasonStatsByGroup(groupId, (statsBySeason) => {
-                const stats: Record<string, PlayerStatsAggregate[]> = {
-                    historico: [],
-                };
-
-                // Calculate historic totals for each player
-                const historicTotals: Record<string, PlayerStatsAggregate> = {};
-
-                Object.keys(statsBySeason).forEach(season => {
-                    statsBySeason[season].forEach(stat => {
-                        if (!historicTotals[stat.playerId]) {
-                            historicTotals[stat.playerId] = {
-                                id: stat.playerId,
-                                goals: 0,
-                                assists: 0,
-                                matches: 0,
-                                won: 0,
-                                draw: 0,
-                                lost: 0,
-                                mvp: 0,
-                            };
-                        }
-
-                        historicTotals[stat.playerId].goals += stat.goals || 0;
-                        historicTotals[stat.playerId].assists += stat.assists || 0;
-                        historicTotals[stat.playerId].matches += stat.matches || 0;
-                        historicTotals[stat.playerId].won += stat.won || 0;
-                        historicTotals[stat.playerId].draw += stat.draw || 0;
-                        historicTotals[stat.playerId].lost += stat.lost || 0;
-                        historicTotals[stat.playerId].mvp += stat.mvp || 0;
-                    });
-                });
-
-                // Convert historic to array and combine with player data
-                stats.historico = Object.values(historicTotals).map(stat => {
-                    const fullPlayer = playersMap.get(stat.id);
-                    return {
-                        ...stat,
-                        name: fullPlayer?.name,
-                        photoURL: fullPlayer?.photoURL,
-                        originalName: fullPlayer?.originalName,
-                        userId: fullPlayer?.userId,
-                    };
-                });
-
-                // For each season, combine with player data
-                Object.keys(statsBySeason).forEach(season => {
-                    stats[season] = statsBySeason[season].map(stat => {
-                        const fullPlayer = playersMap.get(stat.playerId);
-                        return {
-                            id: stat.playerId,
-                            goals: stat.goals || 0,
-                            assists: stat.assists || 0,
-                            matches: stat.matches || 0,
-                            won: stat.won || 0,
-                            draw: stat.draw || 0,
-                            lost: stat.lost || 0,
-                            mvp: stat.mvp || 0,
-                            name: fullPlayer?.name,
-                            photoURL: fullPlayer?.photoURL,
-                            originalName: fullPlayer?.originalName,
-                            userId: fullPlayer?.userId,
-                        };
-                    });
-                });
-
-                currentStats = stats;
-                callback(stats);
-            });
-        } catch (error) {
-            console.error('Error in player stats subscription:', error);
-            callback({ historico: [] });
-            return () => { }; // Return empty unsubscribe
-        }
+    const recompute = () => {
+        // Wait until the first stats snapshot has arrived before publishing
+        if (!latestStatsSnapshot) return;
+        callback(buildStats(membersMap, latestStatsSnapshot));
     };
 
-    // Start loading and subscribing
-    let unsubscribe: (() => void) | null = null;
-    loadPlayersAndSubscribe().then(unsub => {
-        if (unsub) {
-            unsubscribe = unsub;
-        }
-    });
+    // Listener 1: groupMembers_v2 - react to renames, photo changes, etc.
+    const unsubscribeMembers = firestore()
+        .collection(GROUP_MEMBERS_COLLECTION)
+        .where('groupId', '==', groupId)
+        .onSnapshot(
+            snapshot => {
+                membersMap = new Map(
+                    snapshot.docs.map(doc => {
+                        const d = doc.data();
+                        return [
+                            doc.id,
+                            {
+                                displayName: String(d.displayName ?? ''),
+                                photoUrl: d.photoUrl ? String(d.photoUrl) : null,
+                                userId: d.userId ? String(d.userId) : null,
+                            },
+                        ];
+                    }),
+                );
+                recompute();
+            },
+            error => {
+                console.error('Error in groupMembers_v2 subscription:', error);
+            },
+        );
 
-    // Return unsubscribe function
+    // Listener 2: seasonStats - react to new matches being saved
+    const unsubscribeStats = firestore()
+        .collection(SEASON_STATS_COLLECTION)
+        .where('groupId', '==', groupId)
+        .onSnapshot(
+            snapshot => {
+                latestStatsSnapshot = snapshot;
+                recompute();
+            },
+            error => {
+                console.error('Error in seasonStats subscription:', error);
+                callback({ historico: [] });
+            },
+        );
+
     return () => {
-        if (unsubscribe) {
-            unsubscribe();
-        }
+        unsubscribeMembers();
+        unsubscribeStats();
     };
 }

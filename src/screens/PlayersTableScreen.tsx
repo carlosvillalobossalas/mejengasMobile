@@ -22,11 +22,9 @@ import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/b
 
 import { useAppSelector } from '../app/hooks';
 import {
-  preparePlayerStatsFromSeasonStats,
   subscribeToPlayerStats,
   type PlayerStatsAggregate,
 } from '../endpoints/players/playerStatsEndpoints';
-import { getPlayerDisplay } from '../helpers/players';
 import PlayerProfileModal from '../components/PlayerProfileModal';
 
 type SortColumn =
@@ -126,8 +124,10 @@ export default function PlayersTableScreen() {
 
       switch (sortBy) {
         case 'name':
-          aValue = getPlayerDisplay(a);
-          bValue = getPlayerDisplay(b);
+          // aValue = getPlayerDisplay(a);
+          // bValue = getPlayerDisplay(b);
+          aValue = a.name ?? '';
+          bValue = b.name ?? '';
           break;
         case 'goals':
           aValue = a.goals;
@@ -297,6 +297,7 @@ export default function PlayersTableScreen() {
 
           {/* Table Rows */}
           {sortedPlayers.map((player, index) => {
+            console.log(player.name, player.id)
             return (
               <TouchableOpacity
                 key={player.id}
@@ -331,7 +332,7 @@ export default function PlayersTableScreen() {
                       ) : (
                         <Avatar.Text
                           size={32}
-                          label={getPlayerDisplay(player)?.[0]?.toUpperCase() || '?'}
+                          label={player.name?.[0]?.toUpperCase() || '?'}
                         />
                       )}
                       <Text
@@ -339,7 +340,7 @@ export default function PlayersTableScreen() {
                         style={styles(theme).playerName}
                         numberOfLines={1}
                       >
-                        {getPlayerDisplay(player)}
+                        {player.name}
                       </Text>
                     </View>
                   </DataTable.Cell>
