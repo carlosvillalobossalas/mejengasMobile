@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import firestore from '@react-native-firebase/firestore';
 
 import { useAppSelector } from '../app/hooks';
 import {
@@ -11,6 +10,7 @@ import {
   subscribeToGroupMembersV2ByGroupId,
   type GroupMemberV2,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
+import { saveMatchByTeams } from '../services/matches/matchesByTeamsSaveService';
 
 export type MatchPosition = 'POR' | 'DEF' | 'MED' | 'DEL';
 
@@ -52,6 +52,7 @@ export function useAddMatchTeams() {
   const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
   const [groupMembers, setGroupMembers] = useState<GroupMemberV2[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedTeam1Id, setSelectedTeam1Id] = useState<string | null>(null);
@@ -288,39 +289,51 @@ export function useAddMatchTeams() {
     setDate(new Date());
   }, []);
 
-  // Stub: logs the full match payload to console until backend save is implemented
-  const handleSave = useCallback(() => {
-    const registeredDate = firestore.Timestamp.now();
-    const opensAt = registeredDate;
-    const closesAt = firestore.Timestamp.fromMillis(
-      registeredDate.toMillis() + 24 * 60 * 60 * 1000,
-    );
+  // Saves to matchesByTeams and atomically updates seasonStats + seasonStatsByTeams
+  const handleSave = useCallback(async () => {
+    if (!selectedGroupId || !selectedTeam1Id || !selectedTeam2Id) return;
 
-    console.log({
-      groupId: selectedGroupId,
-      season: date.getFullYear(),
-      date: firestore.Timestamp.fromDate(date),
-      registeredDate,
-      goalsTeam1,
-      goalsTeam2,
-      players1: team1Players,
-      players2: team2Players,
-      mvpGroupMemberId: null,
-      mvpVotes: {},
-      mvpVoting: {
-        status: 'open',
-        opensAt,
-        closesAt,
-        calculatedAt: null,
-      },
-    });
+    setIsSaving(true);
+    try {
+      await saveMatchByTeams({
+        groupId: selectedGroupId,
+        date,
+        team1Id: selectedTeam1Id,
+        team2Id: selectedTeam2Id,
+        goalsTeam1,
+        goalsTeam2,
+        // Strip displayName — not stored in Firestore (derived from groupMembersV2)
+        players1: team1Players.map(p => ({
+          groupMemberId: p.groupMemberId,
+          position: p.position,
+          goals: p.goals,
+          assists: p.assists,
+          ownGoals: p.ownGoals,
+          isSub: p.isSub,
+        })),
+        players2: team2Players.map(p => ({
+          groupMemberId: p.groupMemberId,
+          position: p.position,
+          goals: p.goals,
+          assists: p.assists,
+          ownGoals: p.ownGoals,
+          isSub: p.isSub,
+        })),
+      });
+      resetForm();
+    } finally {
+      setIsSaving(false);
+    }
   }, [
     selectedGroupId,
+    selectedTeam1Id,
+    selectedTeam2Id,
     date,
     team1Players,
     team2Players,
     goalsTeam1,
     goalsTeam2,
+    resetForm,
   ]);
 
   const selectedTeam1 = availableTeams.find(t => t.id === selectedTeam1Id) ?? null;
@@ -333,6 +346,7 @@ export function useAddMatchTeams() {
     selectedGroup,
     requiredPlayersPerTeam,
     isLoading,
+    isSaving,
     error,
     selectedTeam1,
     selectedTeam2,

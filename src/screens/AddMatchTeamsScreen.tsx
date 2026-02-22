@@ -58,6 +58,7 @@ export default function AddMatchTeamsScreen() {
     addTeam1Sub,
     addTeam2Sub,
     resetForm,
+    isSaving,
     handleSave,
   } = useAddMatchTeams();
 
@@ -302,11 +303,12 @@ export default function AddMatchTeamsScreen() {
         mode="contained"
         icon="content-save"
         onPress={handleSave}
-        disabled={!selectedTeam1 || !selectedTeam2}
+        disabled={!selectedTeam1 || !selectedTeam2 || isSaving}
+        loading={isSaving}
         style={styles.saveButton}
         contentStyle={styles.saveButtonContent}
       >
-        Guardar Partido
+        {isSaving ? 'Guardando...' : 'Guardar Partido'}
       </Button>
 
       {/* Modals */}
