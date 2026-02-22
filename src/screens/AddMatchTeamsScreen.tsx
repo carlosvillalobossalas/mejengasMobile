@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   ScrollView,
   View,
@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   useTheme,
   Divider,
+  Snackbar,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import DatePicker from 'react-native-date-picker';
@@ -59,8 +60,29 @@ export default function AddMatchTeamsScreen() {
     addTeam2Sub,
     resetForm,
     isSaving,
+    saveError,
     handleSave,
   } = useAddMatchTeams();
+
+  // Snackbar feedback after save attempt
+  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string; isError: boolean }>({
+    visible: false,
+    message: '',
+    isError: false,
+  });
+  const wasSavingRef = useRef(false);
+
+  useEffect(() => {
+    // Detect the isSaving true→false transition to show feedback
+    if (wasSavingRef.current && !isSaving) {
+      if (saveError) {
+        setSnackbar({ visible: true, message: saveError, isError: true });
+      } else {
+        setSnackbar({ visible: true, message: '¡Partido guardado correctamente!', isError: false });
+      }
+    }
+    wasSavingRef.current = isSaving;
+  }, [isSaving, saveError]);
 
   // Reset form state every time this screen comes into focus
   useFocusEffect(
@@ -170,7 +192,8 @@ export default function AddMatchTeamsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={styles.root}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
       {/* Team selectors */}
       <Text variant="labelLarge" style={styles.sectionLabel}>Equipos</Text>
@@ -345,11 +368,24 @@ export default function AddMatchTeamsScreen() {
         onSelect={handleModalSelect}
         onClose={closeModal}
       />
-    </ScrollView>
+      </ScrollView>
+
+      <Snackbar
+        visible={snackbar.visible}
+        onDismiss={() => setSnackbar(s => ({ ...s, visible: false }))}
+        duration={3500}
+        style={snackbar.isError ? styles.snackbarError : styles.snackbarSuccess}
+      >
+        {snackbar.message}
+      </Snackbar>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
@@ -435,5 +471,11 @@ const styles = StyleSheet.create({
   addSubBtn: {
     marginTop: 4,
     borderRadius: 8,
+  },
+  snackbarSuccess: {
+    backgroundColor: '#388E3C',
+  },
+  snackbarError: {
+    backgroundColor: '#D32F2F',
   },
 });

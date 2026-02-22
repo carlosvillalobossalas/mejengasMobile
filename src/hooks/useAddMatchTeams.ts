@@ -53,6 +53,7 @@ export function useAddMatchTeams() {
   const [groupMembers, setGroupMembers] = useState<GroupMemberV2[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedTeam1Id, setSelectedTeam1Id] = useState<string | null>(null);
@@ -293,6 +294,7 @@ export function useAddMatchTeams() {
   const handleSave = useCallback(async () => {
     if (!selectedGroupId || !selectedTeam1Id || !selectedTeam2Id) return;
 
+    setSaveError(null);
     setIsSaving(true);
     try {
       await saveMatchByTeams({
@@ -321,6 +323,8 @@ export function useAddMatchTeams() {
         })),
       });
       resetForm();
+    } catch {
+      setSaveError('Error al guardar el partido. Intenta de nuevo.');
     } finally {
       setIsSaving(false);
     }
@@ -347,6 +351,7 @@ export function useAddMatchTeams() {
     requiredPlayersPerTeam,
     isLoading,
     isSaving,
+    saveError,
     error,
     selectedTeam1,
     selectedTeam2,
