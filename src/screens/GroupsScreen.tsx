@@ -120,7 +120,7 @@ export default function GroupsScreen() {
         newGroupType,
         hasFixedTeams,
       );
-      
+
       Alert.alert('Éxito', 'Grupo creado correctamente');
       setNewGroupName('');
       setNewGroupDescription('');
@@ -181,7 +181,7 @@ export default function GroupsScreen() {
                   <Text variant="titleMedium" style={styles.groupName}>
                     {group.name}
                   </Text>
-                  
+
                   {group.description ? (
                     <Text variant="bodySmall" style={styles.description}>
                       {group.description}
@@ -240,41 +240,41 @@ export default function GroupsScreen() {
                   Crear Nuevo Grupo
                 </Text>
 
-          <TextInput
-            label="Nombre del grupo"
-            value={newGroupName}
-            onChangeText={setNewGroupName}
-            mode="outlined"
-            disabled={isCreating}
-            style={styles.input}
-          />
+                <TextInput
+                  label="Nombre del grupo"
+                  value={newGroupName}
+                  onChangeText={setNewGroupName}
+                  mode="outlined"
+                  disabled={isCreating}
+                  style={styles.input}
+                />
 
-          <TextInput
-            label="Descripción (opcional)"
-            value={newGroupDescription}
-            onChangeText={setNewGroupDescription}
-            mode="outlined"
-            multiline
-            numberOfLines={3}
-            disabled={isCreating}
-            style={styles.input}
-          />
+                <TextInput
+                  label="Descripción (opcional)"
+                  value={newGroupDescription}
+                  onChangeText={setNewGroupDescription}
+                  mode="outlined"
+                  multiline
+                  numberOfLines={3}
+                  disabled={isCreating}
+                  style={styles.input}
+                />
 
-          <Text variant="labelLarge" style={styles.fieldLabel}>Tipo de partido</Text>
-          <SegmentedButtons
-            value={newGroupType}
-            onValueChange={value => setNewGroupType(value as GroupType)}
-            buttons={GROUP_TYPE_OPTIONS}
-            style={styles.segmentedButtons}
-            theme={{
-              colors: {
-                secondaryContainer: theme.colors.primary,
-                onSecondaryContainer: '#FFFFFF',
-              },
-            }}
-          />
-
-          <View style={styles.switchRow}>
+                <Text variant="labelLarge" style={styles.fieldLabel}>Tipo de partido</Text>
+                <SegmentedButtons
+                  value={newGroupType}
+                  onValueChange={value => setNewGroupType(value as GroupType)}
+                  buttons={GROUP_TYPE_OPTIONS}
+                  style={styles.segmentedButtons}
+                  theme={{
+                    colors: {
+                      secondaryContainer: theme.colors.primary,
+                      onSecondaryContainer: '#FFFFFF',
+                    },
+                  }}
+                />
+                {/* //TODO: */}
+                {/* <View style={styles.switchRow}>
             <View style={styles.switchTextContainer}>
               <Text variant="labelLarge">Equipos definidos</Text>
               <Text variant="bodySmall" style={styles.switchDescription}>
@@ -288,34 +288,34 @@ export default function GroupsScreen() {
               onValueChange={setHasFixedTeams}
               disabled={isCreating}
             />
-          </View>
+          </View> */}
 
-          <View style={styles.modalButtons}>
-            <Button
-              mode="outlined"
-              onPress={() => {
-                setShowCreateModal(false);
-                setNewGroupName('');
-                setNewGroupDescription('');
-                setNewGroupType('futbol_7');
-                setHasFixedTeams(false);
-              }}
-              disabled={isCreating}
-              style={styles.modalButton}
-            >
-              Cancelar
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleCreateGroup}
-              loading={isCreating}
-              disabled={isCreating}
-              style={styles.modalButton}
-            >
-              Crear
-            </Button>
-          </View>
-        </View>
+                <View style={styles.modalButtons}>
+                  <Button
+                    mode="outlined"
+                    onPress={() => {
+                      setShowCreateModal(false);
+                      setNewGroupName('');
+                      setNewGroupDescription('');
+                      setNewGroupType('futbol_7');
+                      setHasFixedTeams(false);
+                    }}
+                    disabled={isCreating}
+                    style={styles.modalButton}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    mode="contained"
+                    onPress={handleCreateGroup}
+                    loading={isCreating}
+                    disabled={isCreating}
+                    style={styles.modalButton}
+                  >
+                    Crear
+                  </Button>
+                </View>
+              </View>
             </ScrollView>
           </KeyboardAvoidingView>
         </Modal>
