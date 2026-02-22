@@ -82,6 +82,24 @@ export async function getTeamsByGroupId(groupId: string): Promise<Team[]> {
 }
 
 /**
+ * Subscribe to all teams for a group with real-time updates.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToTeamsByGroupId(
+  groupId: string,
+  onNext: (teams: Team[]) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  return firestore()
+    .collection(COLLECTION)
+    .where('groupId', '==', groupId)
+    .onSnapshot(
+      snap => onNext(snap.docs.map(mapDoc)),
+      err => onError?.(err),
+    );
+}
+
+/**
  * Get a single team by its document ID.
  */
 export async function getTeamById(teamId: string): Promise<Team | null> {

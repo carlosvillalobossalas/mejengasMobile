@@ -32,7 +32,10 @@ export default function AdminScreen() {
       description: 'Registrar un nuevo partido con alineaciones y resultados',
       icon: 'soccer',
       color: theme.colors.primary,
-      onPress: () => navigation.navigate('AddMatch'),
+      onPress: () =>
+        selectedGroup?.hasFixedTeams
+          ? navigation.navigate('AddMatchTeams')
+          : navigation.navigate('AddMatch'),
     },
     {
       id: 'add-player',

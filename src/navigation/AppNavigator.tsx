@@ -13,6 +13,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import InvitationsScreen from '../screens/InvitationsScreen';
 import AdminScreen from '../screens/AdminScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
+import AddMatchTeamsScreen from '../screens/AddMatchTeamsScreen';
 import AddPlayerScreen from '../screens/AddPlayerScreen';
 import ManageMembersScreen from '../screens/ManageMembersScreen';
 import ManageTeamsScreen from '../screens/ManageTeamsScreen';
@@ -154,7 +155,15 @@ export default function AppNavigator() {
         component={AddMatchScreen}
         options={{
           title: 'Agregar Partido',
-          drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+          drawerItemStyle: isAdmin && !activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddMatchTeams"
+        component={AddMatchTeamsScreen}
+        options={{
+          title: 'Agregar Partido',
+          drawerItemStyle: isAdmin && activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
         }}
       />
       <Drawer.Screen
@@ -178,7 +187,7 @@ export default function AppNavigator() {
         component={ManageTeamsScreen}
         options={{
           title: 'Administrar Equipos',
-          drawerItemStyle: { display: 'none' },
+          drawerItemStyle: isAdmin && activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
         }}
       />
       <Drawer.Screen
