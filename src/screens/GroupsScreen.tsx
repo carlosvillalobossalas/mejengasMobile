@@ -273,22 +273,21 @@ export default function GroupsScreen() {
                     },
                   }}
                 />
-                {/* //TODO: */}
-                {/* <View style={styles.switchRow}>
-            <View style={styles.switchTextContainer}>
-              <Text variant="labelLarge">Equipos definidos</Text>
-              <Text variant="bodySmall" style={styles.switchDescription}>
-                {hasFixedTeams
-                  ? 'Cada equipo tiene jugadores fijos asignados'
-                  : 'Los equipos se arman libremente por partido'}
-              </Text>
-            </View>
-            <Switch
-              value={hasFixedTeams}
-              onValueChange={setHasFixedTeams}
-              disabled={isCreating}
-            />
-          </View> */}
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextContainer}>
+                    <Text variant="labelLarge">Equipos definidos</Text>
+                    <Text variant="bodySmall" style={styles.switchDescription}>
+                      {hasFixedTeams
+                        ? 'Cada equipo tiene jugadores fijos asignados'
+                        : 'Los equipos se arman libremente por partido'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={hasFixedTeams}
+                    onValueChange={setHasFixedTeams}
+                    disabled={isCreating}
+                  />
+                </View>
 
                 <View style={styles.modalButtons}>
                   <Button

@@ -106,6 +106,32 @@ export default function AdminScreen() {
           </Card.Content>
         </Card>
       ))}
+
+      {selectedGroup?.hasFixedTeams && (
+        <Card
+          style={styles.optionCard}
+          onPress={() => navigation.navigate('ManageTeams')}
+        >
+          <Card.Content style={styles.cardContent}>
+            <View style={[styles.iconContainer, { backgroundColor: theme.colors.tertiary ?? theme.colors.secondary }]}>
+              <Icon name="shield-account" size={32} color="#FFFFFF" />
+            </View>
+            <View style={styles.textContainer}>
+              <Text variant="titleMedium" style={styles.optionTitle}>
+                Administrar Equipos
+              </Text>
+              <Text variant="bodyMedium" style={styles.optionDescription}>
+                Crear y editar los equipos fijos del grupo
+              </Text>
+            </View>
+            <Icon
+              name="chevron-right"
+              size={24}
+              color={theme.colors.onSurfaceVariant}
+            />
+          </Card.Content>
+        </Card>
+      )}
     </ScrollView>
   );
 }

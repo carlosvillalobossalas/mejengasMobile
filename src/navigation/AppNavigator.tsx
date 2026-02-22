@@ -15,6 +15,8 @@ import AdminScreen from '../screens/AdminScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
 import AddPlayerScreen from '../screens/AddPlayerScreen';
 import ManageMembersScreen from '../screens/ManageMembersScreen';
+import ManageTeamsScreen from '../screens/ManageTeamsScreen';
+import TeamFormScreen from '../screens/TeamFormScreen';
 import EditMatchScreen from '../screens/EditMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
@@ -169,6 +171,22 @@ export default function AppNavigator() {
         options={{
           title: 'Gestionar Miembros',
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="ManageTeams"
+        component={ManageTeamsScreen}
+        options={{
+          title: 'Administrar Equipos',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="TeamForm"
+        component={TeamFormScreen}
+        options={{
+          title: 'Equipo',
+          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen
