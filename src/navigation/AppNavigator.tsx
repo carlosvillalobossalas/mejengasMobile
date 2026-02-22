@@ -15,6 +15,7 @@ import AdminScreen from '../screens/AdminScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
 import AddPlayerScreen from '../screens/AddPlayerScreen';
 import ManageMembersScreen from '../screens/ManageMembersScreen';
+import EditMatchScreen from '../screens/EditMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
 import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
@@ -168,6 +169,14 @@ export default function AppNavigator() {
         options={{
           title: 'Gestionar Miembros',
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="EditMatch"
+        component={EditMatchScreen}
+        options={{
+          title: 'Editar Partido',
+          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen

@@ -19,21 +19,25 @@ import {
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { useNavigation } from '@react-navigation/native';
+import type { DrawerNavigationProp } from '@react-navigation/drawer';
 
 import { useAppSelector } from '../app/hooks';
 import { subscribeToMatchesByGroupId, type Match } from '../repositories/matches/matchesRepository';
-import { getGroupMembersV2ByGroupId, type GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
+import { getGroupMembersV2ByGroupId, getGroupMemberV2ByUserId, type GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import MatchLineup from '../components/MatchLineup';
 import PlayersList from '../components/PlayersList';
 import MvpVotingModal from '../components/MvpVotingModal';
 import { shareMatchOnWhatsApp } from '../services/matches/matchShareService';
 import { useMvpVoting } from '../hooks/useMvpVoting';
+import type { AppDrawerParamList } from '../navigation/types';
 
 // Icon component for year button - moved outside to avoid warnings
 const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF" />;
 
 export default function MatchesScreen() {
   const theme = useTheme();
+  const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
   const { selectedGroupId } = useAppSelector(state => state.groups);
   const { firebaseUser } = useAppSelector(state => state.auth);
 
@@ -47,6 +51,8 @@ export default function MatchesScreen() {
   );
   // ID of the match the voting modal is open for — derived from live allMatches
   const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
+  // Whether the current user is admin or owner of the selected group
+  const [isAdminOrOwner, setIsAdminOrOwner] = useState(false);
   const bottomSheetRef = useRef<BottomSheet>(null);
 
   const {
@@ -69,6 +75,26 @@ export default function MatchesScreen() {
       .then(members => setAllPlayers(members))
       .catch(err => console.error('Error loading group members:', err));
   }, [selectedGroupId]);
+
+  // Check if the current user is admin/owner so the edit button can be shown
+  useEffect(() => {
+    const checkRole = async () => {
+      if (!selectedGroupId || !firebaseUser?.uid) {
+        setIsAdminOrOwner(false);
+        return;
+      }
+      try {
+        const member = await getGroupMemberV2ByUserId(selectedGroupId, firebaseUser.uid);
+        const role = member?.role ?? '';
+        setIsAdminOrOwner(role === 'admin' || role === 'owner');
+      } catch (err) {
+        console.error('MatchesScreen: error checking role', err);
+        setIsAdminOrOwner(false);
+      }
+    };
+
+    checkRole();
+  }, [selectedGroupId, firebaseUser?.uid]);
 
   // Subscribe to matches in real-time
   useEffect(() => {
@@ -258,6 +284,20 @@ export default function MatchesScreen() {
               {currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId]
                 ? 'Cambiar voto'
                 : 'Votar MVP'}
+            </Button>
+          )}
+
+          {/* Edit button — only shown for admin/owner */}
+          {isAdminOrOwner && (
+            <Button
+              mode="outlined"
+              icon="pencil"
+              onPress={() => navigation.navigate('EditMatch', { matchId: match.id })}
+              style={styles(theme).editMatchButton}
+              contentStyle={styles(theme).editMatchButtonContent}
+              compact
+            >
+              Editar partido
             </Button>
           )}
 
@@ -602,6 +642,13 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     marginVertical: 2,
   },
   voteMatchButtonContent: {
+    paddingHorizontal: 4,
+  },
+  editMatchButton: {
+    alignSelf: 'center',
+    marginVertical: 2,
+  },
+  editMatchButtonContent: {
     paddingHorizontal: 4,
   },
   emptyText: {

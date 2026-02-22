@@ -9,7 +9,10 @@ type NotificationData = {
   [key: string]: string | undefined;
 };
 
-type DrawerScreen = keyof AppDrawerParamList;
+// Only screens that can be navigated to without params
+type DrawerScreen = {
+  [K in keyof AppDrawerParamList]: AppDrawerParamList[K] extends undefined ? K : never;
+}[keyof AppDrawerParamList];
 
 /**
  * Maps the notification data payload `type` field to a drawer screen name.
