@@ -254,6 +254,81 @@ exports.notifyUserOnInvite = onDocumentCreated(
 // ─── MVP voting: scheduled calculation ───────────────────────────────────────
 
 /**
+ * Notify all linked users in a group_v2 that the MVP for a match was calculated.
+ * Uses groupMembers_v2 (userId != null) to find recipients.
+ */
+const notifyGroupOnMvpResult = async (groupId, matchId, winnerName) => {
+  const db = admin.firestore();
+
+  const membersSnap = await db
+    .collection('groupMembers_v2')
+    .where('groupId', '==', groupId)
+    .get();
+
+  if (membersSnap.empty) {
+    logger.info('notifyGroupOnMvpResult: no members found', { groupId, matchId });
+    return;
+  }
+
+  // Only notify members that are linked to a user account
+  const userIds = uniqueNonEmpty(
+    membersSnap.docs
+      .map(doc => String(doc.data().userId ?? '').trim())
+      .filter(Boolean),
+  );
+
+  if (userIds.length === 0) {
+    logger.info('notifyGroupOnMvpResult: no linked users in group', { groupId, matchId });
+    return;
+  }
+
+  const usersRef = db.collection(USERS_COLLECTION);
+  const userDocs = await Promise.all(userIds.map(id => usersRef.doc(id).get()));
+
+  const tokens = uniqueNonEmpty(
+    userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+  );
+
+  if (tokens.length === 0) {
+    logger.info('notifyGroupOnMvpResult: no FCM tokens found', { groupId, matchId });
+    return;
+  }
+
+  const payload = {
+    notification: {
+      title: '🏆 MVP calculado',
+      body: winnerName
+        ? `${winnerName} fue elegido MVP del partido`
+        : 'El MVP del partido ha sido calculado',
+    },
+    data: {
+      matchId,
+      groupId,
+      type: 'mvp-calculated',
+    },
+    android: { priority: 'high' },
+    apns: { headers: { 'apns-priority': '10' } },
+  };
+
+  let sentCount = 0;
+  for (const tokensChunk of chunk(tokens, MAX_TOKENS_PER_BATCH)) {
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens: tokensChunk,
+      ...payload,
+    });
+    sentCount += response.successCount;
+    if (response.failureCount > 0) {
+      logger.warn('notifyGroupOnMvpResult: some notifications failed', {
+        matchId,
+        failures: response.failureCount,
+      });
+    }
+  }
+
+  logger.info('notifyGroupOnMvpResult: notifications sent', { matchId, groupId, sentCount });
+};
+
+/**
  * Runs every 3 hours. Finds all matches where:
  *   - mvpVoting.status == "open"
  *   - mvpVoting.closesAt <= now
@@ -338,6 +413,22 @@ exports.calculateMvpWinners = onSchedule('every 3 hours', async () => {
       }
 
       await batch.commit();
+
+      // Notify all group members about the MVP result
+      try {
+        let winnerName = null;
+        if (winnerId) {
+          const winnerDoc = await db.collection('groupMembers_v2').doc(winnerId).get();
+          winnerName = winnerDoc.exists ? String(winnerDoc.data().displayName ?? '').trim() : null;
+        }
+        await notifyGroupOnMvpResult(data.groupId, doc.id, winnerName);
+      } catch (notifyErr) {
+        // Notification failure must not affect the batch result
+        logger.warn('calculateMvpWinners: notification failed', {
+          matchId: doc.id,
+          error: notifyErr?.message ?? String(notifyErr),
+        });
+      }
 
       logger.info('calculateMvpWinners: match processed', {
         matchId: doc.id,
