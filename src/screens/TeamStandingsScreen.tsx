@@ -393,7 +393,8 @@ export default function TeamStandingsScreen() {
       </ScrollView>
 
       {/* Year selector bottom sheet */}
-      <Portal>          <TeamProfileModal
+      <Portal>
+          <TeamProfileModal
             teamId={selectedTeamId}
             allStats={allStats}
             teamsMap={teamsMap}
