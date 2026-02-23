@@ -207,15 +207,19 @@ export default function HomeScreen() {
                 size: 'small',
                 onPress: () => navigation.navigate('Profile'),
             },
-            {
-                id: 'admin',
-                title: 'Administrar Grupo',
-                icon: 'cog',
-                color: theme.colors.onPrimary,
-                iconColor: theme.colors.primary,
-                size: 'large',
-                onPress: () => navigation.navigate('Admin'),
-            },
+            ...(isOwner || isAdmin
+                ? [
+                    {
+                        id: 'admin',
+                        title: 'Administrar Grupo',
+                        icon: 'cog' as MaterialDesignIconsIconName,
+                        color: theme.colors.onPrimary,
+                        iconColor: theme.colors.primary,
+                        size: 'large' as const,
+                        onPress: () => navigation.navigate('Admin'),
+                    },
+                ]
+                : []),
             {
                 id: 'invitations',
                 title: 'Invitaciones',
@@ -228,7 +232,7 @@ export default function HomeScreen() {
         ];
 
         return cards;
-    }, [navigation, theme, activeGroup]);
+    }, [navigation, theme, activeGroup, isOwner, isAdmin]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -369,7 +373,6 @@ export default function HomeScreen() {
                                 key={card.id}
                                 card={card}
                                 theme={theme}
-                                isDisabled={card.id === 'admin' && !isOwner && !isAdmin}
                             />
                         ))}
                 </View>
@@ -383,7 +386,6 @@ export default function HomeScreen() {
                                 key={card.id}
                                 card={card}
                                 theme={theme}
-                                isDisabled={card.id === 'admin' && !isOwner && !isAdmin}
                             />
                         ))}
                 </View>
@@ -457,11 +459,9 @@ export default function HomeScreen() {
 function ActionCardItem({
     card,
     theme: _theme,
-    isDisabled = false,
 }: {
     card: ActionCard;
     theme: ReturnType<typeof useTheme>;
-    isDisabled?: boolean;
 }) {
     const heightMap = {
         small: 155,
@@ -472,10 +472,9 @@ function ActionCardItem({
 
     return (
         <TouchableOpacity
-            activeOpacity={isDisabled ? 1 : 0.7}
-            onPress={isDisabled ? undefined : card.onPress}
+            activeOpacity={0.7}
+            onPress={card.onPress}
             style={styles.cardTouchable}
-            disabled={isDisabled}
         >
             <Card
                 style={[
@@ -484,16 +483,10 @@ function ActionCardItem({
                         height: heightMap[card.size],
                         backgroundColor: card.color,
                     },
-                    isDisabled && styles.disabledCard,
                 ]}
-                elevation={isDisabled ? 1 : 4}
+                elevation={4}
             >
                 <Card.Content style={styles.actionCardContent}>
-                    {isDisabled && (
-                        <View style={styles.lockIconContainer}>
-                            <Icon name="lock" size={32} color="rgba(255, 255, 255, 0.9)" />
-                        </View>
-                    )}
                     <View style={styles.actionIconContainer}>
                         <Icon name={card.icon} size={iconSize} color={card.iconColor} />
                     </View>
@@ -504,11 +497,6 @@ function ActionCardItem({
                     >
                         {card.title}
                     </Text>
-                    {isDisabled && (
-                        <Text style={styles.disabledText}>
-                            Solo para admins
-                        </Text>
-                    )}
                 </Card.Content>
             </Card>
         </TouchableOpacity>
@@ -611,21 +599,12 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: 'hidden',
     },
-    disabledCard: {
-        opacity: 0.6,
-    },
     actionCardContent: {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         height: '100%',
         position: 'relative',
-    },
-    lockIconContainer: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        zIndex: 1,
     },
     actionIconContainer: {
         width: 90,
@@ -646,13 +625,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
         fontSize: 23,
 
-    },
-    disabledText: {
-        color: '#FFFFFF',
-        fontSize: 12,
-        marginTop: 4,
-        opacity: 0.9,
-        textAlign: 'center',
     },
     groupSheetContent: {
         flex: 1,
