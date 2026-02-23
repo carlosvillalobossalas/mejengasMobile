@@ -215,7 +215,7 @@ export default function MatchesScreen() {
               (_left, top) => {
                 scrollViewRef.current?.scrollTo({ y: top, animated: true });
               },
-              () => {},
+              () => { },
             );
           }
         });
@@ -239,138 +239,140 @@ export default function MatchesScreen() {
           style={styles(theme).matchCard}
           onPress={() => toggleMatchExpansion(match.id)}
         >
-        <Card.Content style={styles(theme).cardContent}>
-          {/* Date + Share row */}
-          <View style={styles(theme).cardTopRow}>
-            <View style={styles(theme).dateContainer}>
-              <Icon name="calendar" size={16} color={theme.colors.onSurfaceVariant} />
-              <Text variant="labelMedium" style={styles(theme).dateText}>
-                {formatDate(match.date)}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => shareMatchOnWhatsApp(match, allPlayers)}
-              style={styles(theme).shareButton}
-              activeOpacity={0.7}
-            >
-              <Icon name="whatsapp" size={22} color="#25D366" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Score */}
-          <View style={styles(theme).scoreContainer}>
-            <View style={styles(theme).teamScore}>
-              <Text variant="headlineMedium" style={styles(theme).teamLabel}>
-                Equipo 1
-              </Text>
-              <Surface style={styles(theme).scoreSurface} elevation={2}>
-                <Text variant="displaySmall" style={styles(theme).scoreText}>
-                  {match.goalsTeam1}
-                </Text>
-              </Surface>
-            </View>
-
-            <View style={styles(theme).vsContainer}>
-              <Text variant="titleLarge" style={styles(theme).vsText}>
-                VS
-              </Text>
-            </View>
-
-            <View style={styles(theme).teamScore}>
-              <Text variant="headlineMedium" style={styles(theme).teamLabel}>
-                Equipo 2
-              </Text>
-              <Surface style={styles(theme).scoreSurface} elevation={2}>
-                <Text variant="displaySmall" style={styles(theme).scoreText}>
-                  {match.goalsTeam2}
-                </Text>
-              </Surface>
-            </View>
-          </View>
-
-          {/* Result Badge */}
-          <View style={styles(theme).resultContainer}>
-            <Chip
-              style={[styles(theme).resultChip, { backgroundColor: resultColor }]}
-              textStyle={styles(theme).resultText}
-            >
-              {result}
-            </Chip>
-          </View>
-
-          {/* MVP vote button — only shown when the user participated and voting is open */}
-          {canVoteInMatch(match) && (
-            <Button
-              mode={currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId] ? 'outlined' : 'contained-tonal'}
-              icon="star-circle-outline"
-              onPress={() => setSelectedVotingMatchId(match.id)}
-              style={styles(theme).voteMatchButton}
-              contentStyle={styles(theme).voteMatchButtonContent}
-              compact
-            >
-              {currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId]
-                ? 'Cambiar voto'
-                : 'Votar MVP'}
-            </Button>
-          )}
-
-          {/* Edit button — only shown for admin/owner */}
-          {isAdminOrOwner && (
-            <Button
-              mode="outlined"
-              icon="pencil"
-              onPress={() => navigation.navigate('EditMatch', { matchId: match.id })}
-              style={styles(theme).editMatchButton}
-              contentStyle={styles(theme).editMatchButtonContent}
-              compact
-            >
-              Editar partido
-            </Button>
-          )}
-
-          <Divider style={styles(theme).divider} />
-
-          {/* Lineups Section */}
-          {isExpanded && (
-            <>
-              <View style={styles(theme).sectionHeader}>
-                <Icon name="soccer-field" size={20} color={theme.colors.primary} />
-                <Text variant="titleMedium" style={styles(theme).sectionTitle}>
-                  Alineaciones
+          <Card.Content style={styles(theme).cardContent}>
+            {/* Date + Share row */}
+            <View style={styles(theme).cardTopRow}>
+              <View style={styles(theme).dateContainer}>
+                <Icon name="calendar" size={16} color={theme.colors.onSurfaceVariant} />
+                <Text variant="labelMedium" style={styles(theme).dateText}>
+                  {formatDate(match.date)}
                 </Text>
               </View>
 
-              <MatchLineup
-                team1Players={match.players1}
-                team2Players={match.players2}
-                allPlayers={allPlayers}
-                mvpGroupMemberId={match.mvpGroupMemberId}
+              <TouchableOpacity
+                onPress={() => shareMatchOnWhatsApp(match, allPlayers)}
+                style={styles(theme).shareButton}
+                activeOpacity={0.7}
+              >
+                <Icon name="whatsapp" size={22} color="#25D366" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Score */}
+            <View style={styles(theme).scoreContainer}>
+              <View style={styles(theme).teamScore}>
+                <Text variant="headlineMedium" style={styles(theme).teamLabel}>
+                  Equipo 1
+                </Text>
+                <Surface style={styles(theme).scoreSurface} elevation={2}>
+                  <Text variant="displaySmall" style={styles(theme).scoreText}>
+                    {match.goalsTeam1}
+                  </Text>
+                </Surface>
+              </View>
+
+              <View style={styles(theme).vsContainer}>
+                <Text variant="titleLarge" style={styles(theme).vsText}>
+                  VS
+                </Text>
+              </View>
+
+              <View style={styles(theme).teamScore}>
+                <Text variant="headlineMedium" style={styles(theme).teamLabel}>
+                  Equipo 2
+                </Text>
+                <Surface style={styles(theme).scoreSurface} elevation={2}>
+                  <Text variant="displaySmall" style={styles(theme).scoreText}>
+                    {match.goalsTeam2}
+                  </Text>
+                </Surface>
+              </View>
+            </View>
+
+            {/* Result Badge */}
+            <View style={styles(theme).resultContainer}>
+              <Chip
+                style={[styles(theme).resultChip, { backgroundColor: resultColor }]}
+                textStyle={styles(theme).resultText}
+              >
+                {result}
+              </Chip>
+            </View>
+
+            {/* MVP vote button — only shown when the user participated and voting is open */}
+            {canVoteInMatch(match) && (
+              <Button
+                mode={currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId] ? 'outlined' : 'contained-tonal'}
+                icon={() => <Icon name='star-circle-outline' color={'white'} />}
+                onPress={() => setSelectedVotingMatchId(match.id)}
+                style={styles(theme).voteMatchButton}
+                contentStyle={styles(theme).voteMatchButtonContent}
+                compact
+              >
+                <Text style={{ color: theme.colors.onSecondary }}>
+                  {currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId]
+                    ? 'Cambiar voto'
+                    : 'Votar MVP'}
+                </Text>
+              </Button>
+            )}
+
+            {/* Edit button — only shown for admin/owner */}
+            {isAdminOrOwner && (
+              <Button
+                mode="outlined"
+                icon="pencil"
+                onPress={() => navigation.navigate('EditMatch', { matchId: match.id })}
+                style={styles(theme).editMatchButton}
+                contentStyle={styles(theme).editMatchButtonContent}
+                compact
+              >
+                Editar partido
+              </Button>
+            )}
+
+            <Divider style={styles(theme).divider} />
+
+            {/* Lineups Section */}
+            {isExpanded && (
+              <>
+                <View style={styles(theme).sectionHeader}>
+                  <Icon name="soccer-field" size={20} color={theme.colors.primary} />
+                  <Text variant="titleMedium" style={styles(theme).sectionTitle}>
+                    Alineaciones
+                  </Text>
+                </View>
+
+                <MatchLineup
+                  team1Players={match.players1}
+                  team2Players={match.players2}
+                  allPlayers={allPlayers}
+                  mvpGroupMemberId={match.mvpGroupMemberId}
+                />
+
+                <View style={styles(theme).spacing} />
+
+                {/* Players List */}
+                <PlayersList
+                  team1Players={match.players1}
+                  team2Players={match.players2}
+                  allPlayers={allPlayers}
+                  mvpGroupMemberId={match.mvpGroupMemberId}
+                />
+              </>
+            )}
+
+            {/* Expand/Collapse Indicator */}
+            <View style={styles(theme).expandIndicator}>
+              <Icon
+                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                size={24}
+                color={theme.colors.primary}
               />
-
-              <View style={styles(theme).spacing} />
-
-              {/* Players List */}
-              <PlayersList
-                team1Players={match.players1}
-                team2Players={match.players2}
-                allPlayers={allPlayers}
-                mvpGroupMemberId={match.mvpGroupMemberId}
-              />
-            </>
-          )}
-
-          {/* Expand/Collapse Indicator */}
-          <View style={styles(theme).expandIndicator}>
-            <Icon
-              name={isExpanded ? 'chevron-up' : 'chevron-down'}
-              size={24}
-              color={theme.colors.primary}
-            />
-          </View>
-        </Card.Content>
-      </Card>
-    </View>
+            </View>
+          </Card.Content>
+        </Card>
+      </View>
     );
   };
 
@@ -670,6 +672,7 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   voteMatchButton: {
     alignSelf: 'center',
     marginVertical: 2,
+    backgroundColor: theme.colors.secondary,
   },
   voteMatchButtonContent: {
     paddingHorizontal: 4,
