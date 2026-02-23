@@ -13,7 +13,8 @@ import {
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
-import type { Match, MatchPlayer } from '../repositories/matches/matchesRepository';
+import type { Match } from '../repositories/matches/matchesRepository';
+import type { MatchByTeams } from '../repositories/matches/matchesByTeamsRepository';
 import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 
 const POSITION_LABEL: Record<string, string> = {
@@ -23,7 +24,12 @@ const POSITION_LABEL: Record<string, string> = {
   DEL: 'Delantero',
 };
 
-type ResolvedPlayer = Pick<MatchPlayer, 'groupMemberId' | 'position'> & {
+/** Minimal player shape used internally — satisfied by both MatchPlayer and MatchByTeamsPlayer */
+type AnyMatchPlayer = { groupMemberId: string; position: string };
+
+type ResolvedPlayer = {
+  groupMemberId: string;
+  position: string;
   displayName: string;
   photoUrl: string | null;
 };
@@ -31,7 +37,7 @@ type ResolvedPlayer = Pick<MatchPlayer, 'groupMemberId' | 'position'> & {
 type Props = {
   visible: boolean;
   /** Must come from the live subscription so mvpVotes updates in real-time */
-  match: Match | null;
+  match: Match | MatchByTeams | null;
   allPlayers: GroupMemberV2[];
   currentUserGroupMemberId: string | null;
   isVoting: boolean;
@@ -66,7 +72,7 @@ export default function MvpVotingModal({
   const participants = useMemo(() => {
     if (!match) return { team1: [] as ResolvedPlayer[], team2: [] as ResolvedPlayer[] };
 
-    const resolve = (p: MatchPlayer): ResolvedPlayer => {
+    const resolve = (p: AnyMatchPlayer): ResolvedPlayer => {
       const member = allPlayers.find(m => m.id === p.groupMemberId);
       return {
         groupMemberId: p.groupMemberId,

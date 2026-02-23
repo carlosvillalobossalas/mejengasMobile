@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { ScrollView, View, StyleSheet, ActivityIndicator } from 'react-native';
 import {
   Text,
@@ -17,7 +17,10 @@ import BottomSheet, {
 
 import { useAppSelector } from '../app/hooks';
 import { useMatchesByTeams } from '../hooks/useMatchesByTeams';
+import { useMvpVoting } from '../hooks/useMvpVoting';
 import MatchByTeamsCard from '../components/MatchByTeamsCard';
+import MvpVotingModal from '../components/MvpVotingModal';
+import { castMvpVoteByTeams } from '../repositories/matches/matchesByTeamsRepository';
 
 // Icon component outside render to avoid React warnings
 const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF" />;
@@ -25,7 +28,9 @@ const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF"
 export default function MatchesByTeamsScreen() {
   const theme = useTheme();
   const { selectedGroupId } = useAppSelector(state => state.groups);
+  const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
+  const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   // One ref per card — used to measure position in scroll content after collapse
@@ -41,6 +46,28 @@ export default function MatchesByTeamsScreen() {
     setSelectedYear,
     yearOptions,
   } = useMatchesByTeams(selectedGroupId ?? undefined);
+
+  const {
+    currentUserGroupMemberId,
+    canVoteInMatch,
+    castVote,
+    isVoting,
+    voteError,
+    clearVoteError,
+  } = useMvpVoting(selectedGroupId, firebaseUser?.uid ?? null, castMvpVoteByTeams);
+
+  const selectedVotingMatch = useMemo(
+    () => (selectedVotingMatchId ? matches.find(m => m.id === selectedVotingMatchId) ?? null : null),
+    [selectedVotingMatchId, matches],
+  );
+
+  const handleVote = useCallback(
+    async (votedGroupMemberId: string) => {
+      if (!selectedVotingMatchId) return;
+      await castVote(selectedVotingMatchId, votedGroupMemberId);
+    },
+    [selectedVotingMatchId, castVote],
+  );
 
   const handleToggle = useCallback((matchId: string) => {
     setExpandedMatchId(prev => {
@@ -179,6 +206,9 @@ export default function MatchesByTeamsScreen() {
                 groupMembers={groupMembers}
                 isExpanded={expandedMatchId === match.id}
                 onToggle={() => handleToggle(match.id)}
+                canVote={canVoteInMatch(match)}
+                hasVoted={!!(currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId])}
+                onVotePress={() => setSelectedVotingMatchId(match.id)}
               />
             </View>
           ))
@@ -221,6 +251,22 @@ export default function MatchesByTeamsScreen() {
           </View>
         </BottomSheet>
       </Portal>
+
+      {/* MVP voting modal */}
+      <MvpVotingModal
+        visible={selectedVotingMatchId !== null}
+        match={selectedVotingMatch}
+        allPlayers={groupMembers}
+        currentUserGroupMemberId={currentUserGroupMemberId}
+        isVoting={isVoting}
+        voteError={voteError}
+        onVote={handleVote}
+        onDismiss={() => {
+          setSelectedVotingMatchId(null);
+          clearVoteError();
+        }}
+        onClearError={clearVoteError}
+      />
     </View>
   );
 }

@@ -116,3 +116,44 @@ export function subscribeToMatchesByTeamsByGroupId(
       err => onError?.(err),
     );
 }
+
+/**
+ * Cast or update an MVP vote for a team-based match.
+ * Using the voter's groupMemberId as the key guarantees idempotency.
+ */
+export async function castMvpVoteByTeams(
+  matchId: string,
+  voterGroupMemberId: string,
+  votedGroupMemberId: string,
+): Promise<void> {
+  const matchRef = firestore().collection(COLLECTION).doc(matchId);
+  const doc = await matchRef.get();
+  if (!doc.exists) throw new Error(`Partido "${matchId}" no existe`);
+
+  const match = mapDoc(doc);
+
+  if (match.mvpVoting?.status !== 'open') {
+    throw new Error('La votación ya está cerrada para este partido');
+  }
+
+  const closesAt = match.mvpVoting.closesAt ? match.mvpVoting.closesAt.toMillis() : 0;
+  if (Date.now() > closesAt) {
+    throw new Error('El período de votación ha expirado');
+  }
+
+  const allParticipants = [
+    ...match.players1.map(p => p.groupMemberId),
+    ...match.players2.map(p => p.groupMemberId),
+  ];
+
+  if (!allParticipants.includes(voterGroupMemberId)) {
+    throw new Error('Solo los jugadores del partido pueden votar');
+  }
+  if (!allParticipants.includes(votedGroupMemberId)) {
+    throw new Error('Solo puedes votar por un jugador que participó en el partido');
+  }
+
+  await matchRef.update({
+    [`mvpVotes.${voterGroupMemberId}`]: votedGroupMemberId,
+  });
+}
