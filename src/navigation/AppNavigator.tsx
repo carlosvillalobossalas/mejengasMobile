@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import { useTheme } from 'react-native-paper';
+import { useTheme, IconButton } from 'react-native-paper';
 import { Alert } from 'react-native';
 
 import type { AppDrawerParamList } from './types';
@@ -101,18 +101,36 @@ export default function AppNavigator() {
   return (
     <Drawer.Navigator
       initialRouteName={initialRoute}
-      screenOptions={{
+      screenOptions={({ navigation }) => ({
         drawerActiveTintColor: theme.colors.primary,
         drawerInactiveTintColor: theme.colors.onSurfaceVariant,
         drawerActiveBackgroundColor: theme.colors.primaryContainer,
         headerTintColor: theme.colors.secondary,
-        headerTitleStyle: { color: 'FFF' }
-      }}
+        headerTitleStyle: { color: 'FFF' },
+        headerLeft: () => (
+          <IconButton
+            icon="chevron-left"
+            iconColor={theme.colors.secondary}
+            size={26}
+            onPress={() => navigation.goBack()}
+          />
+        ),
+      })}
     >
       <Drawer.Screen
         name="Home"
         component={HomeScreen}
-        options={{ title: 'Inicio' }}
+        options={({ navigation }) => ({
+          title: 'Inicio',
+          headerLeft: () => (
+            <IconButton
+              icon="menu"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.openDrawer()}
+            />
+          ),
+        })}
       />
       <Drawer.Screen
         name="Profile"
