@@ -18,6 +18,7 @@ import MatchesByTeamsScreen from '../screens/MatchesByTeamsScreen';
 import AddPlayerScreen from '../screens/AddPlayerScreen';
 import ManageMembersScreen from '../screens/ManageMembersScreen';
 import ManageTeamsScreen from '../screens/ManageTeamsScreen';
+import TeamStandingsScreen from '../screens/TeamStandingsScreen';
 import TeamFormScreen from '../screens/TeamFormScreen';
 import EditMatchScreen from '../screens/EditMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
@@ -132,6 +133,14 @@ export default function AppNavigator() {
         name="GoalkeepersTable"
         component={GoalkeepersTableScreen}
         options={{ title: 'Porteros' }}
+      />
+      <Drawer.Screen
+        name="TeamStandings"
+        component={TeamStandingsScreen}
+        options={{
+          title: 'Tabla de Equipos',
+          drawerItemStyle: activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
+        }}
       />
       <Drawer.Screen
         name="Matches"

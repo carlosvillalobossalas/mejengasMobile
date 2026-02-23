@@ -142,7 +142,7 @@ export default function HomeScreen() {
                 icon: 'account-group',
                 color: theme.colors.onPrimary,
                 iconColor: theme.colors.primary,
-                size: 'large',
+                size: 'medium',
                 onPress: () => navigation.navigate('PlayersTable'),
             },
             {
@@ -151,7 +151,7 @@ export default function HomeScreen() {
                 icon: 'hand-back-right',
                 color: theme.colors.onPrimary,
                 iconColor: theme.colors.primary,
-                size: 'medium',
+                size: 'large',
                 onPress: () => navigation.navigate('GoalkeepersTable'),
             },
             {
@@ -166,6 +166,19 @@ export default function HomeScreen() {
                         ? navigation.navigate('MatchesByTeams')
                         : navigation.navigate('Matches'),
             },
+            ...(activeGroup?.hasFixedTeams
+                ? [
+                    {
+                        id: 'teamStandings',
+                        title: 'Tabla de Equipos',
+                        icon: 'shield-star' as MaterialDesignIconsIconName,
+                        color: theme.colors.onPrimary,
+                        iconColor: theme.colors.primary,
+                        size: 'large' as const,
+                        onPress: () => navigation.navigate('TeamStandings'),
+                    },
+                ]
+                : []),
             {
                 id: 'profile',
                 title: 'Mi Perfil',
@@ -176,6 +189,15 @@ export default function HomeScreen() {
                 onPress: () => navigation.navigate('Profile'),
             },
             {
+                id: 'admin',
+                title: 'Administrar Grupo',
+                icon: 'cog',
+                color: theme.colors.onPrimary,
+                iconColor: theme.colors.primary,
+                size: 'large',
+                onPress: () => navigation.navigate('Admin'),
+            },
+            {
                 id: 'invitations',
                 title: 'Invitaciones',
                 icon: 'email-multiple',
@@ -183,15 +205,6 @@ export default function HomeScreen() {
                 iconColor: theme.colors.primary,
                 size: 'medium',
                 onPress: () => navigation.navigate('Invitations'),
-            },
-            {
-                id: 'admin',
-                title: 'Administrar Grupo',
-                icon: 'cog',
-                color: theme.colors.onPrimary,
-                iconColor: theme.colors.primary,
-                size: 'medium',
-                onPress: () => navigation.navigate('Admin'),
             },
         ];
 
@@ -305,13 +318,13 @@ export default function HomeScreen() {
                             </View>
                         </View>
                         {/* <View style={styles.groupMeta}> */}
-                            {/* <Chip icon={EyeIcon} compact>
+                        {/* <Chip icon={EyeIcon} compact>
                                 {activeGroup.visibility || 'Público'}
                             </Chip>
                             <Chip icon={ShapeIcon} compact>
                                 {activeGroup.type || 'General'}
                             </Chip> */}
-                            {/* {activeGroup.isActive && (
+                        {/* {activeGroup.isActive && (
                                 <Chip
                                     icon={CheckCircleIcon}
                                     compact
