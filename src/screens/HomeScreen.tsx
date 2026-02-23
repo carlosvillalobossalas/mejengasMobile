@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
     Card,
@@ -15,11 +15,13 @@ import {
 import { MaterialDesignIcons as Icon, MaterialDesignIconsIconName } from '@react-native-vector-icons/material-design-icons';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
-import BottomSheet from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/bottom-sheet';
 
-import { useAppSelector, useDebounce } from '../app/hooks';
+import { useAppSelector, useAppDispatch, useDebounce } from '../app/hooks';
 import type { AppDrawerParamList } from '../navigation/types';
 import { subscribeToUserRoleInGroup } from '../repositories/groups/groupsRepository';
+import type { Group } from '../repositories/groups/groupsRepository';
+import { selectGroup } from '../features/groups/groupsSlice';
 import {
     searchGroupMembersByDisplayName,
     type GroupMemberV2,
@@ -52,8 +54,11 @@ export default function HomeScreen() {
     const [selectedMemberName, setSelectedMemberName] = useState<string | undefined>(undefined);
     const [selectedMemberPhoto, setSelectedMemberPhoto] = useState<string | undefined>(undefined);
     const bottomSheetRef = useRef<BottomSheet | null>(null);
+    const groupSwitcherRef = useRef<BottomSheet | null>(null);
     const searchbarRef = useRef<any>(null);
     const debouncedSearchQuery = useDebounce(searchQuery, 700);
+
+    const dispatch = useAppDispatch();
 
     const { groups, selectedGroupId } = useAppSelector(state => state.groups);
     const currentUser = useAppSelector(state => state.auth.firestoreUser);
@@ -133,6 +138,20 @@ export default function HomeScreen() {
             bottomSheetRef.current?.expand();
         }, 100);
     };
+
+    const handleSwitchGroup = useCallback((groupId: string) => {
+        if (!currentUser?.uid) return;
+        dispatch(selectGroup({ userId: currentUser.uid, groupId }));
+        groupSwitcherRef.current?.close();
+    }, [currentUser?.uid, dispatch]);
+
+    const renderGroupBackdrop = useCallback(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (props: any) => (
+            <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+        ),
+        [],
+    );
 
     const actionCards: ActionCard[] = useMemo(() => {
         const cards: ActionCard[] = [
@@ -312,7 +331,7 @@ export default function HomeScreen() {
                                     icon="swap-horizontal"
                                     size={24}
                                     iconColor={theme.colors.primary}
-                                    onPress={() => navigation.navigate('Groups')}
+                                    onPress={() => groupSwitcherRef.current?.expand()}
                                     style={styles.changeGroupButton}
                                 />
                             </View>
@@ -372,6 +391,58 @@ export default function HomeScreen() {
 
             {/* Player Profile Modal */}
             <Portal>
+                <BottomSheet
+                    ref={groupSwitcherRef}
+                    index={-1}
+                    snapPoints={['50%']}
+                    enablePanDownToClose
+                    backdropComponent={renderGroupBackdrop}
+                >
+                    <View style={styles.groupSheetContent}>
+                        <Text variant="titleMedium" style={styles.groupSheetTitle}>
+                            Cambiar Grupo
+                        </Text>
+                        <BottomSheetFlatList
+                            data={groups}
+                            keyExtractor={(item: Group) => item.id}
+                            renderItem={({ item }: { item: Group }) => {
+                                const isSelected = item.id === selectedGroupId;
+                                return (
+                                    <TouchableOpacity
+                                        style={styles.groupSheetItem}
+                                        onPress={() => handleSwitchGroup(item.id)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={styles.groupSheetItemInfo}>
+                                            <Text
+                                                variant="titleSmall"
+                                                style={[
+                                                    styles.groupSheetItemName,
+                                                    isSelected && { color: theme.colors.primary },
+                                                ]}
+                                            >
+                                                {item.name}
+                                            </Text>
+                                            {item.description ? (
+                                                <Text
+                                                    variant="bodySmall"
+                                                    style={styles.groupSheetItemDesc}
+                                                    numberOfLines={1}
+                                                >
+                                                    {item.description}
+                                                </Text>
+                                            ) : null}
+                                        </View>
+                                        {isSelected && (
+                                            <Icon name="check-circle" size={22} color={theme.colors.primary} />
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            }}
+                        />
+                    </View>
+                </BottomSheet>
+
                 <PlayerProfileModal
                     groupMemberId={selectedGroupMemberId}
                     playerName={selectedMemberName}
@@ -582,5 +653,33 @@ const styles = StyleSheet.create({
         marginTop: 4,
         opacity: 0.9,
         textAlign: 'center',
+    },
+    groupSheetContent: {
+        flex: 1,
+        paddingHorizontal: 16,
+        paddingTop: 8,
+    },
+    groupSheetTitle: {
+        textAlign: 'center',
+        marginBottom: 12,
+        fontWeight: 'bold',
+    },
+    groupSheetItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 4,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: '#E0E0E0',
+    },
+    groupSheetItemInfo: {
+        flex: 1,
+    },
+    groupSheetItemName: {
+        fontWeight: '600',
+    },
+    groupSheetItemDesc: {
+        color: '#888',
+        marginTop: 2,
     },
 });
