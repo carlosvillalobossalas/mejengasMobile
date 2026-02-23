@@ -23,7 +23,7 @@ import TeamFormScreen from '../screens/TeamFormScreen';
 import EditMatchScreen from '../screens/EditMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
-import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
+import { subscribeToUserRoleInGroup } from '../repositories/groups/groupsRepository';
 import { signOutFromFirebase } from '../features/auth/authSlice';
 import { useNotificationNavigation } from '../hooks/useNotificationNavigation';
 
@@ -71,24 +71,24 @@ export default function AppNavigator() {
     );
   };
 
-  // Load user role when group or user changes
+  // Subscribe to user role in real-time so drawer items update immediately
   useEffect(() => {
-    const loadUserRole = async () => {
-      if (!selectedGroupId || !currentUser?.uid) {
-        setUserRole(null);
-        return;
-      }
+    if (!selectedGroupId || !currentUser?.uid) {
+      setUserRole(null);
+      return;
+    }
 
-      try {
-        const role = await getUserRoleInGroup(selectedGroupId, currentUser.uid);
-        setUserRole(role);
-      } catch (error) {
-        console.error('Error loading user role:', error);
+    const unsubscribe = subscribeToUserRoleInGroup(
+      selectedGroupId,
+      currentUser.uid,
+      role => setUserRole(role),
+      error => {
+        console.error('Error subscribing to user role:', error);
         setUserRole(null);
-      }
-    };
+      },
+    );
 
-    loadUserRole();
+    return () => unsubscribe();
   }, [selectedGroupId, currentUser?.uid]);
 
   // Wait until we've loaded the selectedGroupId from storage

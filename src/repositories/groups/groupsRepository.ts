@@ -262,30 +262,47 @@ export async function getUserRoleInGroup(
   groupId: string,
   userId: string,
 ): Promise<string | null> {
-  const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
-  
-  // Try with userId field
-  let snapshot = await membersRef
+  const snapshot = await firestore()
+    .collection(GROUP_MEMBERS_V2_COLLECTION)
     .where('groupId', '==', groupId)
     .where('userId', '==', userId)
     .limit(1)
     .get();
 
-  // If not found, try with userid field (lowercase)
-  if (snapshot.empty) {
-    snapshot = await membersRef
-      .where('groupId', '==', groupId)
-      .where('userid', '==', userId)
-      .limit(1)
-      .get();
-  }
-
   if (snapshot.empty) {
     return null;
   }
 
-  const member = mapMemberDoc(snapshot.docs[0]);
-  return member.role;
+  const data = (snapshot.docs[0].data() ?? {}) as Record<string, unknown>;
+  return data.role ? String(data.role) : null;
+}
+
+/**
+ * Subscribe to the user's role in a specific group with real-time updates.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToUserRoleInGroup(
+  groupId: string,
+  userId: string,
+  onNext: (role: string | null) => void,
+  onError?: (error: Error) => void,
+): () => void {
+  return firestore()
+    .collection(GROUP_MEMBERS_V2_COLLECTION)
+    .where('groupId', '==', groupId)
+    .where('userId', '==', userId)
+    .limit(1)
+    .onSnapshot(
+      snapshot => {
+        if (snapshot.empty) {
+          onNext(null);
+          return;
+        }
+        const data = (snapshot.docs[0].data() ?? {}) as Record<string, unknown>;
+        onNext(data.role ? String(data.role) : null);
+      },
+      err => onError?.(err),
+    );
 }
 
 /**

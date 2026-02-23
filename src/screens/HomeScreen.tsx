@@ -19,7 +19,7 @@ import BottomSheet from '@gorhom/bottom-sheet';
 
 import { useAppSelector, useDebounce } from '../app/hooks';
 import type { AppDrawerParamList } from '../navigation/types';
-import { getUserRoleInGroup } from '../repositories/groups/groupsRepository';
+import { subscribeToUserRoleInGroup } from '../repositories/groups/groupsRepository';
 import {
     searchGroupMembersByDisplayName,
     type GroupMemberV2,
@@ -66,24 +66,24 @@ export default function HomeScreen() {
     const isOwner = activeGroup?.ownerId === currentUser?.uid;
     const isAdmin = userRole === 'admin' || userRole === 'owner';
 
-    // Load user role when group or user changes
+    // Subscribe to user role in real-time so permission changes reflect immediately
     useEffect(() => {
-        const loadUserRole = async () => {
-            if (!selectedGroupId || !currentUser?.uid) {
-                setUserRole(null);
-                return;
-            }
+        if (!selectedGroupId || !currentUser?.uid) {
+            setUserRole(null);
+            return;
+        }
 
-            try {
-                const role = await getUserRoleInGroup(selectedGroupId, currentUser.uid);
-                setUserRole(role);
-            } catch (error) {
-                console.error('Error loading user role:', error);
+        const unsubscribe = subscribeToUserRoleInGroup(
+            selectedGroupId,
+            currentUser.uid,
+            role => setUserRole(role),
+            error => {
+                console.error('Error subscribing to user role:', error);
                 setUserRole(null);
-            }
-        };
+            },
+        );
 
-        loadUserRole();
+        return () => unsubscribe();
     }, [selectedGroupId, currentUser?.uid]);
 
     // Execute search when debounced query or selected group changes
