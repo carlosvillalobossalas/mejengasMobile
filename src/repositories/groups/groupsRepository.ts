@@ -28,6 +28,7 @@ export type { GroupMember };
 
 const GROUPS_COLLECTION = 'groups';
 const GROUP_MEMBERS_COLLECTION = 'groupMembers';
+const GROUP_MEMBERS_V2_COLLECTION = 'groupMembers_v2';
 
 const toIsoString = (value: unknown): string | null => {
   if (!value) {
@@ -101,17 +102,14 @@ const chunk = <T,>(items: Array<T>, size: number): Array<Array<T>> => {
 };
 
 export async function fetchGroupsForUser(userId: string): Promise<Array<Group>> {
-  const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
+  const snap = await firestore()
+    .collection(GROUP_MEMBERS_V2_COLLECTION)
+    .where('userId', '==', userId)
+    .get();
 
-  // Some projects use `userId`, others `userid`. We try both.
-  const membersByUserIdSnap = await membersRef.where('userId', '==', userId).get();
-  const membersDocs =
-    membersByUserIdSnap.size > 0
-      ? membersByUserIdSnap.docs
-      : (await membersRef.where('userid', '==', userId).get()).docs;
-
-  const members = membersDocs.map(mapMemberDoc);
-  const groupIds = uniqueNonEmpty(members.map(m => m.groupId));
+  const groupIds = uniqueNonEmpty(
+    snap.docs.map(d => String((d.data() as Record<string, unknown>).groupId ?? '')),
+  );
 
   if (groupIds.length === 0) {
     return [];
@@ -158,16 +156,18 @@ export function subscribeToGroupsForUser(
   userId: string,
   callback: (groups: Group[]) => void,
 ): () => void {
-  const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
-
-  // Subscribe to group members for this user
-  const unsubscribe = membersRef
+  // Subscribe to group members for this user in the v2 collection
+  const unsubscribe = firestore()
+    .collection(GROUP_MEMBERS_V2_COLLECTION)
     .where('userId', '==', userId)
     .onSnapshot(
       async (snapshot) => {
         try {
-          const members = snapshot.docs.map(mapMemberDoc);
-          const groupIds = uniqueNonEmpty(members.map(m => m.groupId));
+          const groupIds = uniqueNonEmpty(
+            snapshot.docs.map(d =>
+              String((d.data() as Record<string, unknown>).groupId ?? ''),
+            ),
+          );
 
           if (groupIds.length === 0) {
             callback([]);
