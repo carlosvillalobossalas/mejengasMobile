@@ -43,6 +43,14 @@ const EyeIcon = () => <Icon name="eye" size={16} color="#666" />;
 const ShapeIcon = () => <Icon name="shape" size={16} color="#666" />;
 const CheckCircleIcon = () => <Icon name="check-circle" size={16} color="#4CAF50" />;
 
+const MATCH_TYPE_LABELS: Record<string, string> = {
+    futbol_5: 'Fútbol 5',
+    futbol_7: 'Fútbol 7',
+    futbol_11: 'Fútbol 11',
+};
+
+const SoccerIcon = () => <Icon name="soccer" size={14} color="#555" />;
+
 export default function HomeScreen() {
     const theme = useTheme();
     const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
@@ -324,6 +332,18 @@ export default function HomeScreen() {
                                         {activeGroup.description}
                                     </Text>
                                 )}
+                                {activeGroup.type && MATCH_TYPE_LABELS[activeGroup.type] && (
+                                    <View style={styles.matchTypeRow}>
+                                        <Chip
+                                            icon={SoccerIcon}
+                                            compact
+                                            style={styles.matchTypeChip}
+                                            textStyle={styles.matchTypeChipText}
+                                        >
+                                            {MATCH_TYPE_LABELS[activeGroup.type]}
+                                        </Chip>
+                                    </View>
+                                )}
                             </View>
                             <View style={styles.groupActions}>
                                 {(isOwner || isAdmin) && (
@@ -561,6 +581,18 @@ const styles = StyleSheet.create({
     },
     groupDescription: {
         opacity: 0.85,
+    },
+    matchTypeRow: {
+        marginTop: 6,
+    },
+    matchTypeChip: {
+        alignSelf: 'flex-start',
+        backgroundColor: 'rgba(0,0,0,0.06)',
+        height: 28,
+    },
+    matchTypeChipText: {
+        fontSize: 12,
+        color: '#444',
     },
     crownIcon: {
         margin: 0,
