@@ -573,6 +573,8 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 0, height: 2 },
         textShadowRadius: 4,
         paddingHorizontal: 8,
+        fontSize: 23,
+
     },
     disabledText: {
         color: '#FFFFFF',
