@@ -161,7 +161,10 @@ export default function HomeScreen() {
                 color: theme.colors.onPrimary,
                 iconColor: theme.colors.primary,
                 size: 'large',
-                onPress: () => navigation.navigate('Matches'),
+                onPress: () =>
+                    activeGroup?.hasFixedTeams
+                        ? navigation.navigate('MatchesByTeams')
+                        : navigation.navigate('Matches'),
             },
             {
                 id: 'profile',
@@ -193,7 +196,7 @@ export default function HomeScreen() {
         ];
 
         return cards;
-    }, [navigation, theme]);
+    }, [navigation, theme, activeGroup]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>

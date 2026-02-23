@@ -14,6 +14,7 @@ import InvitationsScreen from '../screens/InvitationsScreen';
 import AdminScreen from '../screens/AdminScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
 import AddMatchTeamsScreen from '../screens/AddMatchTeamsScreen';
+import MatchesByTeamsScreen from '../screens/MatchesByTeamsScreen';
 import AddPlayerScreen from '../screens/AddPlayerScreen';
 import ManageMembersScreen from '../screens/ManageMembersScreen';
 import ManageTeamsScreen from '../screens/ManageTeamsScreen';
@@ -135,7 +136,18 @@ export default function AppNavigator() {
       <Drawer.Screen
         name="Matches"
         component={MatchesScreen}
-        options={{ title: 'Partidos' }}
+        options={{
+          title: 'Partidos',
+          drawerItemStyle: !activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="MatchesByTeams"
+        component={MatchesByTeamsScreen}
+        options={{
+          title: 'Partidos',
+          drawerItemStyle: activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
+        }}
       />
       <Drawer.Screen
         name="Invitations"

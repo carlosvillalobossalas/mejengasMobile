@@ -3,16 +3,32 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Avatar, Text, Surface, useTheme, MD3Theme } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
-import type { MatchPlayer } from '../repositories/matches/matchesRepository';
 import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 
+// LineupPlayer is a superset of MatchPlayer that also accepts the isSub flag
+// present in team-based matches. Both types are structurally compatible.
+type LineupPlayer = {
+    groupMemberId: string;
+    position: 'POR' | 'DEF' | 'MED' | 'DEL';
+    goals: number;
+    assists: number;
+    ownGoals: number;
+    isSub?: boolean;
+};
+
 type MatchLineupProps = {
-    team1Players: MatchPlayer[];
-    team2Players: MatchPlayer[];
+    team1Players: LineupPlayer[];
+    team2Players: LineupPlayer[];
     allPlayers: GroupMemberV2[];
     mvpGroupMemberId?: string | null;
     selectedTeam?: number;
     onTeamChange?: (team: number) => void;
+    /** Optional team names shown in tabs instead of "Equipo 1/2" */
+    team1Name?: string;
+    team2Name?: string;
+    /** Optional team colors used as avatar background */
+    team1Color?: string;
+    team2Color?: string;
 };
 
 const getShortName = (displayName: string): string => {
@@ -73,6 +89,10 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     mvpGroupMemberId = null,
     selectedTeam = 0,
     onTeamChange,
+    team1Name,
+    team2Name,
+    team1Color,
+    team2Color,
 }) => {
     const theme = useTheme();
     const [activeTeam, setActiveTeam] = useState(selectedTeam);
@@ -82,9 +102,11 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
         onTeamChange?.(team);
     };
 
-    const currentPlayers = activeTeam === 0 ? team1Players : team2Players;
+    // Exclude substitutes — they don't occupy a field position
+    const currentPlayers = (activeTeam === 0 ? team1Players : team2Players).filter(p => !p.isSub);
+    const activeTeamColor = activeTeam === 0 ? team1Color : team2Color;
 
-    const renderPlayer = (player: MatchPlayer) => {
+    const renderPlayer = (player: LineupPlayer) => {
         if (!player || !player.groupMemberId) return null;
 
         const playerInfo = getPlayerInfo(player.groupMemberId, allPlayers);
@@ -129,7 +151,10 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                             style={[
                                 styles(theme).avatar,
                                 isMVP && styles(theme).mvpAvatar,
-                                { backgroundColor: player.position === 'POR' ? theme.colors.secondary : theme.colors.primary },
+                                {
+                                    backgroundColor: activeTeamColor
+                                        ?? (player.position === 'POR' ? theme.colors.secondary : theme.colors.primary),
+                                },
                             ]}
                         />
                     )}
@@ -214,7 +239,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                             variant="labelLarge"
                             style={[styles(theme).tabText, activeTeam === 0 && styles(theme).activeTabText]}
                         >
-                            Equipo 1
+                            {team1Name ?? 'Equipo 1'}
                         </Text>
                     </Surface>
                 </TouchableOpacity>
@@ -234,7 +259,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                             variant="labelLarge"
                             style={[styles(theme).tabText, activeTeam === 1 && styles(theme).activeTabText]}
                         >
-                            Equipo 2
+                            {team2Name ?? 'Equipo 2'}
                         </Text>
                     </Surface>
                 </TouchableOpacity>
