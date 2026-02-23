@@ -27,6 +27,9 @@ export default function MatchesByTeamsScreen() {
   const { selectedGroupId } = useAppSelector(state => state.groups);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  // One ref per card — used to measure position in scroll content after collapse
+  const cardRefs = useRef<Map<string, View | null>>(new Map());
 
   const {
     matches,
@@ -40,7 +43,30 @@ export default function MatchesByTeamsScreen() {
   } = useMatchesByTeams(selectedGroupId ?? undefined);
 
   const handleToggle = useCallback((matchId: string) => {
-    setExpandedMatchId(prev => (prev === matchId ? null : matchId));
+    setExpandedMatchId(prev => {
+      const isCurrentlyExpanded = prev === matchId;
+      if (isCurrentlyExpanded) {
+        // Collapse first, then wait for layout to settle before scrolling
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const cardNode = cardRefs.current.get(matchId);
+            if (cardNode && scrollViewRef.current) {
+              // measureLayout gives the card's Y position in the scroll content
+              cardNode.measureLayout(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                scrollViewRef.current as any,
+                (_left, top) => {
+                  scrollViewRef.current?.scrollTo({ y: top, animated: true });
+                },
+                () => {},
+              );
+            }
+          });
+        });
+        return null;
+      }
+      return matchId;
+    });
   }, []);
 
   const handleSelectYear = useCallback(
@@ -126,6 +152,7 @@ export default function MatchesByTeamsScreen() {
 
       {/* Matches list */}
       <ScrollView
+        ref={scrollViewRef}
         style={styles(theme).scrollView}
         contentContainerStyle={styles(theme).contentContainer}
       >
@@ -141,15 +168,19 @@ export default function MatchesByTeamsScreen() {
           </View>
         ) : (
           matches.map(match => (
-            <MatchByTeamsCard
+            <View
               key={match.id}
-              match={match}
-              team1={teamsMap.get(match.team1Id)}
-              team2={teamsMap.get(match.team2Id)}
-              groupMembers={groupMembers}
-              isExpanded={expandedMatchId === match.id}
-              onToggle={() => handleToggle(match.id)}
-            />
+              ref={el => { cardRefs.current.set(match.id, el); }}
+            >
+              <MatchByTeamsCard
+                match={match}
+                team1={teamsMap.get(match.team1Id)}
+                team2={teamsMap.get(match.team2Id)}
+                groupMembers={groupMembers}
+                isExpanded={expandedMatchId === match.id}
+                onToggle={() => handleToggle(match.id)}
+              />
+            </View>
           ))
         )}
       </ScrollView>

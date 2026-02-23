@@ -54,6 +54,9 @@ export default function MatchesScreen() {
   // Whether the current user is admin or owner of the selected group
   const [isAdminOrOwner, setIsAdminOrOwner] = useState(false);
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  // One ref per card — used to measure position in scroll content after collapse
+  const cardRefs = useRef<Map<string, View | null>>(new Map());
 
   const {
     currentUserGroupMemberId,
@@ -197,7 +200,29 @@ export default function MatchesScreen() {
   };
 
   const toggleMatchExpansion = (matchId: string) => {
-    setExpandedMatchId(expandedMatchId === matchId ? null : matchId);
+    const isCurrentlyExpanded = expandedMatchId === matchId;
+    if (isCurrentlyExpanded) {
+      // Collapse first, then wait for layout to settle before scrolling
+      setExpandedMatchId(null);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const cardNode = cardRefs.current.get(matchId);
+          if (cardNode && scrollViewRef.current) {
+            // measureLayout gives the card's Y position in the scroll content
+            cardNode.measureLayout(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              scrollViewRef.current as any,
+              (_left, top) => {
+                scrollViewRef.current?.scrollTo({ y: top, animated: true });
+              },
+              () => {},
+            );
+          }
+        });
+      });
+    } else {
+      setExpandedMatchId(matchId);
+    }
   };
 
   const renderMatch = (match: Match) => {
@@ -206,11 +231,14 @@ export default function MatchesScreen() {
     const resultColor = getMatchResultColor(match);
 
     return (
-      <Card
+      <View
         key={match.id}
-        style={styles(theme).matchCard}
-        onPress={() => toggleMatchExpansion(match.id)}
+        ref={el => { cardRefs.current.set(match.id, el); }}
       >
+        <Card
+          style={styles(theme).matchCard}
+          onPress={() => toggleMatchExpansion(match.id)}
+        >
         <Card.Content style={styles(theme).cardContent}>
           {/* Date + Share row */}
           <View style={styles(theme).cardTopRow}>
@@ -342,6 +370,7 @@ export default function MatchesScreen() {
           </View>
         </Card.Content>
       </Card>
+    </View>
     );
   };
 
@@ -406,6 +435,7 @@ export default function MatchesScreen() {
 
       {/* Matches List */}
       <ScrollView
+        ref={scrollViewRef}
         style={styles(theme).scrollView}
         contentContainerStyle={styles(theme).contentContainer}
       >
