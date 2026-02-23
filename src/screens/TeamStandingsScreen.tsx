@@ -22,6 +22,11 @@ import {
   type TeamSeasonStats,
 } from '../repositories/teams/teamSeasonStatsRepository';
 import { subscribeToTeamsByGroupId, type Team } from '../repositories/teams/teamsRepository';
+import {
+  subscribeToGroupMembersV2ByGroupId,
+  type GroupMemberV2,
+} from '../repositories/groupMembersV2/groupMembersV2Repository';
+import TeamProfileModal from '../components/TeamProfileModal';
 
 // Icon component outside render to avoid React warnings
 const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF" />;
@@ -41,8 +46,11 @@ export default function TeamStandingsScreen() {
   const theme = useTheme();
   const { selectedGroupId } = useAppSelector(state => state.groups);
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const teamProfileModalRef = useRef<BottomSheet>(null);
 
   const [allStats, setAllStats] = useState<TeamSeasonStats[]>([]);
+  const [groupMembers, setGroupMembers] = useState<GroupMemberV2[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +79,20 @@ export default function TeamStandingsScreen() {
         setError(err.message);
         setIsLoading(false);
       },
+    );
+    return () => unsubscribe();
+  }, [selectedGroupId]);
+
+  // Subscribe to group members for player names/photos in team profile
+  useEffect(() => {
+    if (!selectedGroupId) {
+      setGroupMembers([]);
+      return;
+    }
+    const unsubscribe = subscribeToGroupMembersV2ByGroupId(
+      selectedGroupId,
+      setGroupMembers,
+      err => console.error('TeamStandingsScreen: members error', err),
     );
     return () => unsubscribe();
   }, [selectedGroupId]);
@@ -301,12 +323,17 @@ export default function TeamStandingsScreen() {
               const isFirst = index === 0;
 
               return (
-                <View
+                <TouchableOpacity
                   key={row.teamId}
                   style={[
                     styles(theme).row,
                     { backgroundColor: isFirst ? hexToRgba(color, 0.1) : '#FFFFFF' },
                   ]}
+                  onPress={() => {
+                    setSelectedTeamId(row.teamId);
+                    teamProfileModalRef.current?.expand();
+                  }}
+                  activeOpacity={0.75}
                 >
                   {/* Rank */}
                   <View style={styles(theme).colRank}>
@@ -358,7 +385,7 @@ export default function TeamStandingsScreen() {
                   >
                     {row.points}
                   </Text>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </>
@@ -366,7 +393,13 @@ export default function TeamStandingsScreen() {
       </ScrollView>
 
       {/* Year selector bottom sheet */}
-      <Portal>
+      <Portal>          <TeamProfileModal
+            teamId={selectedTeamId}
+            allStats={allStats}
+            teamsMap={teamsMap}
+            groupMembers={groupMembers}
+            bottomSheetRef={teamProfileModalRef}
+          />
         <BottomSheet
           ref={bottomSheetRef}
           index={-1}
