@@ -192,42 +192,82 @@ export default function AppNavigator() {
       <Drawer.Screen
         name="AddMatch"
         component={AddMatchScreen}
-        options={{
+        options={({ navigation }) => ({
           title: 'Agregar Partido',
           drawerItemStyle: isAdmin && !activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
-        }}
+          headerLeft: () => (
+            <IconButton
+              icon="chevron-left"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.navigate('Admin')}
+            />
+          ),
+        })}
       />
       <Drawer.Screen
         name="AddMatchTeams"
         component={AddMatchTeamsScreen}
-        options={{
+        options={({ navigation }) => ({
           title: 'Agregar Partido',
           drawerItemStyle: isAdmin && activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
-        }}
+          headerLeft: () => (
+            <IconButton
+              icon="chevron-left"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.navigate('Admin')}
+            />
+          ),
+        })}
       />
       <Drawer.Screen
         name="AddPlayer"
         component={AddPlayerScreen}
-        options={{
+        options={({ navigation }) => ({
           title: 'Agregar Jugador',
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
-        }}
+          headerLeft: () => (
+            <IconButton
+              icon="chevron-left"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.navigate('Admin')}
+            />
+          ),
+        })}
       />
       <Drawer.Screen
         name="ManageMembers"
         component={ManageMembersScreen}
-        options={{
+        options={({ navigation }) => ({
           title: 'Gestionar Miembros',
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
-        }}
+          headerLeft: () => (
+            <IconButton
+              icon="chevron-left"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.navigate('Admin')}
+            />
+          ),
+        })}
       />
       <Drawer.Screen
         name="ManageTeams"
         component={ManageTeamsScreen}
-        options={{
+        options={({ navigation }) => ({
           title: 'Administrar Equipos',
           drawerItemStyle: isAdmin && activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
-        }}
+          headerLeft: () => (
+            <IconButton
+              icon="chevron-left"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.navigate('Admin')}
+            />
+          ),
+        })}
       />
       <Drawer.Screen
         name="TeamForm"
