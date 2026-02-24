@@ -176,15 +176,6 @@ export default function TeamFormScreen() {
           </Button>
         </View>
 
-        {selectedPlayers.length === 0 && (
-          <Surface style={styles.emptyPlayers} elevation={0}>
-            <Icon name="account-off" size={32} color={theme.colors.onSurfaceVariant} />
-            <Text variant="bodyMedium" style={styles.emptyPlayersText}>
-              Agrega al menos un jugador
-            </Text>
-          </Surface>
-        )}
-
         {selectedPlayers.map(player => (
           <Surface key={player.groupMemberId} style={styles.playerRow} elevation={1}>
             <Icon name="account" size={20} color={theme.colors.primary} />

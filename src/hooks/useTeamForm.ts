@@ -265,7 +265,6 @@ export function useTeamForm(teamId?: string): UseTeamFormResult {
   const validate = useCallback((): string | null => {
     if (!teamName.trim()) return 'El nombre del equipo es obligatorio';
     if (!teamColor) return 'Selecciona un color para el equipo';
-    if (selectedPlayers.length === 0) return 'Agrega al menos un jugador al equipo';
     return null;
   }, [teamName, teamColor, selectedPlayers]);
 
