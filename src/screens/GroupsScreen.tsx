@@ -256,9 +256,13 @@ export default function GroupsScreen() {
                   mode="outlined"
                   multiline
                   numberOfLines={3}
+                  maxLength={240}
                   disabled={isCreating}
                   style={styles.input}
                 />
+                <HelperText type="info" style={styles.charCount}>
+                  {newGroupDescription.length}/240
+                </HelperText>
 
                 <Text variant="labelLarge" style={styles.fieldLabel}>Tipo de partido</Text>
                 <SegmentedButtons
@@ -393,7 +397,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   input: {
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  charCount: {
+    textAlign: 'right',
+    marginBottom: 12,
   },
   modalButtons: {
     flexDirection: 'row',
