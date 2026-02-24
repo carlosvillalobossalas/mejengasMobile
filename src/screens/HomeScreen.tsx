@@ -65,6 +65,7 @@ export default function HomeScreen() {
     const groupSwitcherRef = useRef<BottomSheet | null>(null);
     const searchbarRef = useRef<any>(null);
     const debouncedSearchQuery = useDebounce(searchQuery, 700);
+    const [showGroupDescription, setShowGroupDescription] = useState(false);
 
     const dispatch = useAppDispatch();
 
@@ -78,6 +79,11 @@ export default function HomeScreen() {
 
     const isOwner = activeGroup?.ownerId === currentUser?.uid;
     const isAdmin = userRole === 'admin' || userRole === 'owner';
+
+    // Reset description panel when switching groups
+    useEffect(() => {
+        setShowGroupDescription(false);
+    }, [selectedGroupId]);
 
     // Subscribe to user role in real-time so permission changes reflect immediately
     useEffect(() => {
@@ -321,10 +327,25 @@ export default function HomeScreen() {
                     <Card.Content>
                         <View style={styles.groupHeader}>
                             <View style={styles.groupInfo}>
-                                <Text variant="headlineSmall" style={styles.groupName}>
-                                    {activeGroup.name}
-                                </Text>
-                                {activeGroup.description && (
+                                <View style={styles.groupNameRow}>
+                                    <Text variant="headlineSmall" style={styles.groupName}>
+                                        {activeGroup.name}
+                                    </Text>
+                                    {activeGroup.description && (
+                                        <IconButton
+                                            icon={showGroupDescription ? 'information' : 'information-outline'}
+                                            size={18}
+                                            onPress={() => setShowGroupDescription(prev => !prev)}
+                                            style={styles.infoButton}
+                                            iconColor={
+                                                showGroupDescription
+                                                    ? theme.colors.primary
+                                                    : theme.colors.onSurfaceVariant
+                                            }
+                                        />
+                                    )}
+                                </View>
+                                {showGroupDescription && activeGroup.description && (
                                     <Text
                                         variant="bodyMedium"
                                         style={[styles.groupDescription, { color: theme.colors.onSurfaceVariant }]}
@@ -578,6 +599,14 @@ const styles = StyleSheet.create({
     },
     groupName: {
         fontWeight: '700',
+    },
+    groupNameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    infoButton: {
+        margin: 0,
+        marginLeft: -2,
     },
     groupDescription: {
         opacity: 0.85,
