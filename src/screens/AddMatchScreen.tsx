@@ -377,6 +377,12 @@ export default function AddMatchScreen() {
             <View key={index} style={styles(theme).tableRow}>
               {/* Position Picker */}
               <View style={styles(theme).positionColumn}>
+                {index === 0 ? (
+                  // First row is always the goalkeeper — position is locked
+                  <View style={styles(theme).positionLocked}>
+                    <Text style={styles(theme).positionLockedText}>POR</Text>
+                  </View>
+                ) : (
                 <Menu
                   visible={positionMenuIndex === index}
                   onDismiss={() => setPositionMenuIndex(null)}
@@ -392,7 +398,7 @@ export default function AddMatchScreen() {
                     </TouchableOpacity>
                   }
                 >
-                  {POSITIONS.map(pos => (
+                  {POSITIONS.filter(pos => pos !== 'POR').map(pos => (
                     <Menu.Item
                       key={pos}
                       onPress={() => {
@@ -403,6 +409,7 @@ export default function AddMatchScreen() {
                     />
                   ))}
                 </Menu>
+                )}
               </View>
 
               {/* Player Selector */}
@@ -738,6 +745,19 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   },
   positionAnchor: {
     width: '100%',
+  },
+  positionLocked: {
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    backgroundColor: '#E8EAF6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  positionLockedText: {
+    fontWeight: 'bold',
+    fontSize: 12,
+    color: '#3949AB',
   },
   positionText: {
     textAlign: 'center',

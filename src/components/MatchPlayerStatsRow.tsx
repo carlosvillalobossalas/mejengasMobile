@@ -14,9 +14,14 @@ type Props = {
   onUpdate: (updates: PlayerUpdate) => void;
   /** When provided a swap icon is shown; tapping it triggers this callback. */
   onSwapRequest?: () => void;
+  /** When true the position chips are hidden and the position is locked to POR. */
+  positionLocked?: boolean;
+  /** When false, POR is removed from the selectable positions (non-sub starters). Defaults to true. */
+  allowGoalkeeper?: boolean;
 };
 
 const POSITIONS: MatchPosition[] = ['POR', 'DEF', 'MED', 'DEL'];
+const POSITIONS_NO_GK: MatchPosition[] = ['DEF', 'MED', 'DEL'];
 
 const STAT_FIELDS: {
   key: keyof Pick<MatchTeamPlayer, 'goals' | 'assists' | 'ownGoals'>;
@@ -27,8 +32,9 @@ const STAT_FIELDS: {
   { key: 'ownGoals', label: 'Autogoles' },
 ];
 
-export default function MatchPlayerStatsRow({ player, onUpdate, onSwapRequest }: Props) {
+export default function MatchPlayerStatsRow({ player, onUpdate, onSwapRequest, positionLocked, allowGoalkeeper = true }: Props) {
   const theme = useTheme();
+  const availablePositions = allowGoalkeeper ? POSITIONS : POSITIONS_NO_GK;
 
   return (
     <View style={styles.container}>
@@ -51,29 +57,35 @@ export default function MatchPlayerStatsRow({ player, onUpdate, onSwapRequest }:
             <Icon name="swap-horizontal" size={18} color={theme.colors.primary} />
           </TouchableOpacity>
         )}
-        <View style={styles.chips}>
-          {POSITIONS.map(pos => (
-            <TouchableOpacity key={pos} onPress={() => onUpdate({ position: pos })}>
-              <Chip
-                compact
-                selected={player.position === pos}
-                selectedColor="white"
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor:
-                      player.position === pos
-                        ? theme.colors.primary
-                        : theme.colors.surfaceVariant,
-                  },
-                ]}
-                textStyle={styles.chipText}
-              >
-                {pos}
-              </Chip>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {positionLocked ? (
+          <View style={styles.positionLockedBadge}>
+            <Text style={styles.positionLockedText}>POR</Text>
+          </View>
+        ) : (
+          <View style={styles.chips}>
+            {availablePositions.map(pos => (
+              <TouchableOpacity key={pos} onPress={() => onUpdate({ position: pos })}>
+                <Chip
+                  compact
+                  selected={player.position === pos}
+                  selectedColor="white"
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor:
+                        player.position === pos
+                          ? theme.colors.primary
+                          : theme.colors.surfaceVariant,
+                    },
+                  ]}
+                  textStyle={styles.chipText}
+                >
+                  {pos}
+                </Chip>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Stat inputs */}
@@ -134,8 +146,17 @@ const styles = StyleSheet.create({
   chips: {
     flexDirection: 'row',
     gap: 2,
+  },  positionLockedBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#E8EAF6',
   },
-  chip: {
+  positionLockedText: {
+    fontWeight: 'bold',
+    fontSize: 12,
+    color: '#3949AB',
+  },  chip: {
     height: 26,
   },
   chipText: {

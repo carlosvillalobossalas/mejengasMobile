@@ -235,6 +235,8 @@ export default function AddMatchTeamsScreen() {
               player={player}
               onUpdate={updates => updateTeam1Player(idx, updates)}
               onSwapRequest={() => setSwapState({ team: 1, index: idx })}
+              positionLocked={!player.isSub && player.position === 'POR' && sortedTeam1.findIndex(e => !e.player.isSub) === sortedTeam1.findIndex(e => e.idx === idx)}
+              allowGoalkeeper={player.isSub}
             />
           ))}
           {/* Show only when the roster has bench players not yet in the lineup */}
@@ -263,6 +265,8 @@ export default function AddMatchTeamsScreen() {
               player={player}
               onUpdate={updates => updateTeam2Player(idx, updates)}
               onSwapRequest={() => setSwapState({ team: 2, index: idx })}
+              positionLocked={!player.isSub && player.position === 'POR' && sortedTeam2.findIndex(e => !e.player.isSub) === sortedTeam2.findIndex(e => e.idx === idx)}
+              allowGoalkeeper={player.isSub}
             />
           ))}
           {/* Show only when the roster has bench players not yet in the lineup */}
