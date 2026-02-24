@@ -5,7 +5,6 @@ import {
     Searchbar,
     Text,
     useTheme,
-    Chip,
     IconButton,
     Avatar,
     List,
@@ -38,18 +37,11 @@ type ActionCard = {
     onPress: () => void;
 };
 
-// Icon render functions for Chips - moved outside component to avoid warnings
-const EyeIcon = () => <Icon name="eye" size={16} color="#666" />;
-const ShapeIcon = () => <Icon name="shape" size={16} color="#666" />;
-const CheckCircleIcon = () => <Icon name="check-circle" size={16} color="#4CAF50" />;
-
 const MATCH_TYPE_LABELS: Record<string, string> = {
     futbol_5: 'Fútbol 5',
     futbol_7: 'Fútbol 7',
     futbol_11: 'Fútbol 11',
 };
-
-const SoccerIcon = () => <Icon name="soccer" size={14} color="#555" />;
 
 export default function HomeScreen() {
     const theme = useTheme();
@@ -355,14 +347,12 @@ export default function HomeScreen() {
                                 )}
                                 {activeGroup.type && MATCH_TYPE_LABELS[activeGroup.type] && (
                                     <View style={styles.matchTypeRow}>
-                                        <Chip
-                                            icon={SoccerIcon}
-                                            compact
-                                            style={styles.matchTypeChip}
-                                            textStyle={styles.matchTypeChipText}
-                                        >
-                                            {MATCH_TYPE_LABELS[activeGroup.type]}
-                                        </Chip>
+                                        <View style={styles.matchTypeChip}>
+                                            <Icon name="soccer" size={13} color="#555" />
+                                            <Text style={styles.matchTypeChipText}>
+                                                {MATCH_TYPE_LABELS[activeGroup.type]}
+                                            </Text>
+                                        </View>
                                     </View>
                                 )}
                             </View>
@@ -615,13 +605,19 @@ const styles = StyleSheet.create({
         marginTop: 6,
     },
     matchTypeChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
         alignSelf: 'flex-start',
         backgroundColor: 'rgba(0,0,0,0.06)',
-        height: 28,
+        borderRadius: 20,
+        paddingVertical: 3,
+        paddingHorizontal: 10,
+        gap: 5,
     },
     matchTypeChipText: {
         fontSize: 12,
         color: '#444',
+        lineHeight: 16,
     },
     crownIcon: {
         margin: 0,
