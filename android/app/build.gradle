@@ -78,9 +78,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.mejengasmobile"
+    namespace "com.carlosvillalobos.mejengasMobile"
     defaultConfig {
-        applicationId "com.mejengasmobile"
+        applicationId "com.carlosvillalobos.mejengasMobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

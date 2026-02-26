@@ -155,14 +155,16 @@ export default function LoginScreen({ navigation }: Props) {
             Continuar con Google
           </Button>
 
-          <Button
-            mode="outlined"
-            onPress={onApplePress}
-            disabled={isBusy}
-            icon="apple"
-          >
-            Continuar con Apple
-          </Button>
+          {Platform.OS === 'ios' && (
+            <Button
+              mode="outlined"
+              onPress={onApplePress}
+              disabled={isBusy}
+              icon="apple"
+            >
+              Continuar con Apple
+            </Button>
+          )}
 
           <Button
             mode="text"

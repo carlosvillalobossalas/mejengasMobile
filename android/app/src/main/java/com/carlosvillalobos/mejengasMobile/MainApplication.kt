@@ -1,4 +1,4 @@
-package com.mejengasmobile
+package com.carlosvillalobos.mejengasMobile
 
 import android.app.Application
 import com.facebook.react.PackageList

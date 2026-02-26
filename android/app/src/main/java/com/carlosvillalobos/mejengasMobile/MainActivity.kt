@@ -1,4 +1,4 @@
-package com.mejengasmobile
+package com.carlosvillalobos.mejengasMobile
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
