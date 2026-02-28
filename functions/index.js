@@ -406,11 +406,10 @@ exports.calculateMvpWinners = onSchedule('every 3 hours', async () => {
         // a "document not found" error on update when the player has never
         // had a seasonStats doc (edge case, but safe to guard).
         const mvpField = isGoalkeeper ? 'goalkeeperStats.mvps' : 'playerStats.mvps';
-        batch.set(
-          statsRef,
-          { [mvpField]: admin.firestore.FieldValue.increment(1) },
-          { merge: true },
-        );
+        // Use update() so dot-notation is interpreted as a nested field path.
+        // set({ merge: true }) treats 'playerStats.mvps' as a literal field name,
+        // which creates a top-level field instead of updating the nested one.
+        batch.update(statsRef, { [mvpField]: admin.firestore.FieldValue.increment(1) });
       }
 
       await batch.commit();
