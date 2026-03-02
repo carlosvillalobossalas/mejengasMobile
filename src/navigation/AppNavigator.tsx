@@ -22,6 +22,7 @@ import ManageTeamsScreen from '../screens/ManageTeamsScreen';
 import TeamStandingsScreen from '../screens/TeamStandingsScreen';
 import TeamFormScreen from '../screens/TeamFormScreen';
 import EditMatchScreen from '../screens/EditMatchScreen';
+import AddScheduledMatchScreen from '../screens/AddScheduledMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
 import {
@@ -321,6 +322,22 @@ export default function AppNavigator() {
           title: 'Editar Partido',
           drawerItemStyle: { display: 'none' },
         }}
+      />
+      <Drawer.Screen
+        name="AddScheduledMatch"
+        component={AddScheduledMatchScreen}
+        options={({ navigation }) => ({
+          title: 'Programar Partido',
+          drawerItemStyle: { display: 'none' },
+          headerLeft: () => (
+            <IconButton
+              icon="chevron-left"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.navigate('Admin')}
+            />
+          ),
+        })}
       />
       <Drawer.Screen
         name="Logout"

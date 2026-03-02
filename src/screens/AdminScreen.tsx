@@ -12,7 +12,7 @@ type AdminOption = {
   id: string;
   title: string;
   description: string;
-  icon: 'soccer' | 'account-plus' | 'link-variant' | 'account-group' | 'account-clock';
+  icon: 'soccer' | 'account-plus' | 'link-variant' | 'account-group' | 'account-clock' | 'calendar-plus';
   color: string;
   onPress: () => void;
 };
@@ -28,7 +28,7 @@ export default function AdminScreen() {
   const adminOptions: AdminOption[] = [
     {
       id: 'add-match',
-      title: 'Agregar Partido',
+      title: 'Agregar Partido Finalizado',
       description: 'Registrar un nuevo partido con alineaciones y resultados',
       icon: 'soccer',
       color: theme.colors.primary,
@@ -38,11 +38,19 @@ export default function AdminScreen() {
           : navigation.navigate('AddMatch'),
     },
     {
+      id: 'add-scheduled-match',
+      title: 'Programar Partido',
+      description: 'Crear un partido programado con fecha, hora y alineaciones tentativas',
+      icon: 'calendar-plus',
+      color: theme.colors.secondary,
+      onPress: () => navigation.navigate('AddScheduledMatch'),
+    },
+    {
       id: 'add-player',
       title: 'Agregar Jugador',
       description: 'Añadir un nuevo jugador al grupo',
       icon: 'account-plus',
-      color: theme.colors.secondary,
+      color: theme.colors.primary,
       onPress: () => navigation.navigate('AddPlayer'),
     },
     {
@@ -50,7 +58,7 @@ export default function AdminScreen() {
       title: 'Gestionar Miembros',
       description: 'Invitar o desvincular miembros del grupo (nuevo sistema)',
       icon: 'account-group',
-      color: theme.colors.primary,
+      color: theme.colors.secondary,
       onPress: () => navigation.navigate('ManageMembers'),
     },
     {
@@ -58,7 +66,7 @@ export default function AdminScreen() {
       title: 'Solicitudes de Unión',
       description: 'Revisar y gestionar solicitudes de jugadores para unirse al grupo',
       icon: 'account-clock',
-      color: theme.colors.secondary,
+      color: theme.colors.primary,
       onPress: () => navigation.navigate('JoinRequests'),
     },
   ];

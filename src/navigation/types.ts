@@ -27,5 +27,6 @@ export type AppDrawerParamList = {
   TeamStandings: undefined;
   TeamForm: { teamId?: string };
   EditMatch: { matchId: string };
+  AddScheduledMatch: undefined;
   Logout: undefined;
 };
