@@ -114,6 +114,7 @@ export async function unlinkUserFromGroupMemberV2(memberId: string): Promise<voi
     tx.update(ref, {
       userId: null,
       isGuest: true,
+      photoUrl: null,
       updatedAt: firestore.FieldValue.serverTimestamp(),
     });
   });
