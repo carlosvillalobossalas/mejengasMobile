@@ -18,7 +18,10 @@ import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/b
 
 import { useAppSelector, useAppDispatch, useDebounce } from '../app/hooks';
 import type { AppDrawerParamList } from '../navigation/types';
-import { subscribeToUserRoleInGroup } from '../repositories/groups/groupsRepository';
+import {
+    subscribeToUserRoleInGroup,
+    searchPublicGroupsByName,
+} from '../repositories/groups/groupsRepository';
 import type { Group } from '../repositories/groups/groupsRepository';
 import { selectGroup } from '../features/groups/groupsSlice';
 import {
@@ -26,6 +29,7 @@ import {
     type GroupMemberV2,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import PlayerProfileModal from '../components/PlayerProfileModal';
+import GroupInfoModal from '../components/GroupInfoModal';
 
 type ActionCard = {
     id: string;
@@ -55,9 +59,12 @@ export default function HomeScreen() {
     const [selectedMemberPhoto, setSelectedMemberPhoto] = useState<string | undefined>(undefined);
     const bottomSheetRef = useRef<BottomSheet | null>(null);
     const groupSwitcherRef = useRef<BottomSheet | null>(null);
+    const groupInfoModalRef = useRef<BottomSheet | null>(null);
     const searchbarRef = useRef<any>(null);
     const debouncedSearchQuery = useDebounce(searchQuery, 700);
     const [showGroupDescription, setShowGroupDescription] = useState(false);
+    const [groupResults, setGroupResults] = useState<Group[]>([]);
+    const [selectedGroupResult, setSelectedGroupResult] = useState<Group | null>(null);
 
     const dispatch = useAppDispatch();
 
@@ -102,46 +109,56 @@ export default function HomeScreen() {
         const executeSearch = async () => {
             if (!debouncedSearchQuery || debouncedSearchQuery.trim().length < 2) {
                 setSearchResults([]);
-                setIsSearching(false);
-                return;
-            }
-
-            // Search is scoped to the currently selected group
-            if (!selectedGroupId) {
-                setSearchResults([]);
+                setGroupResults([]);
                 setIsSearching(false);
                 return;
             }
 
             setIsSearching(true);
             try {
-                const results = await searchGroupMembersByDisplayName(selectedGroupId, debouncedSearchQuery);
-                setSearchResults(results);
+                // Search public groups the user doesn't already belong to
+                const userGroupIds = groups.map(g => g.id);
+                const [memberResults, publicGroups] = await Promise.all([
+                    selectedGroupId
+                        ? searchGroupMembersByDisplayName(selectedGroupId, debouncedSearchQuery)
+                        : Promise.resolve([]),
+                    searchPublicGroupsByName(debouncedSearchQuery, userGroupIds),
+                ]);
+                setSearchResults(memberResults);
+                setGroupResults(publicGroups);
             } catch (error) {
-                console.error('Error searching group members:', error);
+                console.error('Error searching:', error);
                 setSearchResults([]);
+                setGroupResults([]);
             } finally {
                 setIsSearching(false);
             }
         };
 
         executeSearch();
-    }, [debouncedSearchQuery, selectedGroupId]);
+    }, [debouncedSearchQuery, selectedGroupId, groups]);
 
     const handleSelectMember = (member: GroupMemberV2) => {
-        // Blur searchbar to hide keyboard and remove focus
         searchbarRef.current?.blur();
-
         setSelectedGroupMemberId(member.id);
         setSelectedMemberName(member.displayName);
         setSelectedMemberPhoto(member.photoUrl || undefined);
-
         setSearchQuery('');
         setSearchResults([]);
-
-        // Open modal after state is set
+        setGroupResults([]);
         setTimeout(() => {
             bottomSheetRef.current?.expand();
+        }, 100);
+    };
+
+    const handleSelectGroupResult = (group: Group) => {
+        searchbarRef.current?.blur();
+        setSelectedGroupResult(group);
+        setSearchQuery('');
+        setSearchResults([]);
+        setGroupResults([]);
+        setTimeout(() => {
+            groupInfoModalRef.current?.expand();
         }, 100);
     };
 
@@ -257,48 +274,82 @@ export default function HomeScreen() {
                 />
 
                 {/* Search Results */}
-                {searchResults.length > 0 && (
+                {(searchResults.length > 0 || groupResults.length > 0) && (
                     <Card style={styles.searchResultsCard} elevation={4}>
-                        {searchResults.map((member, index) => (
-                            <View key={member.id}>
-                                <List.Item
-                                    title={member.displayName}
-                                    description={member.isGuest ? 'Jugador invitado' : 'Miembro del grupo'}
-                                    left={member.photoUrl ? () => (
-                                        <Avatar.Image
-                                            size={40}
-                                            source={{ uri: member.photoUrl! }}
-                                            style={styles.searchAvatar}
+                        {/* Players section */}
+                        {searchResults.length > 0 && (
+                            <View>
+                                <View style={styles.searchSectionHeader}>
+                                    <Icon name="account-group" size={14} color={theme.colors.onSurfaceVariant} />
+                                    <Text variant="labelSmall" style={[styles.searchSectionLabel, { color: theme.colors.onSurfaceVariant }]}>
+                                        JUGADORES
+                                    </Text>
+                                </View>
+                                {searchResults.map((member, index) => (
+                                    <View key={member.id}>
+                                        <List.Item
+                                            title={member.displayName}
+                                            description={member.isGuest ? 'Jugador invitado' : 'Miembro del grupo'}
+                                            left={member.photoUrl ? () => (
+                                                <Avatar.Image size={40} source={{ uri: member.photoUrl! }} style={styles.searchAvatar} />
+                                            ) : () => (
+                                                <Avatar.Icon size={40} icon="account" style={styles.searchAvatar} />
+                                            )}
+                                            right={() => (
+                                                <Icon name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />
+                                            )}
+                                            onPress={() => handleSelectMember(member)}
+                                            style={styles.searchResultItem}
                                         />
-                                    ) : () => (
-                                        <Avatar.Icon
-                                            size={40}
-                                            icon="account"
-                                            style={styles.searchAvatar}
-                                        />
-                                    )}
-                                    right={() => (
-                                        <Icon
-                                            name="chevron-right"
-                                            size={24}
-                                            color={theme.colors.onSurfaceVariant}
-                                        />
-                                    )}
-                                    onPress={() => handleSelectMember(member)}
-                                    style={styles.searchResultItem}
-                                />
-                                {index < searchResults.length - 1 && <Divider />}
+                                        {index < searchResults.length - 1 && <Divider />}
+                                    </View>
+                                ))}
                             </View>
-                        ))}
+                        )}
+
+                        {/* Groups section */}
+                        {groupResults.length > 0 && (
+                            <View>
+                                {searchResults.length > 0 && <Divider bold />}
+                                <View style={styles.searchSectionHeader}>
+                                    <Icon name="earth" size={14} color={theme.colors.onSurfaceVariant} />
+                                    <Text variant="labelSmall" style={[styles.searchSectionLabel, { color: theme.colors.onSurfaceVariant }]}>
+                                        GRUPOS PÚBLICOS
+                                    </Text>
+                                </View>
+                                {groupResults.map((group, index) => (
+                                    <View key={group.id}>
+                                        <List.Item
+                                            title={group.name}
+                                            description={group.description || MATCH_TYPE_LABELS[group.type] || 'Grupo público'}
+                                            left={() => (
+                                                <Avatar.Icon
+                                                    size={40}
+                                                    icon="account-group"
+                                                    style={[styles.searchAvatar, { backgroundColor: theme.colors.primaryContainer }]}
+                                                    color={theme.colors.primary}
+                                                />
+                                            )}
+                                            right={() => (
+                                                <Icon name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />
+                                            )}
+                                            onPress={() => handleSelectGroupResult(group)}
+                                            style={styles.searchResultItem}
+                                        />
+                                        {index < groupResults.length - 1 && <Divider />}
+                                    </View>
+                                ))}
+                            </View>
+                        )}
                     </Card>
                 )}
 
                 {/* No results message */}
-                {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
+                {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && groupResults.length === 0 && (
                     <Card style={styles.searchResultsCard} elevation={2}>
                         <Card.Content style={styles.noResultsContainer}>
                             <Icon
-                                name="account-search"
+                                name="magnify-close"
                                 size={48}
                                 color={theme.colors.onSurfaceVariant}
                             />
@@ -306,7 +357,7 @@ export default function HomeScreen() {
                                 variant="bodyMedium"
                                 style={[styles.noResultsText, { color: theme.colors.onSurfaceVariant }]}
                             >
-                                No se encontraron jugadores
+                                No se encontraron resultados
                             </Text>
                         </Card.Content>
                     </Card>
@@ -482,6 +533,15 @@ export default function HomeScreen() {
                     playerPhotoURL={selectedMemberPhoto}
                     bottomSheetRef={bottomSheetRef}
                 />
+
+                <GroupInfoModal
+                    group={selectedGroupResult}
+                    currentUserId={currentUser?.uid ?? null}
+                    currentUserEmail={currentUser?.email ?? null}
+                    currentUserDisplayName={currentUser?.displayName ?? null}
+                    currentUserPhotoURL={currentUser?.photoURL as string | null ?? null}
+                    bottomSheetRef={groupInfoModalRef}
+                />
             </Portal>
         </ScrollView>
     );
@@ -572,6 +632,18 @@ const styles = StyleSheet.create({
     },
     noResultsText: {
         textAlign: 'center',
+    },
+    searchSectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingTop: 10,
+        paddingBottom: 4,
+    },
+    searchSectionLabel: {
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
     groupCard: {
         marginBottom: 15,

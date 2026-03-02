@@ -12,7 +12,7 @@ type AdminOption = {
   id: string;
   title: string;
   description: string;
-  icon: 'soccer' | 'account-plus' | 'link-variant' | 'account-group';
+  icon: 'soccer' | 'account-plus' | 'link-variant' | 'account-group' | 'account-clock';
   color: string;
   onPress: () => void;
 };
@@ -52,6 +52,14 @@ export default function AdminScreen() {
       icon: 'account-group',
       color: theme.colors.primary,
       onPress: () => navigation.navigate('ManageMembers'),
+    },
+    {
+      id: 'join-requests',
+      title: 'Solicitudes de Unión',
+      description: 'Revisar y gestionar solicitudes de jugadores para unirse al grupo',
+      icon: 'account-clock',
+      color: theme.colors.secondary,
+      onPress: () => navigation.navigate('JoinRequests'),
     },
   ];
 

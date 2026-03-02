@@ -480,6 +480,32 @@ export async function createGroup(
 }
 
 /**
+ * Search public groups by name, excluding groups the user already belongs to.
+ * Case-insensitive client-side filtering since Firestore lacks native contains search.
+ */
+export async function searchPublicGroupsByName(
+  searchTerm: string,
+  excludeGroupIds: string[],
+): Promise<Array<Group>> {
+  const normalized = searchTerm.trim().toLowerCase();
+  if (normalized.length < 2) return [];
+
+  const snap = await firestore()
+    .collection(GROUPS_COLLECTION)
+    .where('visibility', '==', 'public')
+    .where('isActive', '==', true)
+    .get();
+
+  return snap.docs
+    .map(mapGroupDoc)
+    .filter(
+      g =>
+        !excludeGroupIds.includes(g.id) &&
+        g.name.toLowerCase().includes(normalized),
+    );
+}
+
+/**
  * Delete all group members for a specific user
  */
 export async function deleteAllGroupMembersByUserId(

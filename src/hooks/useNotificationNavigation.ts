@@ -24,6 +24,13 @@ function resolveScreen(data: NotificationData | undefined): DrawerScreen | null 
       return 'Matches';
     case 'invite-received':
       return 'Invitations';
+    case 'join-request-received':
+      // Admin/owner tapped the notification → go directly to the requests list
+      return 'JoinRequests';
+    case 'join-request-accepted':
+    case 'join-request-rejected':
+      // User tapped the notification → go to their groups screen
+      return 'Groups';
     default:
       return null;
   }

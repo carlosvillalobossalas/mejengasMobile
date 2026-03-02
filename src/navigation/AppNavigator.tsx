@@ -12,6 +12,7 @@ import MatchesScreen from '../screens/MatchesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InvitationsScreen from '../screens/InvitationsScreen';
 import AdminScreen from '../screens/AdminScreen';
+import JoinRequestsScreen from '../screens/JoinRequestsScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
 import AddMatchTeamsScreen from '../screens/AddMatchTeamsScreen';
 import MatchesByTeamsScreen from '../screens/MatchesByTeamsScreen';
@@ -188,6 +189,22 @@ export default function AppNavigator() {
           title: 'Administrar Grupo',
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
         }}
+      />
+      <Drawer.Screen
+        name="JoinRequests"
+        component={JoinRequestsScreen}
+        options={({ navigation }) => ({
+          title: 'Solicitudes de Unión',
+          drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+          headerLeft: () => (
+            <IconButton
+              icon="chevron-left"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.navigate('Admin')}
+            />
+          ),
+        })}
       />
       <Drawer.Screen
         name="AddMatch"
