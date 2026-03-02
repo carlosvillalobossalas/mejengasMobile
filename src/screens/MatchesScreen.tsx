@@ -9,7 +9,6 @@ import {
 import {
   Text,
   Card,
-  Chip,
   Divider,
   Surface,
   useTheme,
@@ -137,6 +136,38 @@ export default function MatchesScreen() {
     return allMatches.filter(m => new Date(m.date).getFullYear() === selectedYear);
   }, [allMatches, selectedYear]);
 
+  const matchesByDate = useMemo(() => {
+    const sorted = [...matches].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+    const groups = new Map<string, Match[]>();
+    for (const match of sorted) {
+      const key = new Date(match.date).toLocaleDateString('en-CA');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(match);
+    }
+    return Array.from(groups.entries());
+  }, [matches]);
+
+  const formatDateHeader = (dateKey: string): string => {
+    const todayKey = new Date().toLocaleDateString('en-CA');
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayKey = yesterdayDate.toLocaleDateString('en-CA');
+
+    if (dateKey === todayKey) return 'Hoy';
+    if (dateKey === yesterdayKey) return 'Ayer';
+
+    const [year, month, day] = dateKey.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('es-ES', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
   const getYearLabel = (year: number | 'historico') => {
     const option = yearOptions.find(opt => opt.value === year);
     return option?.label || year.toString();
@@ -176,16 +207,6 @@ export default function MatchesScreen() {
     ),
     [],
   );
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    const weekday = date.toLocaleDateString('es-ES', { weekday: 'long' });
-    const day = date.getDate();
-    const month = date.toLocaleDateString('es-ES', { month: 'long' });
-    const year = date.getFullYear();
-
-    return `${weekday}, ${day} de ${month} de ${year}`;
-  };
 
   const getMatchResult = (match: Match): string => {
     if (match.goalsTeam1 > match.goalsTeam2) return 'Victoria Equipo 1';
@@ -229,6 +250,7 @@ export default function MatchesScreen() {
     const isExpanded = expandedMatchId === match.id;
     const result = getMatchResult(match);
     const resultColor = getMatchResultColor(match);
+    const hasVoted = !!(currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId]);
 
     return (
       <View
@@ -236,123 +258,85 @@ export default function MatchesScreen() {
         ref={el => { cardRefs.current.set(match.id, el); }}
       >
         <Card
-          style={styles(theme).matchCard}
+          style={[styles(theme).matchCard, { borderLeftColor: resultColor }]}
           onPress={() => toggleMatchExpansion(match.id)}
         >
           <Card.Content style={styles(theme).cardContent}>
-            {/* Date + Share row */}
-            <View style={styles(theme).cardTopRow}>
-              <View style={styles(theme).dateContainer}>
-                <Icon name="calendar" size={16} color={theme.colors.onSurfaceVariant} />
-                <Text variant="labelMedium" style={styles(theme).dateText}>
-                  {formatDate(match.date)}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => shareMatchOnWhatsApp(match, allPlayers)}
-                style={styles(theme).shareButton}
-                activeOpacity={0.7}
-              >
-                <Icon name="whatsapp" size={22} color="#25D366" />
-              </TouchableOpacity>
+            {/* Compact score row */}
+            <View style={styles(theme).compactRow}>
+              <Text variant="bodyMedium" style={styles(theme).compactTeam} numberOfLines={1}>
+                Equipo 1
+              </Text>
+              <Text variant="titleMedium" style={[styles(theme).compactScore, { color: resultColor }]}>
+                {match.goalsTeam1} – {match.goalsTeam2}
+              </Text>
+              <Text variant="bodyMedium" style={styles(theme).compactTeamRight} numberOfLines={1}>
+                Equipo 2
+              </Text>
+              <Icon
+                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={theme.colors.onSurfaceVariant}
+              />
             </View>
 
-            {/* Score */}
-            <View style={styles(theme).scoreContainer}>
-              <View style={styles(theme).teamScore}>
-                <Text variant="headlineMedium" style={styles(theme).teamLabel}>
-                  Equipo 1
-                </Text>
-                <Surface style={styles(theme).scoreSurface} elevation={2}>
-                  <Text variant="displaySmall" style={styles(theme).scoreText}>
-                    {match.goalsTeam1}
-                  </Text>
-                </Surface>
-              </View>
-
-              <View style={styles(theme).vsContainer}>
-                <Text variant="titleLarge" style={styles(theme).vsText}>
-                  VS
-                </Text>
-              </View>
-
-              <View style={styles(theme).teamScore}>
-                <Text variant="headlineMedium" style={styles(theme).teamLabel}>
-                  Equipo 2
-                </Text>
-                <Surface style={styles(theme).scoreSurface} elevation={2}>
-                  <Text variant="displaySmall" style={styles(theme).scoreText}>
-                    {match.goalsTeam2}
-                  </Text>
-                </Surface>
-              </View>
-            </View>
-
-            {/* Result Badge */}
-            <View style={styles(theme).resultContainer}>
-              <Chip
-                style={[styles(theme).resultChip, { backgroundColor: resultColor }]}
-                textStyle={styles(theme).resultText}
-              >
-                {result}
-              </Chip>
-            </View>
-
-            {/* MVP vote button — only shown when the user participated and voting is open */}
-            {canVoteInMatch(match) && (
-              <Button
-                mode={currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId] ? 'outlined' : 'contained-tonal'}
-                icon={() => <Icon name='star-circle-outline' color={'white'} />}
-                onPress={() => setSelectedVotingMatchId(match.id)}
-                style={styles(theme).voteMatchButton}
-                contentStyle={styles(theme).voteMatchButtonContent}
-                compact
-              >
-                <Text style={{ color: theme.colors.onSecondary }}>
-                  {currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId]
-                    ? 'Cambiar voto'
-                    : 'Votar MVP'}
-                </Text>
-              </Button>
-            )}
-
-            {/* Edit button — only shown for admin/owner */}
-            {isAdminOrOwner && (
-              <Button
-                mode="outlined"
-                icon="pencil"
-                onPress={() => navigation.navigate('EditMatch', { matchId: match.id })}
-                style={styles(theme).editMatchButton}
-                contentStyle={styles(theme).editMatchButtonContent}
-                compact
-              >
-                Editar partido
-              </Button>
-            )}
-
-            <Divider style={styles(theme).divider} />
-
-            {/* Lineups Section */}
+            {/* Expanded: Actions + Lineups + Players */}
             {isExpanded && (
               <>
+                <Divider style={styles(theme).divider} />
+
+                {/* Quick actions */}
+                <View style={styles(theme).expandedActions}>
+                  <TouchableOpacity
+                    onPress={() => shareMatchOnWhatsApp(match, allPlayers)}
+                    style={styles(theme).expandedActionItem}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="whatsapp" size={22} color="#25D366" />
+                    <Text variant="labelSmall" style={styles(theme).expandedActionLabel}>
+                      Compartir
+                    </Text>
+                  </TouchableOpacity>
+                  {isAdminOrOwner && (
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('EditMatch', { matchId: match.id })}
+                      style={styles(theme).expandedActionItem}
+                      activeOpacity={0.7}
+                    >
+                      <Icon name="pencil" size={22} color={theme.colors.primary} />
+                      <Text variant="labelSmall" style={styles(theme).expandedActionLabel}>
+                        Editar
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {canVoteInMatch(match) && (
+                    <TouchableOpacity
+                      onPress={() => setSelectedVotingMatchId(match.id)}
+                      style={styles(theme).expandedActionItem}
+                      activeOpacity={0.7}
+                    >
+                      <Icon name="star-circle-outline" size={22} color={theme.colors.secondary} />
+                      <Text variant="labelSmall" style={styles(theme).expandedActionLabel}>
+                        {hasVoted ? 'Cambiar voto' : 'Votar MVP'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <Divider style={styles(theme).divider} />
                 <View style={styles(theme).sectionHeader}>
                   <Icon name="soccer-field" size={20} color={theme.colors.primary} />
                   <Text variant="titleMedium" style={styles(theme).sectionTitle}>
                     Alineaciones
                   </Text>
                 </View>
-
                 <MatchLineup
                   team1Players={match.players1}
                   team2Players={match.players2}
                   allPlayers={allPlayers}
                   mvpGroupMemberId={match.mvpGroupMemberId}
                 />
-
                 <View style={styles(theme).spacing} />
-
-                {/* Players List */}
                 <PlayersList
                   team1Players={match.players1}
                   team2Players={match.players2}
@@ -361,15 +345,6 @@ export default function MatchesScreen() {
                 />
               </>
             )}
-
-            {/* Expand/Collapse Indicator */}
-            <View style={styles(theme).expandIndicator}>
-              <Icon
-                name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                size={24}
-                color={theme.colors.primary}
-              />
-            </View>
           </Card.Content>
         </Card>
       </View>
@@ -452,7 +427,16 @@ export default function MatchesScreen() {
             </Text>
           </View>
         ) : (
-          matches.map(match => renderMatch(match))
+          matchesByDate.map(([dateKey, dateMatches]) => (
+            <View key={dateKey}>
+              <View style={styles(theme).dateHeader}>
+                <Text variant="labelMedium" style={styles(theme).dateHeaderText}>
+                  {formatDateHeader(dateKey)}
+                </Text>
+              </View>
+              {dateMatches.map(match => renderMatch(match))}
+            </View>
+          ))
         )}
       </ScrollView>
 
@@ -565,12 +549,17 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     gap: 16,
   },
   matchCard: {
-    marginBottom: 16,
-    borderRadius: 12,
-    backgroundColor: theme.colors.onPrimary
+    marginBottom: 6,
+    borderRadius: 8,
+    backgroundColor: theme.colors.onPrimary,
+    borderLeftWidth: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 5
   },
   cardContent: {
-    gap: 12,
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
   },
   dateContainer: {
     flexDirection: 'row',
@@ -691,5 +680,77 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   emptySubtext: {
     textAlign: 'center',
     color: '#999',
+  },
+  dateHeader: {
+    paddingHorizontal: 4,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  dateHeaderText: {
+    color: theme.colors.primary,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  compactTeam: {
+    flex: 1,
+    fontWeight: '600',
+  },
+  compactTeamRight: {
+    flex: 1,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  compactScore: {
+    fontWeight: 'bold',
+    fontSize: 18,
+    minWidth: 64,
+    textAlign: 'center',
+  },
+  compactFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // gap: 4,
+    minHeight: 28,
+    marginTop: 2,
+    justifyContent: 'space-between'
+  },
+  compactResult: {
+    fontWeight: '500',
+  },
+  compactActions: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  compactActionButton: {
+    // height: 30,
+    justifyContent: 'center',
+  },
+  compactActionButtonContent: {
+    // height: 30,
+    paddingHorizontal: 4,
+  },
+  compactShareButton: {
+    padding: 4,
+  },
+  expandedActions: {
+    flexDirection: 'row',
+    // gap: 24,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  expandedActionItem: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  expandedActionLabel: {
+    color: theme.colors.onSurfaceVariant,
   },
 });
