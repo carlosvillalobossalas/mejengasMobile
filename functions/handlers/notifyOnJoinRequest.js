@@ -94,7 +94,7 @@ exports.notifyAdminsOnJoinRequest = onDocumentCreated(
         groupId,
         type: 'join-request-received',
       },
-      android: { priority: 'high' },
+      android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
       apns: { headers: { 'apns-priority': '10' } },
     };
 

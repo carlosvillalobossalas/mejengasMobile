@@ -116,7 +116,7 @@ exports.remindMvpVoters = onSchedule('every 12 hours', async () => {
           groupId,
           type: 'mvp-vote-reminder',
         },
-        android: { priority: 'high' },
+        android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
         apns: { headers: { 'apns-priority': '10' } },
       };
 

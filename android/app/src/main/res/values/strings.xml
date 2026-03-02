@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">mejengasMobile</string>
+    <string name="default_notification_channel_id">mejengas_default_channel</string>
+    <string name="default_notification_channel_name">Notificaciones</string>
 </resources>

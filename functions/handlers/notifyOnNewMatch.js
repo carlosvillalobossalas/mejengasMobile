@@ -68,7 +68,7 @@ const notifyGroupMembers = async (matchId, groupId) => {
       groupId,
       type: 'match-created',
     },
-    android: { priority: 'high' },
+    android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
     apns: { headers: { 'apns-priority': '10' } },
   };
 

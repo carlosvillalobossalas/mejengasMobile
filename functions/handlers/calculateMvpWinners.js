@@ -74,7 +74,7 @@ const notifyGroupOnMvpResult = async (groupId, matchId, winnerName, groupName) =
       groupId,
       type: 'mvp-calculated',
     },
-    android: { priority: 'high' },
+    android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
     apns: { headers: { 'apns-priority': '10' } },
   };
 
