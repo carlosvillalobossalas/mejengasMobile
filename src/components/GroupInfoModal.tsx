@@ -99,9 +99,15 @@ export default function GroupInfoModal({
                 // 3. Has a join request?
                 const request = await getJoinRequestForUser(group.id, currentUserId);
                 if (request) {
-                    const stateMap: Record<JoinRequest['status'], MembershipState> = {
+                    // If the request was accepted but the user is no longer a member
+                    // (e.g. they were later unlinked), the accepted state is stale.
+                    // Allow them to send a new request.
+                    if (request.status === 'accepted') {
+                        if (isMounted.current) setMembershipState('none');
+                        return;
+                    }
+                    const stateMap: Record<Exclude<JoinRequest['status'], 'accepted'>, MembershipState> = {
                         pending: 'request_pending',
-                        accepted: 'request_accepted',
                         rejected: 'request_rejected',
                     };
                     if (isMounted.current) setMembershipState(stateMap[request.status]);
