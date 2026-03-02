@@ -208,7 +208,7 @@ export default function GoalkeepersTableScreen() {
             <Divider />
 
             {/* Table */}
-            <ScrollView style={styles(theme).tableContainer}>
+            <View style={styles(theme).tableContainer}>
                 <DataTable>
                     {/* Table Header */}
                     <DataTable.Header style={styles(theme).tableHeader}>
@@ -263,6 +263,10 @@ export default function GoalkeepersTableScreen() {
                             <Icon name="stadium" size={16} color="#FFFFFF" />
                         </DataTable.Title>
                     </DataTable.Header>
+                </DataTable>
+
+                <ScrollView>
+                    <DataTable>
 
                     {/* Table Rows */}
                     {sortedGoalkeepers.map((goalkeeper, index) => {
@@ -360,8 +364,9 @@ export default function GoalkeepersTableScreen() {
                             </Text>
                         </View>
                     )}
-                </DataTable>
-            </ScrollView>
+                    </DataTable>
+                </ScrollView>
+            </View>
 
             {/* Year Selection Bottom Sheet */}
             <Portal>

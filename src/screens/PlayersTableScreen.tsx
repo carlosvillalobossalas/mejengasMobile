@@ -237,7 +237,7 @@ export default function PlayersTableScreen() {
       <Divider />
 
       {/* Table */}
-      <ScrollView style={styles(theme).tableContainer}>
+      <View style={styles(theme).tableContainer}>
         <DataTable>
           {/* Table Header */}
           <DataTable.Header style={styles(theme).tableHeader}>
@@ -294,6 +294,10 @@ export default function PlayersTableScreen() {
               <Icon name="stadium" size={16} color="#FFFFFF" />
             </DataTable.Title>
           </DataTable.Header>
+        </DataTable>
+
+        <ScrollView>
+          <DataTable>
 
           {/* Table Rows */}
           {sortedPlayers.map((player, index) => {
@@ -388,8 +392,9 @@ export default function PlayersTableScreen() {
               </Text>
             </View>
           )}
-        </DataTable>
-      </ScrollView>
+          </DataTable>
+        </ScrollView>
+      </View>
 
       {/* Year Selection Bottom Sheet */}
       <Portal>
