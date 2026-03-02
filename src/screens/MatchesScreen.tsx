@@ -246,6 +246,23 @@ export default function MatchesScreen() {
     }
   };
 
+  const getStatusLabel = (status: Match['status']): string => {
+    switch (status) {
+      case 'finished': return 'Finalizado';
+      case 'scheduled': return 'Pendiente';
+      case 'cancelled': return 'Cancelado';
+      default: return 'Finalizado';
+    }
+  };
+
+  const getStatusStyle = (status: Match['status'], t: MD3Theme): { color: string; borderColor: string; backgroundColor: string } => {
+    switch (status) {
+      case 'scheduled': return { color: '#E65100', borderColor: '#E65100', backgroundColor: '#FFF3E0' };
+      case 'cancelled': return { color: '#B71C1C', borderColor: '#B71C1C', backgroundColor: '#FFEBEE' };
+      default: return { color: t.colors.primary, borderColor: t.colors.primary, backgroundColor: t.colors.primaryContainer };
+    }
+  };
+
   const renderMatch = (match: Match) => {
     const isExpanded = expandedMatchId === match.id;
     const result = getMatchResult(match);
@@ -267,9 +284,14 @@ export default function MatchesScreen() {
               <Text variant="bodyMedium" style={styles(theme).compactTeam} numberOfLines={1}>
                 Equipo 1
               </Text>
-              <Text variant="titleMedium" style={[styles(theme).compactScore, { color: resultColor }]}>
-                {match.goalsTeam1} – {match.goalsTeam2}
-              </Text>
+              <View style={styles(theme).compactScoreColumn}>
+                <Text style={[styles(theme).statusLabel, getStatusStyle(match.status, theme)]}>
+                  {getStatusLabel(match.status)}
+                </Text>
+                <Text variant="titleMedium" style={[styles(theme).compactScore, { color: resultColor }]}>
+                  {match.goalsTeam1} – {match.goalsTeam2}
+                </Text>
+              </View>
               <Text variant="bodyMedium" style={styles(theme).compactTeamRight} numberOfLines={1}>
                 Equipo 2
               </Text>
@@ -691,6 +713,22 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     fontWeight: '700',
     textTransform: 'capitalize',
   },
+  statusLabel: {
+    textAlign: 'center',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontSize: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 3,
+    borderWidth: 1,
+  },
+  compactScoreColumn: {
+    alignItems: 'center',
+    gap: 3,
+    minWidth: 80,
+  },
   compactRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -708,7 +746,6 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   compactScore: {
     fontWeight: 'bold',
     fontSize: 18,
-    minWidth: 64,
     textAlign: 'center',
   },
   compactFooter: {

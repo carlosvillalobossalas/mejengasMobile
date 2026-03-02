@@ -31,6 +31,7 @@ export type Match = {
   mvpVoting: MvpVoting | null;
   /** Map of { [voterGroupMemberId]: votedGroupMemberId } */
   mvpVotes: Record<string, string>;
+  status?: 'finished' | 'scheduled' | 'cancelled';
 };
 
 const MATCHES_COLLECTION = 'matches';
