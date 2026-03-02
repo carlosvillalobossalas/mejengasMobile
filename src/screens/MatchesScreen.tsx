@@ -23,7 +23,7 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 
 import { useAppSelector } from '../app/hooks';
 import { subscribeToMatchesByGroupId, type Match } from '../repositories/matches/matchesRepository';
-import { getGroupMembersV2ByGroupId, getGroupMemberV2ByUserId, type GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
+import { subscribeToGroupMembersV2ByGroupId, getGroupMemberV2ByUserId, type GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import MatchLineup from '../components/MatchLineup';
 import PlayersList from '../components/PlayersList';
 import MvpVotingModal from '../components/MvpVotingModal';
@@ -66,16 +66,20 @@ export default function MatchesScreen() {
     clearVoteError,
   } = useMvpVoting(selectedGroupId, firebaseUser?.uid ?? null);
 
-  // Load group members once when group changes
+  // Subscribe to group members in real-time so newly added players appear without manual refresh
   useEffect(() => {
     if (!selectedGroupId) {
       setAllPlayers([]);
       return;
     }
 
-    getGroupMembersV2ByGroupId(selectedGroupId)
-      .then(members => setAllPlayers(members))
-      .catch(err => console.error('Error loading group members:', err));
+    const unsubscribe = subscribeToGroupMembersV2ByGroupId(selectedGroupId, members => {
+      setAllPlayers(members);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [selectedGroupId]);
 
   // Check if the current user is admin/owner so the edit button can be shown

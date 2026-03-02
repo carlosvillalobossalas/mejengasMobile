@@ -103,7 +103,7 @@ exports.editMatch = onCall(async request => {
     throw new HttpsError('invalid-argument', 'updatedMatchData es requerido.');
   }
 
-  const { players1, players2, goalsTeam1, goalsTeam2, date } = updatedMatchData;
+  const { players1, players2, goalsTeam1, goalsTeam2, date, markAsFinished = false } = updatedMatchData;
 
   if (!Array.isArray(players1) || !Array.isArray(players2)) {
     throw new HttpsError('invalid-argument', 'players1 y players2 deben ser arreglos.');
@@ -200,7 +200,10 @@ exports.editMatch = onCall(async request => {
     throw new HttpsError('invalid-argument', 'date no es una fecha válida.');
   }
 
-  // Run the atomic transaction: revert old stats → update match → apply new stats
+  // Read current status before transaction for post-transaction cleanup
+  const currentStatus = String(matchData.status ?? 'finished');
+
+  // Run the atomic transaction
   await db.runTransaction(async t => {
     const snap = await t.get(matchRef);
     if (!snap.exists) {
@@ -208,8 +211,7 @@ exports.editMatch = onCall(async request => {
     }
 
     const old = snap.data();
-
-    processMatchImpact(old, -1, t, db, FieldValue);
+    const statusInTransaction = old.status ?? 'finished';
 
     const newMatchForImpact = {
       groupId: old.groupId,
@@ -220,9 +222,7 @@ exports.editMatch = onCall(async request => {
       players2,
     };
 
-    processMatchImpact(newMatchForImpact, +1, t, db, FieldValue);
-
-    t.update(matchRef, {
+    const baseMatchUpdate = {
       players1,
       players2,
       goalsTeam1,
@@ -231,8 +231,57 @@ exports.editMatch = onCall(async request => {
       editedAt: FieldValue.serverTimestamp(),
       editedBy: uid,
       impactVersion: FieldValue.increment(1),
-    });
+    };
+
+    if (statusInTransaction === 'finished') {
+      // Normal edit of a finished match: revert old stats, apply new stats
+      processMatchImpact(old, -1, t, db, FieldValue);
+      processMatchImpact(newMatchForImpact, +1, t, db, FieldValue);
+      t.update(matchRef, { ...baseMatchUpdate, status: 'finished' });
+    } else if (statusInTransaction === 'scheduled' && markAsFinished) {
+      // Finalizing a scheduled match: apply stats for the first time, open MVP voting
+      processMatchImpact(newMatchForImpact, +1, t, db, FieldValue);
+      const opensAt = admin.firestore.Timestamp.now();
+      const closesAt = admin.firestore.Timestamp.fromMillis(
+        opensAt.toMillis() + 24 * 60 * 60 * 1000,
+      );
+      t.update(matchRef, {
+        ...baseMatchUpdate,
+        status: 'finished',
+        mvpVoting: { status: 'open', opensAt, closesAt, calculatedAt: null },
+        mvpVotes: {},
+        mvpGroupMemberId: null,
+      });
+    } else {
+      // Editing a scheduled match without finalizing: no stats changes
+      t.update(matchRef, { ...baseMatchUpdate, status: 'scheduled' });
+    }
   });
+
+  // When finalizing a scheduled match, cancel any pending reminders
+  if (currentStatus === 'scheduled' && markAsFinished) {
+    try {
+      const remindersSnap = await db
+        .collection('matchReminders')
+        .where('matchId', '==', matchId)
+        .where('status', '==', 'pending')
+        .get();
+
+      if (!remindersSnap.empty) {
+        const remindersBatch = db.batch();
+        remindersSnap.docs.forEach(doc => {
+          remindersBatch.update(doc.ref, {
+            status: 'cancelled',
+            cancelledAt: FieldValue.serverTimestamp(),
+          });
+        });
+        await remindersBatch.commit();
+      }
+    } catch (err) {
+      // Non-critical: log but don't fail the request
+      logger.warn('editMatch: failed to cancel reminders', { matchId, err: String(err) });
+    }
+  }
 
   logger.info('editMatch: match updated successfully', { matchId, uid });
   return { success: true };

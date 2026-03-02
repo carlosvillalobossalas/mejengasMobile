@@ -19,6 +19,7 @@ import {
   Chip,
   Menu,
   Snackbar,
+  Switch,
   MD3Theme,
   Portal,
 } from 'react-native-paper';
@@ -34,6 +35,7 @@ import {
   type GroupMemberV2,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import { getMatchById, type MatchPlayer } from '../repositories/matches/matchesRepository';
+import { getGroupsByIds } from '../repositories/groups/groupsRepository';
 import type { AppDrawerParamList } from '../navigation/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -63,7 +65,11 @@ const POSITION_LABELS: Record<Position, string> = {
   MED: 'Mediocampo',
   DEL: 'Delantero',
 };
-
+const PLAYERS_BY_TYPE: Record<string, number> = {
+  futbol_5: 5,
+  futbol_7: 7,
+  futbol_11: 11,
+};
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const normalizeNumberInput = (value: string): string => {
@@ -99,7 +105,15 @@ const toTeamPlayer = (
   assists: String(player.assists),
   ownGoals: String(player.ownGoals),
 });
-
+/** Creates a blank slot to pad a team to the required player count */
+const createEmptyTeamPlayer = (): TeamPlayer => ({
+  position: 'DEF',
+  groupMemberId: null,
+  playerName: '',
+  goals: '0',
+  assists: '0',
+  ownGoals: '0',
+});
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -125,8 +139,9 @@ export default function EditMatchScreen({ route }: Props) {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [team1Players, setTeam1Players] = useState<TeamPlayer[]>([]);
-  const [team2Players, setTeam2Players] = useState<TeamPlayer[]>([]);
-
+  const [team2Players, setTeam2Players] = useState<TeamPlayer[]>([]);  const [matchStatus, setMatchStatus] = useState<'scheduled' | 'finished' | 'cancelled'>('finished');
+  const [markAsFinished, setMarkAsFinished] = useState(false);
+  const [playersPerTeam, setPlayersPerTeam] = useState(7);
   // ── Load match + group members on mount ────────────────────────────────────
   useEffect(() => {
     const load = async () => {
@@ -134,9 +149,10 @@ export default function EditMatchScreen({ route }: Props) {
 
       setIsLoading(true);
       try {
-        const [match, membersData] = await Promise.all([
+        const [match, membersData, groupsMap] = await Promise.all([
           getMatchById(matchId),
           getGroupMembersV2ByGroupId(selectedGroupId),
+          getGroupsByIds([selectedGroupId]),
         ]);
 
         if (!match) {
@@ -150,9 +166,22 @@ export default function EditMatchScreen({ route }: Props) {
           membersData.map(m => [m.id, m]),
         );
 
+        // Determine slots per team from group type
+        const group = groupsMap.get(selectedGroupId);
+        const count = PLAYERS_BY_TYPE[group?.type ?? 'futbol_7'] ?? 7;
+        setPlayersPerTeam(count);
+
         setPlayers(membersData);
-        setTeam1Players(match.players1.map(p => toTeamPlayer(p, membersMap)));
-        setTeam2Players(match.players2.map(p => toTeamPlayer(p, membersMap)));
+
+        // Pad team arrays to fill up to count slots, keeping existing players first
+        const mappedTeam1 = match.players1.map(p => toTeamPlayer(p, membersMap));
+        const mappedTeam2 = match.players2.map(p => toTeamPlayer(p, membersMap));
+        const emptySlots1 = Array.from({ length: Math.max(0, count - mappedTeam1.length) }, createEmptyTeamPlayer);
+        const emptySlots2 = Array.from({ length: Math.max(0, count - mappedTeam2.length) }, createEmptyTeamPlayer);
+        setTeam1Players([...mappedTeam1, ...emptySlots1]);
+        setTeam2Players([...mappedTeam2, ...emptySlots2]);
+
+        setMatchStatus((match.status ?? 'finished') as 'scheduled' | 'finished' | 'cancelled');
         setMatchDate(new Date(match.date));
       } catch (error) {
         console.error('EditMatchScreen: error loading match data', error);
@@ -202,43 +231,58 @@ export default function EditMatchScreen({ route }: Props) {
     return ids;
   }, [team1Players, team2Players]);
 
-  const availablePlayers = useMemo(
-    () => players.filter(p => !selectedPlayerIds.has(p.id)),
-    [players, selectedPlayerIds],
-  );
+  const availablePlayers = useMemo(() => {
+    // Allow the player currently in the open slot to appear in the picker
+    // (so they can be re-assigned or swapped without needing to clear first)
+    const currentTeam = activeTab === 0 ? team1Players : team2Players;
+    const currentSlotMemberId =
+      selectedRowIndex !== null
+        ? (currentTeam[selectedRowIndex]?.groupMemberId ?? null)
+        : null;
+    return players.filter(p => {
+      if (!selectedPlayerIds.has(p.id)) return true;
+      return p.id === currentSlotMemberId;
+    });
+  }, [players, selectedPlayerIds, selectedRowIndex, activeTab, team1Players, team2Players]);
 
   const validationWarnings = useMemo(() => {
     const warnings: string[] = [];
 
-    const team1WithPlayer = team1Players.filter(p => p.groupMemberId !== null).length;
-    const team2WithPlayer = team2Players.filter(p => p.groupMemberId !== null).length;
+    // Full lineup validation is only required when saving a finished match
+    const requiresFullLineup = matchStatus === 'finished' || markAsFinished;
 
-    if (team1WithPlayer < team1Players.length) {
-      warnings.push(
-        `Equipo 1: faltan ${team1Players.length - team1WithPlayer} jugador(es) por seleccionar`,
-      );
+    if (requiresFullLineup) {
+      const team1WithPlayer = team1Players.filter(p => p.groupMemberId !== null).length;
+      const team2WithPlayer = team2Players.filter(p => p.groupMemberId !== null).length;
+
+      if (team1WithPlayer < team1Players.length) {
+        warnings.push(
+          `Equipo 1: faltan ${team1Players.length - team1WithPlayer} jugador(es) por seleccionar`,
+        );
+      }
+      if (team2WithPlayer < team2Players.length) {
+        warnings.push(
+          `Equipo 2: faltan ${team2Players.length - team2WithPlayer} jugador(es) por seleccionar`,
+        );
+      }
+
+      const team1PorCount = team1Players.filter(p => p.groupMemberId !== null && p.position === 'POR').length;
+      const team2PorCount = team2Players.filter(p => p.groupMemberId !== null && p.position === 'POR').length;
+
+      if (team1PorCount !== 1) {
+        warnings.push(`Equipo 1 debe tener exactamente 1 portero (tiene ${team1PorCount})`);
+      }
+      if (team2PorCount !== 1) {
+        warnings.push(`Equipo 2 debe tener exactamente 1 portero (tiene ${team2PorCount})`);
+      }
     }
-    if (team2WithPlayer < team2Players.length) {
-      warnings.push(
-        `Equipo 2: faltan ${team2Players.length - team2WithPlayer} jugador(es) por seleccionar`,
-      );
-    }
+
     if (!matchDate) {
       warnings.push('Selecciona una fecha para el partido');
     }
 
-    const team1PorCount = team1Players.filter(p => p.position === 'POR').length;
-    const team2PorCount = team2Players.filter(p => p.position === 'POR').length;
-
-    if (team1PorCount !== 1) {
-      warnings.push(`Equipo 1 debe tener exactamente 1 portero (tiene ${team1PorCount})`);
-    }
-    if (team2PorCount !== 1) {
-      warnings.push(`Equipo 2 debe tener exactamente 1 portero (tiene ${team2PorCount})`);
-    }
-
     return warnings;
-  }, [team1Players, team2Players, matchDate]);
+  }, [team1Players, team2Players, matchDate, matchStatus, markAsFinished]);
 
   const canSave = validationWarnings.length === 0 && !isSaving;
 
@@ -299,12 +343,35 @@ export default function EditMatchScreen({ route }: Props) {
     setSelectedRowIndex(null);
   }, []);
 
+  const handlePlayerClear = useCallback(() => {
+    if (selectedRowIndex === null) return;
+    const updated = [...currentTeamPlayers];
+    updated[selectedRowIndex] = {
+      ...updated[selectedRowIndex],
+      groupMemberId: null,
+      playerName: '',
+      goals: '0',
+      assists: '0',
+      ownGoals: '0',
+    };
+    setCurrentTeamPlayers(updated);
+    setIsPlayerPickerVisible(false);
+    setSelectedRowIndex(null);
+  }, [selectedRowIndex, currentTeamPlayers, setCurrentTeamPlayers]);
+
   const handleSaveMatch = () => {
     if (!canSave || !matchDate) return;
 
+    const alertMessage =
+      matchStatus === 'scheduled' && markAsFinished
+        ? '¿Deseas marcar este partido como finalizado? Las estadísticas de los jugadores se actualizarán.'
+        : matchStatus === 'scheduled'
+          ? '¿Deseas guardar los cambios en este partido programado?'
+          : 'Editar este partido recalculará las estadísticas de los jugadores. ¿Continuar?';
+
     Alert.alert(
       'Editar partido',
-      'Editar este partido recalculará las estadísticas de los jugadores. ¿Continuar?',
+      alertMessage,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -326,6 +393,10 @@ export default function EditMatchScreen({ route }: Props) {
 
       const idToken = await currentUser.getIdToken();
 
+      // Filter out unassigned slots — only send players with a valid groupMemberId
+      const filledTeam1 = team1Players.filter(p => p.groupMemberId !== null);
+      const filledTeam2 = team2Players.filter(p => p.groupMemberId !== null);
+
       const response = await fetch(
         'https://us-central1-mejengas-a7794.cloudfunctions.net/editMatch',
         {
@@ -338,14 +409,14 @@ export default function EditMatchScreen({ route }: Props) {
             data: {
               matchId,
               updatedMatchData: {
-                players1: team1Players.map(p => ({
+                players1: filledTeam1.map(p => ({
                   groupMemberId: p.groupMemberId,
                   position: p.position,
                   goals: parseStatValue(p.goals),
                   assists: parseStatValue(p.assists),
                   ownGoals: parseStatValue(p.ownGoals),
                 })),
-                players2: team2Players.map(p => ({
+                players2: filledTeam2.map(p => ({
                   groupMemberId: p.groupMemberId,
                   position: p.position,
                   goals: parseStatValue(p.goals),
@@ -355,6 +426,7 @@ export default function EditMatchScreen({ route }: Props) {
                 goalsTeam1: team1Goals,
                 goalsTeam2: team2Goals,
                 date: matchDate.toISOString(),
+                markAsFinished,
               },
             },
           }),
@@ -369,11 +441,15 @@ export default function EditMatchScreen({ route }: Props) {
         throw new Error(message);
       }
 
-      setSnackbarMessage('Partido actualizado exitosamente');
+      setSnackbarMessage(
+        markAsFinished
+          ? 'Partido finalizado y guardado exitosamente'
+          : 'Partido actualizado exitosamente',
+      );
       setSnackbarVisible(true);
 
       // Navigate back after a short delay so the snackbar is visible
-      setTimeout(() => navigation.goBack(), 1500);
+      setTimeout(() => navigation.navigate('Matches'), 1500);
     } catch (error) {
       console.error('EditMatchScreen: error saving match', error);
       setSnackbarMessage('Error al actualizar el partido');
@@ -412,7 +488,7 @@ export default function EditMatchScreen({ route }: Props) {
                 styles(theme).tab,
                 activeTab === idx && styles(theme).activeTab,
               ]}
-              elevation={activeTab === idx ? 2 : 0}
+              elevation={0}
             >
               <Text
                 variant="labelLarge"
@@ -479,8 +555,14 @@ export default function EditMatchScreen({ route }: Props) {
                 onPress={() => openPlayerPicker(index)}
               >
                 <Surface style={styles(theme).playerSelector} elevation={1}>
-                  <Text style={styles(theme).playerText} numberOfLines={1}>
-                    {player.playerName || `J${index + 1}`}
+                  <Text
+                    style={[
+                      styles(theme).playerText,
+                      !player.groupMemberId && { color: theme.colors.onSurfaceVariant },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {player.playerName || 'Sin asignar'}
                   </Text>
                   <Icon name="menu-down" size={20} color="#666" />
                 </Surface>
@@ -496,6 +578,7 @@ export default function EditMatchScreen({ route }: Props) {
                   onBlur={() => handleStatBlur(index, 'goals')}
                   keyboardType="number-pad"
                   style={styles(theme).statInput}
+                  disabled={!player.groupMemberId}
                   dense
                 />
               </View>
@@ -510,6 +593,7 @@ export default function EditMatchScreen({ route }: Props) {
                   onBlur={() => handleStatBlur(index, 'assists')}
                   keyboardType="number-pad"
                   style={styles(theme).statInput}
+                  disabled={!player.groupMemberId}
                   dense
                 />
               </View>
@@ -524,6 +608,7 @@ export default function EditMatchScreen({ route }: Props) {
                   onBlur={() => handleStatBlur(index, 'ownGoals')}
                   keyboardType="number-pad"
                   style={styles(theme).statInput}
+                  disabled={!player.groupMemberId}
                   dense
                 />
               </View>
@@ -640,6 +725,21 @@ export default function EditMatchScreen({ route }: Props) {
             </Surface>
           )}
 
+          {/* Marcar como finalizado (only for scheduled matches) */}
+          {matchStatus === 'scheduled' && (
+            <Surface style={styles(theme).finalizeCard} elevation={1}>
+              <View style={styles(theme).finalizeRow}>
+                <View style={styles(theme).finalizeText}>
+                  <Text variant="titleSmall">Marcar como finalizado</Text>
+                  <Text variant="bodySmall" style={styles(theme).finalizeDescription}>
+                    Activa esta opción si el partido ya se jugó. Las estadísticas de los jugadores se actualizarán.
+                  </Text>
+                </View>
+                <Switch value={markAsFinished} onValueChange={setMarkAsFinished} />
+              </View>
+            </Surface>
+          )}
+
           {/* Save button */}
           <Button
             mode="contained"
@@ -671,8 +771,21 @@ export default function EditMatchScreen({ route }: Props) {
                   <Icon name="close" size={24} color={theme.colors.onSurface} />
                 </TouchableOpacity>
               </View>
-              <Divider />
               <ScrollView>
+                {/* Sin asignar — clears the current slot */}
+                <List.Item
+                  title="Sin asignar"
+                  titleStyle={{ color: theme.colors.onSurfaceVariant }}
+                  onPress={handlePlayerClear}
+                  left={props => (
+                    <List.Icon
+                      {...props}
+                      icon="account-remove"
+                      color={theme.colors.onSurfaceVariant}
+                    />
+                  )}
+                />
+                <Divider />
                 {availablePlayers.map(member => (
                   <React.Fragment key={member.id}>
                     <List.Item
@@ -717,7 +830,7 @@ const styles = (theme: MD3Theme) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.colors.background,
+      backgroundColor: '#F5F5F5',
     },
     centerContainer: {
       flex: 1,
@@ -731,121 +844,121 @@ const styles = (theme: MD3Theme) =>
     },
     tabsContainer: {
       flexDirection: 'row',
-      padding: 8,
-      gap: 8,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: '#FFF',
       elevation: 2,
     },
     tabButton: {
       flex: 1,
     },
     tab: {
-      paddingVertical: 10,
-      paddingHorizontal: 4,
-      borderRadius: 8,
+      paddingVertical: 14,
       alignItems: 'center',
-      backgroundColor: theme.colors.surface,
+      justifyContent: 'center',
+      backgroundColor: '#FFF',
     },
     activeTab: {
-      backgroundColor: theme.colors.primaryContainer,
+      backgroundColor: theme.colors.primary,
     },
     tabText: {
-      color: theme.colors.onSurfaceVariant,
+      fontWeight: 'bold',
+      color: '#666',
     },
     activeTabText: {
-      color: theme.colors.primary,
-      fontWeight: 'bold',
+      color: '#FFF',
     },
     content: {
       flex: 1,
     },
     summaryContent: {
       padding: 16,
-      gap: 16,
+      gap: 20,
     },
     tableHeader: {
       flexDirection: 'row',
-      paddingHorizontal: 8,
-      paddingVertical: 8,
-      backgroundColor: theme.colors.surfaceVariant,
-      alignItems: 'center',
+      backgroundColor: theme.colors.primary,
+      padding: 12,
+      gap: 8,
     },
     headerCell: {
-      fontSize: 12,
+      color: '#FFF',
       fontWeight: 'bold',
-      color: theme.colors.onSurfaceVariant,
+      fontSize: 12,
       textAlign: 'center',
     },
     tableRow: {
       flexDirection: 'row',
-      paddingHorizontal: 8,
-      paddingVertical: 6,
-      alignItems: 'center',
+      padding: 12,
+      gap: 8,
+      backgroundColor: '#FFF',
       borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outlineVariant,
+      borderBottomColor: '#E0E0E0',
+      alignItems: 'center',
+      minHeight: 60,
     },
     positionColumn: {
-      width: 72,
+      width: 60,
     },
     playerColumn: {
       flex: 1,
-      marginHorizontal: 4,
     },
     statColumn: {
-      width: 52,
-      marginHorizontal: 2,
+      width: 50,
     },
     positionAnchor: {
-      flex: 1,
+      width: '100%',
     },
     positionPicker: {
+      paddingVertical: 8,
+      paddingHorizontal: 6,
+      borderRadius: 6,
+      backgroundColor: '#FFF',
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 6,
-      paddingVertical: 6,
-      borderRadius: 6,
-      gap: 2,
+      justifyContent: 'space-between',
+      gap: 4,
     },
     positionText: {
-      fontSize: 12,
+      textAlign: 'center',
       fontWeight: 'bold',
-      color: theme.colors.primary,
+      fontSize: 12,
     },
     playerSelector: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 6,
-      paddingVertical: 6,
-      borderRadius: 6,
+      justifyContent: 'space-between',
+      padding: 8,
+      borderRadius: 4,
+      backgroundColor: '#FFF',
     },
     playerText: {
       flex: 1,
-      fontSize: 12,
-      color: theme.colors.onSurface,
+      fontSize: 13,
     },
     statInput: {
       height: 36,
+      fontSize: 14,
       textAlign: 'center',
-      fontSize: 13,
     },
     // Guardar tab
     scoreCard: {
-      borderRadius: 12,
       padding: 20,
+      borderRadius: 12,
+      backgroundColor: '#FFF',
       alignItems: 'center',
       gap: 16,
     },
     scoreContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 24,
+      justifyContent: 'space-around',
+      width: '100%',
     },
     teamScore: {
       alignItems: 'center',
-      gap: 8,
+      gap: 12,
     },
     teamLabel: {
-      color: theme.colors.onSurface,
+      fontWeight: 'bold',
     },
     scoreCircle: {
       width: 80,
@@ -860,27 +973,29 @@ const styles = (theme: MD3Theme) =>
       fontWeight: 'bold',
     },
     vsText: {
-      color: theme.colors.onSurfaceVariant,
+      fontWeight: 'bold',
+      color: '#666',
     },
     resultChip: {
-      borderRadius: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 4,
     },
     resultChipText: {
       color: '#FFF',
       fontWeight: 'bold',
     },
     dateCard: {
-      borderRadius: 12,
       padding: 16,
-      gap: 8,
+      borderRadius: 12,
+      backgroundColor: '#FFF',
+      gap: 12,
     },
     dateLabel: {
-      color: theme.colors.onSurface,
-      marginBottom: 4,
+      fontWeight: 'bold',
     },
     warningsCard: {
-      borderRadius: 12,
-      padding: 16,
+      padding: 12,
+      borderRadius: 8,
       backgroundColor: theme.colors.errorContainer,
       gap: 8,
     },
@@ -902,11 +1017,10 @@ const styles = (theme: MD3Theme) =>
       color: theme.colors.onErrorContainer,
     },
     saveButton: {
-      borderRadius: 12,
-      marginTop: 8,
+      borderRadius: 8,
     },
     saveButtonContent: {
-      paddingVertical: 6,
+      paddingVertical: 8,
     },
     // Player picker modal
     modalOverlay: {
@@ -915,20 +1029,42 @@ const styles = (theme: MD3Theme) =>
       justifyContent: 'flex-end',
     },
     modalContent: {
+      backgroundColor: '#FFF',
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
-      maxHeight: '70%',
-      paddingBottom: 24,
+      height: '80%',
+      overflow: 'hidden',
     },
     modalHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 16,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: '#E0E0E0',
     },
     noPlayersText: {
       textAlign: 'center',
       padding: 24,
+      color: theme.colors.onSurfaceVariant,
+    },
+    finalizeCard: {
+      padding: 16,
+      borderRadius: 12,
+      backgroundColor: '#FFF',
+    },
+    finalizeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    finalizeText: {
+      flex: 1,
+      gap: 4,
+    },
+    finalizeDescription: {
       color: theme.colors.onSurfaceVariant,
     },
   });
