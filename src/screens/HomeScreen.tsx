@@ -263,7 +263,7 @@ export default function HomeScreen() {
             <View style={styles.searchContainer}>
                 <Searchbar
                     ref={searchbarRef}
-                    placeholder="Buscar jugadores..."
+                    placeholder="Buscar jugadores o grupos..."
                     onChangeText={setSearchQuery}
                     value={searchQuery}
                     icon="magnify"

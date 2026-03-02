@@ -24,8 +24,12 @@ import TeamFormScreen from '../screens/TeamFormScreen';
 import EditMatchScreen from '../screens/EditMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
-import { subscribeToUserRoleInGroup } from '../repositories/groups/groupsRepository';
+import {
+  subscribeToUserRoleInGroup,
+  subscribeToGroupsForUser,
+} from '../repositories/groups/groupsRepository';
 import { signOutFromFirebase } from '../features/auth/authSlice';
+import { setGroups } from '../features/groups/groupsSlice';
 import { useNotificationNavigation } from '../hooks/useNotificationNavigation';
 
 const Drawer = createDrawerNavigator<AppDrawerParamList>();
@@ -71,6 +75,22 @@ export default function AppNavigator() {
       ],
     );
   };
+
+  // Subscribe to user groups in real-time so the group switcher updates immediately
+  // (e.g. when a join request is accepted)
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      dispatch(setGroups([]));
+      return;
+    }
+
+    const unsubscribe = subscribeToGroupsForUser(
+      currentUser.uid,
+      groups => dispatch(setGroups(groups)),
+    );
+
+    return () => unsubscribe();
+  }, [currentUser?.uid, dispatch]);
 
   // Subscribe to user role in real-time so drawer items update immediately
   useEffect(() => {
