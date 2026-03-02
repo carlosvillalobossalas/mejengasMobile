@@ -120,6 +120,7 @@ export function useAddScheduledMatch() {
     slots.filter(s => s.groupMemberId !== null).length;
 
   return {
+    selectedGroupId,
     selectedGroup,
     playersPerTeam,
     matchDate,

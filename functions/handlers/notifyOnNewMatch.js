@@ -13,7 +13,7 @@ const {
   collectUserTokens,
 } = require('../utils/helpers');
 
-const notifyGroupMembers = async (matchId, groupId) => {
+const notifyGroupMembers = async (matchId, groupId, matchData) => {
   const db = admin.firestore();
 
   // Fetch group name to include in the notification title
@@ -58,19 +58,46 @@ const notifyGroupMembers = async (matchId, groupId) => {
     return;
   }
 
-  const payload = {
-    notification: {
-      title: groupName ? `Nuevo partido en "${groupName}"` : 'Nuevo partido',
-      body: 'Se agregó un partido en tu grupo.',
-    },
-    data: {
-      matchId,
-      groupId,
-      type: 'match-created',
-    },
-    android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
-    apns: { headers: { 'apns-priority': '10' } },
-  };
+  const status = matchData.status || 'finished';
+
+  let payload;
+  if (status === 'scheduled') {
+    // Format the match date in Spanish
+    const matchDate = matchData.date?.toDate ? matchData.date.toDate() : new Date();
+    const formattedDate = matchDate.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    payload = {
+      notification: {
+        title: groupName ? `Partido programado en "${groupName}"` : 'Partido programado',
+        body: `Se programó un partido para el ${formattedDate}.`,
+      },
+      data: {
+        matchId,
+        groupId,
+        type: 'match-scheduled',
+      },
+      android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
+      apns: { headers: { 'apns-priority': '10' } },
+    };
+  } else {
+    payload = {
+      notification: {
+        title: groupName ? `Nuevo partido en "${groupName}"` : 'Nuevo partido',
+        body: 'Se agregó un partido en tu grupo.',
+      },
+      data: {
+        matchId,
+        groupId,
+        type: 'match-created',
+      },
+      android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
+      apns: { headers: { 'apns-priority': '10' } },
+    };
+  }
 
   let sentCount = 0;
   for (const tokensChunk of chunk(tokens, MAX_TOKENS_PER_BATCH)) {
@@ -107,5 +134,5 @@ exports.notifyGroupOnNewMatch = onDocumentCreated('matches/{matchId}', async eve
     return;
   }
 
-  await notifyGroupMembers(matchId, groupId);
+  await notifyGroupMembers(matchId, groupId, data);
 });

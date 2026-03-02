@@ -16,9 +16,12 @@ import {
   Menu,
   Avatar,
   ActivityIndicator,
+  Snackbar,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import DatePicker from 'react-native-date-picker';
+import { useNavigation } from '@react-navigation/native';
+import type { DrawerNavigationProp } from '@react-navigation/drawer';
 
 import ScheduledPlayerPicker from '../components/ScheduledPlayerPicker';
 import {
@@ -27,6 +30,8 @@ import {
   type ScheduledSlot,
 } from '../hooks/useAddScheduledMatch';
 import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
+import { saveScheduledMatch } from '../services/matches/matchSaveService';
+import type { AppDrawerParamList } from '../navigation/types';
 
 const POSITIONS: ScheduledPosition[] = ['POR', 'DEF', 'MED', 'DEL'];
 
@@ -169,9 +174,14 @@ function SlotRow({
 
 export default function AddScheduledMatchScreen() {
   const theme = useTheme();
+  const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
   const [openMenuFor, setOpenMenuFor] = useState<SlotMenuState>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   const {
+    selectedGroupId,
     playersPerTeam,
     matchDate,
     setMatchDate,
@@ -202,6 +212,33 @@ export default function AddScheduledMatchScreen() {
     pickerTeam !== null && pickerSlotIndex !== null
       ? (pickerTeam === 1 ? team1Slots : team2Slots)[pickerSlotIndex]?.groupMemberId ?? null
       : null;
+
+  const handleSave = async () => {
+    if (isSaving || !selectedGroupId) return;
+    setIsSaving(true);
+    try {
+      await saveScheduledMatch({
+        date: matchDate,
+        groupId: selectedGroupId,
+        team1Players: team1Slots
+          .filter((s): s is typeof s & { groupMemberId: string } => s.groupMemberId !== null)
+          .map(s => ({ groupMemberId: s.groupMemberId, position: s.position })),
+        team2Players: team2Slots
+          .filter((s): s is typeof s & { groupMemberId: string } => s.groupMemberId !== null)
+          .map(s => ({ groupMemberId: s.groupMemberId, position: s.position })),
+      });
+      setSnackbarMessage('Partido programado guardado');
+      setSnackbarVisible(true);
+      // Navigate back after the snackbar is visible
+      setTimeout(() => navigation.navigate('Admin'), 1500);
+    } catch (error) {
+      console.error('AddScheduledMatch: error saving', error);
+      setSnackbarMessage('Error al guardar el partido');
+      setSnackbarVisible(true);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const formatDate = (d: Date): string =>
     d.toLocaleDateString('es-ES', {
@@ -312,9 +349,9 @@ export default function AddScheduledMatchScreen() {
       {/* ── Save button ──────────────────────────────────────────────────── */}
       <Button
         mode="contained"
-        onPress={() => {
-          // Save logic will be implemented in the next step
-        }}
+        onPress={handleSave}
+        loading={isSaving}
+        disabled={isSaving}
         style={styles(theme).saveButton}
         contentStyle={styles(theme).saveButtonContent}
         icon="calendar-check"
@@ -348,6 +385,14 @@ export default function AddScheduledMatchScreen() {
         onSelect={selectPlayer}
         onDismiss={closePicker}
       />
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={2000}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </ScrollView>
   );
 }
