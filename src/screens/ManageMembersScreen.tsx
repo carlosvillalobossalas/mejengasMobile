@@ -29,6 +29,7 @@ import {
     subscribeToGroupMembersV2ByGroupId,
     unlinkUserFromGroupMemberV2,
     updateGroupMemberRole,
+    updateGroupMemberDisplayName,
     type GroupMemberV2,
     type GroupMemberRole,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
@@ -102,6 +103,12 @@ export default function ManageMembersScreen() {
     const [selectedMember, setSelectedMember] = useState<MemberWithInvite | null>(null);
     const [inviteEmail, setInviteEmail] = useState('');
     const [isSending, setIsSending] = useState(false);
+
+    // Rename modal state
+    const [showRenameModal, setShowRenameModal] = useState(false);
+    const [renameMember, setRenameMember] = useState<MemberWithInvite | null>(null);
+    const [renameValue, setRenameValue] = useState('');
+    const [isRenaming, setIsRenaming] = useState(false);
 
     // ─── Unlink ─────────────────────────────────────────────────────────────────
 
@@ -185,6 +192,26 @@ export default function ManageMembersScreen() {
             Alert.alert('Error', msg);
         } finally {
             setIsSending(false);
+        }
+    };
+
+    const openRenameModal = (member: MemberWithInvite) => {
+        setRenameMember(member);
+        setRenameValue(member.displayName);
+        setShowRenameModal(true);
+    };
+
+    const handleRename = async () => {
+        if (!renameMember || !renameValue.trim()) return;
+        setIsRenaming(true);
+        try {
+            await updateGroupMemberDisplayName(renameMember.id, renameValue);
+            setShowRenameModal(false);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            Alert.alert('Error', msg);
+        } finally {
+            setIsRenaming(false);
         }
     };
 
@@ -353,16 +380,27 @@ export default function ManageMembersScreen() {
                                         </Button>
                                     </View>
                                 ) : (
-                                    <Button
-                                        mode="contained"
-                                        compact
-                                        disabled={isActioning || hasPendingInvite}
-                                        loading={isActioning}
-                                        onPress={() => openInviteModal(member)}
-                                        style={styles(theme).inviteButton}
-                                    >
-                                        {hasPendingInvite ? 'Invitado' : 'Invitar'}
-                                    </Button>
+                                    <View style={styles(theme).actionColumn}>
+                                        <Button
+                                            mode="contained"
+                                            compact
+                                            disabled={isActioning || hasPendingInvite}
+                                            loading={isActioning}
+                                            onPress={() => openInviteModal(member)}
+                                            style={styles(theme).inviteButton}
+                                        >
+                                            {hasPendingInvite ? 'Invitado' : 'Invitar'}
+                                        </Button>
+                                        <Button
+                                            mode="text"
+                                            compact
+                                            disabled={isActioning}
+                                            onPress={() => openRenameModal(member)}
+                                            style={styles(theme).renameButton}
+                                        >
+                                            {'Editar'}
+                                        </Button>
+                                    </View>
                                 )}
                             </View>
                         </Card.Content>
@@ -445,6 +483,67 @@ export default function ManageMembersScreen() {
                     </KeyboardAvoidingView>
                 </Modal>
             </Portal>
+
+            {/* Rename modal */}
+            <Portal>
+                <Modal
+                    visible={showRenameModal}
+                    onDismiss={() => {
+                        Keyboard.dismiss();
+                        setShowRenameModal(false);
+                    }}
+                    contentContainerStyle={styles(theme).modalWrapper}
+                >
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                        <View style={styles(theme).modalContent}>
+                            <View style={styles(theme).modalHeader}>
+                                <Icon name="pencil" size={32} color={theme.colors.primary} />
+                                <Text variant="titleLarge" style={styles(theme).modalTitle}>
+                                    Editar nombre
+                                </Text>
+                                {renameMember && (
+                                    <Text variant="bodyMedium" style={styles(theme).modalSubtitle}>
+                                        Cambiá el nombre de {renameMember.displayName}
+                                    </Text>
+                                )}
+                            </View>
+
+                            <Divider style={styles(theme).modalDivider} />
+
+                            <TextInput
+                                label="Nombre"
+                                value={renameValue}
+                                onChangeText={setRenameValue}
+                                mode="outlined"
+                                autoCapitalize="words"
+                                autoCorrect={false}
+                                disabled={isRenaming}
+                                style={styles(theme).emailInput}
+                            />
+
+                            <View style={styles(theme).modalButtons}>
+                                <Button
+                                    mode="outlined"
+                                    onPress={() => setShowRenameModal(false)}
+                                    disabled={isRenaming}
+                                    style={styles(theme).modalButton}
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    mode="contained"
+                                    onPress={handleRename}
+                                    loading={isRenaming}
+                                    disabled={isRenaming || !renameValue.trim()}
+                                    style={styles(theme).modalButton}
+                                >
+                                    Guardar
+                                </Button>
+                            </View>
+                        </View>
+                    </KeyboardAvoidingView>
+                </Modal>
+            </Portal>
         </ScrollView>
     );
 }
@@ -490,6 +589,7 @@ const styles = (theme: MD3Theme) =>
         pendingEmail: { color: '#E65100', fontSize: 12 },
         unlinkButton: { borderColor: theme.colors.error },
         inviteButton: {},
+        renameButton: {},
         actionColumn: {
             alignItems: 'flex-end',
             gap: 6,

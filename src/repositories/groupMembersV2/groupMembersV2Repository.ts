@@ -257,3 +257,19 @@ export async function updateGroupMemberRole(
       updatedAt: firestore.FieldValue.serverTimestamp(),
     });
 }
+
+/**
+ * Update the displayName of a single groupMember_v2 by its document ID.
+ */
+export async function updateGroupMemberDisplayName(
+  memberId: string,
+  displayName: string,
+): Promise<void> {
+  await firestore()
+    .collection(COLLECTION)
+    .doc(memberId)
+    .update({
+      displayName: displayName.trim(),
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
+}
