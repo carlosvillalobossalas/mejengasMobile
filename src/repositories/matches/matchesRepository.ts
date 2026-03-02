@@ -108,6 +108,7 @@ const mapMatchDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Match => {
     registeredDate: toTimestamp(data.registeredDate),
     mvpVoting,
     mvpVotes,
+    status: (data.status as Match['status']) ?? 'finished',
   };
 };
 

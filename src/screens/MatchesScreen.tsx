@@ -249,10 +249,18 @@ export default function MatchesScreen() {
   const getStatusLabel = (status: Match['status']): string => {
     switch (status) {
       case 'finished': return 'Finalizado';
-      case 'scheduled': return 'Pendiente';
+      case 'scheduled': return 'Por jugar';
       case 'cancelled': return 'Cancelado';
       default: return 'Finalizado';
     }
+  };
+
+  const formatMatchTime = (date: string): string => {
+    return new Date(date).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
   };
 
   const getStatusStyle = (status: Match['status'], t: MD3Theme): { color: string; borderColor: string; backgroundColor: string } => {
@@ -264,6 +272,7 @@ export default function MatchesScreen() {
   };
 
   const renderMatch = (match: Match) => {
+    console.log(match)
     const isExpanded = expandedMatchId === match.id;
     const result = getMatchResult(match);
     const resultColor = getMatchResultColor(match);
@@ -288,9 +297,15 @@ export default function MatchesScreen() {
                 <Text style={[styles(theme).statusLabel, getStatusStyle(match.status, theme)]}>
                   {getStatusLabel(match.status)}
                 </Text>
-                <Text variant="titleMedium" style={[styles(theme).compactScore, { color: resultColor }]}>
-                  {match.goalsTeam1} – {match.goalsTeam2}
-                </Text>
+                {match.status === 'scheduled' ? (
+                  <Text variant="titleMedium" style={[styles(theme).compactScore, { color: theme.colors.onSurfaceVariant }]}>
+                    {formatMatchTime(match.date)}
+                  </Text>
+                ) : (
+                  <Text variant="titleMedium" style={[styles(theme).compactScore, { color: resultColor }]}>
+                    {match.goalsTeam1} – {match.goalsTeam2}
+                  </Text>
+                )}
               </View>
               <Text variant="bodyMedium" style={styles(theme).compactTeamRight} numberOfLines={1}>
                 Equipo 2
