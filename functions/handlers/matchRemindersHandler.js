@@ -24,25 +24,34 @@ const formatTime = date =>
   date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' });
 
 /**
- * Creates 3 reminder documents in matchReminders, evenly distributed between
- * `fromTimestamp` and the match date (at 1/3, 2/3 and 3/3 of the interval).
- * Only creates reminders whose scheduledAt is in the future.
+ * Creates up to 3 reminder documents in matchReminders:
+ *   - 24 h before the match
+ *   - 12 h before the match
+ *   -  6 h before the match
+ *
+ * Each reminder is only created if its scheduledAt is strictly in the future
+ * relative to `fromTimestamp` (the moment the match was saved / updated).
  */
 const createReminderDocs = (batch, db, matchId, groupId, matchDateTs, fromTimestamp) => {
-  const interval = matchDateTs.toMillis() - fromTimestamp.toMillis();
-  if (interval <= 0) return 0;
+  const OFFSETS_MS = [
+    24 * 60 * 60 * 1000, // 24 h
+    12 * 60 * 60 * 1000, // 12 h
+     6 * 60 * 60 * 1000, //  6 h
+  ];
 
   let created = 0;
-  for (let i = 1; i <= 3; i++) {
-    const scheduledAt = admin.firestore.Timestamp.fromMillis(
-      fromTimestamp.toMillis() + interval * (i / 3),
-    );
+  for (const offsetMs of OFFSETS_MS) {
+    const scheduledAtMs = matchDateTs.toMillis() - offsetMs;
+
+    // Skip if this reminder would already be in the past
+    if (scheduledAtMs <= fromTimestamp.toMillis()) continue;
+
     const ref = db.collection(MATCH_REMINDERS_COLLECTION).doc();
     batch.set(ref, {
       matchId,
       groupId,
       matchDate: matchDateTs,
-      scheduledAt,
+      scheduledAt: admin.firestore.Timestamp.fromMillis(scheduledAtMs),
       status: 'pending',
       sentAt: null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
