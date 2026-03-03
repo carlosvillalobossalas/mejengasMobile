@@ -1,5 +1,7 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
+
+const CHALLENGE_MATCHES_COLLECTION = 'matchesByChallenge';
 const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const {
@@ -31,8 +33,12 @@ const formatTime = date =>
  *
  * Each reminder is only created if its scheduledAt is strictly in the future
  * relative to `fromTimestamp` (the moment the match was saved / updated).
+ *
+ * @param {string} matchCollection - Firestore collection the match belongs to
+ *   ('matches' or 'matchesByChallenge'). Stored on the reminder so
+ *   sendPersonalizedReminders knows where to look.
  */
-const createReminderDocs = (batch, db, matchId, groupId, matchDateTs, fromTimestamp) => {
+const createReminderDocs = (batch, db, matchId, groupId, matchDateTs, fromTimestamp, matchCollection = MATCHES_COLLECTION) => {
   const OFFSETS_MS = [
     24 * 60 * 60 * 1000, // 24 h
     12 * 60 * 60 * 1000, // 12 h
@@ -50,6 +56,7 @@ const createReminderDocs = (batch, db, matchId, groupId, matchDateTs, fromTimest
     batch.set(ref, {
       matchId,
       groupId,
+      matchCollection,
       matchDate: matchDateTs,
       scheduledAt: admin.firestore.Timestamp.fromMillis(scheduledAtMs),
       status: 'pending',
@@ -63,14 +70,18 @@ const createReminderDocs = (batch, db, matchId, groupId, matchDateTs, fromTimest
 
 /**
  * Sends personalized FCM notifications for a single match reminder.
- * - Members in players1/players2 → "you're playing" message
+ * - Members in the lineup → "you're playing" message
  * - Members in the group but not in lineup → "you can join" message
+ *
+ * Supports both regular matches (players1 + players2) and challenge matches (players).
+ *
+ * @param {string} matchCollection - Firestore collection the match belongs to
  */
-const sendPersonalizedReminders = async (db, matchId, groupId, matchDateObj, groupName) => {
+const sendPersonalizedReminders = async (db, matchId, groupId, matchDateObj, groupName, matchCollection = MATCHES_COLLECTION) => {
   // Fetch match to verify it is still scheduled and get current lineup
-  const matchDoc = await db.collection(MATCHES_COLLECTION).doc(matchId).get();
+  const matchDoc = await db.collection(matchCollection).doc(matchId).get();
   if (!matchDoc.exists) {
-    logger.warn('sendPersonalizedReminders: match not found', { matchId });
+    logger.warn('sendPersonalizedReminders: match not found', { matchId, matchCollection });
     return;
   }
 
@@ -85,11 +96,16 @@ const sendPersonalizedReminders = async (db, matchId, groupId, matchDateObj, gro
   const dateStr = formatDate(matchDateObj);
   const timeStr = formatTime(matchDateObj);
 
-  // Collect members in the current lineup
-  const lineupIds = new Set([
-    ...(match.players1 ?? []).map(p => p.groupMemberId),
-    ...(match.players2 ?? []).map(p => p.groupMemberId),
-  ]);
+  // Collect members in the current lineup — handle both regular and challenge match shapes
+  const isChallengeMatch = matchCollection === CHALLENGE_MATCHES_COLLECTION;
+  const lineupIds = new Set(
+    isChallengeMatch
+      ? (match.players ?? []).map(p => p.groupMemberId)
+      : [
+          ...(match.players1 ?? []).map(p => p.groupMemberId),
+          ...(match.players2 ?? []).map(p => p.groupMemberId),
+        ],
+  );
 
   // Fetch all group members that have a linked user account
   const membersSnap = await db
@@ -193,13 +209,15 @@ exports.sendMatchReminders = onSchedule('every 1 hours', async () => {
 
   for (const doc of snap.docs) {
     try {
-      const { matchId, groupId, matchDate } = doc.data();
+      const { matchId, groupId, matchDate, matchCollection } = doc.data();
       const matchDateObj = matchDate?.toDate ? matchDate.toDate() : new Date();
+      // Default to 'matches' for backward compatibility with existing reminder docs
+      const resolvedCollection = matchCollection ?? MATCHES_COLLECTION;
 
       const groupDoc = await db.collection(GROUPS_COLLECTION).doc(groupId).get();
       const groupName = groupDoc.exists ? String(groupDoc.data().name ?? '').trim() : '';
 
-      await sendPersonalizedReminders(db, matchId, groupId, matchDateObj, groupName);
+      await sendPersonalizedReminders(db, matchId, groupId, matchDateObj, groupName, resolvedCollection);
 
       await doc.ref.update({
         status: 'sent',
@@ -326,9 +344,126 @@ exports.onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event => {
     const batch = db.batch();
     existingSnap.docs.forEach(doc => batch.update(doc.ref, { status: 'cancelled' }));
 
-    const created = createReminderDocs(batch, db, matchId, groupId, newMatchDate, now);
+    const created = createReminderDocs(batch, db, matchId, groupId, newMatchDate, now, MATCHES_COLLECTION);
 
     await batch.commit();
     logger.info('onMatchUpdated: reminders recalculated', { matchId, created });
+  }
+});
+
+// ─── Trigger: challenge match updated ─────────────────────────────────────────
+
+/**
+ * Mirrors onMatchUpdated for the matchesByChallenge collection.
+ *
+ * 1. status changed to 'cancelled':
+ *    - Cancels all pending reminders
+ *    - Sends a "match cancelled" notification to all group members
+ *
+ * 2. status is still 'scheduled' and date changed:
+ *    - Cancels all existing pending reminders
+ *    - Creates 3 new reminders based on the new date
+ */
+exports.onChallengeMatchUpdated = onDocumentUpdated('matchesByChallenge/{matchId}', async event => {
+  const matchId = event.params.matchId;
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+
+  if (!before || !after) return;
+
+  const db = admin.firestore();
+
+  // ── Case 1: Match cancelled ──────────────────────────────────────────────
+  if (before.status !== 'cancelled' && after.status === 'cancelled') {
+    const groupId = after.groupId;
+    if (!groupId) return;
+
+    // Cancel pending reminders
+    const remindersSnap = await db
+      .collection(MATCH_REMINDERS_COLLECTION)
+      .where('matchId', '==', matchId)
+      .where('status', '==', 'pending')
+      .get();
+
+    if (!remindersSnap.empty) {
+      const cancelBatch = db.batch();
+      remindersSnap.docs.forEach(doc =>
+        cancelBatch.update(doc.ref, { status: 'cancelled' }),
+      );
+      await cancelBatch.commit();
+      logger.info('onChallengeMatchUpdated: pending reminders cancelled', { matchId, count: remindersSnap.size });
+    }
+
+    // Build cancellation notification
+    const groupDoc = await db.collection(GROUPS_COLLECTION).doc(groupId).get();
+    const groupName = groupDoc.exists ? String(groupDoc.data().name ?? '').trim() : '';
+
+    const matchDate = after.date?.toDate ? after.date.toDate() : new Date();
+    const dateStr = formatDate(matchDate);
+    const timeStr = formatTime(matchDate);
+
+    const membersSnap = await db
+      .collection(GROUP_MEMBERS_V2_COLLECTION)
+      .where('groupId', '==', groupId)
+      .get();
+
+    if (membersSnap.empty) return;
+
+    const userIds = uniqueNonEmpty(
+      membersSnap.docs.map(doc => String(doc.data().userId ?? '').trim()).filter(Boolean),
+    );
+    if (userIds.length === 0) return;
+
+    const usersRef = db.collection(USERS_COLLECTION);
+    const userDocs = await Promise.all(userIds.map(id => usersRef.doc(id).get()));
+    const tokens = uniqueNonEmpty(
+      userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+    );
+    if (tokens.length === 0) return;
+
+    const payload = {
+      notification: {
+        title: '❌ Partido cancelado',
+        body: groupName
+          ? `El partido de "${groupName}" del ${dateStr} a las ${timeStr} ha sido cancelado`
+          : `El partido del ${dateStr} a las ${timeStr} ha sido cancelado`,
+      },
+      data: { matchId, groupId, type: 'match-cancelled' },
+      android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
+      apns: { headers: { 'apns-priority': '10' } },
+    };
+
+    for (const tokensChunk of chunk(tokens, MAX_TOKENS_PER_BATCH)) {
+      await admin.messaging().sendEachForMulticast({ tokens: tokensChunk, ...payload });
+    }
+
+    logger.info('onChallengeMatchUpdated: cancellation notification sent', { matchId, groupId });
+    return;
+  }
+
+  // ── Case 2: Date changed on a still-scheduled match ─────────────────────
+  if (
+    after.status === 'scheduled' &&
+    before.date?.toMillis() !== after.date?.toMillis()
+  ) {
+    const groupId = after.groupId;
+    const newMatchDate = after.date;
+    if (!newMatchDate || !groupId) return;
+
+    const now = admin.firestore.Timestamp.now();
+
+    const existingSnap = await db
+      .collection(MATCH_REMINDERS_COLLECTION)
+      .where('matchId', '==', matchId)
+      .where('status', '==', 'pending')
+      .get();
+
+    const batch = db.batch();
+    existingSnap.docs.forEach(doc => batch.update(doc.ref, { status: 'cancelled' }));
+
+    const created = createReminderDocs(batch, db, matchId, groupId, newMatchDate, now, CHALLENGE_MATCHES_COLLECTION);
+
+    await batch.commit();
+    logger.info('onChallengeMatchUpdated: reminders recalculated', { matchId, created });
   }
 });

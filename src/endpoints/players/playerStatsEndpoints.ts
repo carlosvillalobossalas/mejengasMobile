@@ -21,7 +21,8 @@ type MemberInfo = {
     userId: string | null;
 };
 
-const SEASON_STATS_COLLECTION = 'seasonStats';
+const DEFAULT_SEASON_STATS_COLLECTION = 'seasonStats';
+const CHALLENGE_SEASON_STATS_COLLECTION = 'challengeSeasonStats';
 const GROUP_MEMBERS_COLLECTION = 'groupMembers_v2';
 
 /**
@@ -130,7 +131,11 @@ function buildStats(
 export function subscribeToPlayerStats(
     groupId: string,
     callback: (stats: Record<string, PlayerStatsAggregate[]>) => void,
+    isChallengeMode: boolean = false,
 ): () => void {
+    const statsCollection = isChallengeMode
+        ? CHALLENGE_SEASON_STATS_COLLECTION
+        : DEFAULT_SEASON_STATS_COLLECTION;
     // Shared state between the two listeners
     let membersMap = new Map<string, MemberInfo>();
     let latestStatsSnapshot: FirebaseFirestoreTypes.QuerySnapshot | null = null;
@@ -169,7 +174,7 @@ export function subscribeToPlayerStats(
 
     // Listener 2: seasonStats - react to new matches being saved
     const unsubscribeStats = firestore()
-        .collection(SEASON_STATS_COLLECTION)
+        .collection(statsCollection)
         .where('groupId', '==', groupId)
         .onSnapshot(
             snapshot => {

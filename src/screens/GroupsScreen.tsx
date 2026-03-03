@@ -46,6 +46,7 @@ export default function GroupsScreen() {
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupType, setNewGroupType] = useState<GroupType>('futbol_7');
   const [hasFixedTeams, setHasFixedTeams] = useState(false);
+  const [isChallengeMode, setIsChallengeMode] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
   const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
@@ -119,6 +120,7 @@ export default function GroupsScreen() {
         userId,
         newGroupType,
         hasFixedTeams,
+        isChallengeMode,
       );
 
       Alert.alert('Éxito', 'Grupo creado correctamente');
@@ -126,6 +128,7 @@ export default function GroupsScreen() {
       setNewGroupDescription('');
       setNewGroupType('futbol_7');
       setHasFixedTeams(false);
+      setIsChallengeMode(false);
       setShowCreateModal(false);
     } catch (error) {
       console.error('Error creating group:', error);
@@ -223,6 +226,7 @@ export default function GroupsScreen() {
             setNewGroupDescription('');
             setNewGroupType('futbol_7');
             setHasFixedTeams(false);
+            setIsChallengeMode(false);
           }}
           contentContainerStyle={styles.modalWrapper}
         >
@@ -288,8 +292,30 @@ export default function GroupsScreen() {
                   </View>
                   <Switch
                     value={hasFixedTeams}
-                    onValueChange={setHasFixedTeams}
-                    disabled={isCreating}
+                    onValueChange={val => {
+                      setHasFixedTeams(val);
+                      if (val) setIsChallengeMode(false);
+                    }}
+                    disabled={isCreating || isChallengeMode}
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextContainer}>
+                    <Text variant="labelLarge">Modo Desafío</Text>
+                    <Text variant="bodySmall" style={styles.switchDescription}>
+                      {isChallengeMode
+                        ? 'Solo se registra el equipo propio, los rivales por nombre'
+                        : 'Activar para grupos donde siempre juega el mismo equipo'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={isChallengeMode}
+                    onValueChange={val => {
+                      setIsChallengeMode(val);
+                      if (val) setHasFixedTeams(false);
+                    }}
+                    disabled={isCreating || hasFixedTeams}
                   />
                 </View>
 
@@ -302,6 +328,7 @@ export default function GroupsScreen() {
                       setNewGroupDescription('');
                       setNewGroupType('futbol_7');
                       setHasFixedTeams(false);
+                      setIsChallengeMode(false);
                     }}
                     disabled={isCreating}
                     style={styles.modalButton}

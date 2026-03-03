@@ -9,6 +9,10 @@ export type Group = {
   type: string;
   visibility: string;
   hasFixedTeams: boolean;
+  /** When true the group operates in challenge mode: only the group's own team
+   *  is tracked, opponents are identified by name only. Mutually exclusive with
+   *  hasFixedTeams — isChallengeMode implies no fixed teams. */
+  isChallengeMode: boolean;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -61,6 +65,7 @@ const mapGroupDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Group => {
     type: String(data.type ?? ''),
     visibility: String(data.visibility ?? ''),
     hasFixedTeams: Boolean(data.hasFixedTeams ?? false),
+    isChallengeMode: Boolean(data.isChallengeMode ?? false),
   };
 };
 
@@ -449,23 +454,26 @@ export async function createGroup(
   ownerId: string,
   type: string,
   hasFixedTeams: boolean,
+  isChallengeMode: boolean = false,
 ): Promise<string> {
   const groupsRef = firestore().collection(GROUPS_COLLECTION);
-  
+
   const docRef = await groupsRef.add({
     name,
     description,
     ownerId,
     isActive: true,
     type,
-    hasFixedTeams,
+    // isChallengeMode is mutually exclusive with hasFixedTeams
+    hasFixedTeams: isChallengeMode ? false : hasFixedTeams,
+    isChallengeMode,
     visibility: 'public',
     createdAt: firestore.FieldValue.serverTimestamp(),
     updatedAt: firestore.FieldValue.serverTimestamp(),
   });
 
   // Create owner as first member with owner role
-  const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
+  const membersRef = firestore().collection(GROUP_MEMBERS_V2_COLLECTION);
   await membersRef.add({
     groupId: docRef.id,
     userId: ownerId,

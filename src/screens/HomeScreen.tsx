@@ -204,9 +204,11 @@ export default function HomeScreen() {
                 iconColor: theme.colors.primary,
                 size: 'large',
                 onPress: () =>
-                    activeGroup?.hasFixedTeams
-                        ? navigation.navigate('MatchesByTeams')
-                        : navigation.navigate('Matches'),
+                    activeGroup?.isChallengeMode
+                        ? navigation.navigate('ChallengeMatches')
+                        : activeGroup?.hasFixedTeams
+                            ? navigation.navigate('MatchesByTeams')
+                            : navigation.navigate('Matches'),
             },
             ...(activeGroup?.hasFixedTeams
                 ? [

@@ -35,7 +35,8 @@ const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF"
 
 export default function GoalkeepersTableScreen() {
     const theme = useTheme();
-    const { selectedGroupId } = useAppSelector(state => state.groups);
+    const { selectedGroupId, groups } = useAppSelector(state => state.groups);
+    const isChallengeMode = groups.find(g => g.id === selectedGroupId)?.isChallengeMode ?? false;
 
     const [selectedYear, setSelectedYear] = useState<string>(
         new Date().getFullYear().toString(),
@@ -61,12 +62,12 @@ export default function GoalkeepersTableScreen() {
         const unsubscribe = subscribeToGoalkeeperStats(selectedGroupId, stats => {
             setAllYearStats(stats);
             setIsLoading(false);
-        });
+        }, isChallengeMode);
 
         return () => {
             unsubscribe();
         };
-    }, [selectedGroupId]);
+    }, [selectedGroupId, isChallengeMode]);
 
     const handleSort = (column: SortColumn) => {
         if (sortBy === column) {

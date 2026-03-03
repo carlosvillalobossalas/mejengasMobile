@@ -23,6 +23,10 @@ import TeamStandingsScreen from '../screens/TeamStandingsScreen';
 import TeamFormScreen from '../screens/TeamFormScreen';
 import EditMatchScreen from '../screens/EditMatchScreen';
 import AddScheduledMatchScreen from '../screens/AddScheduledMatchScreen';
+import ChallengeMatchesScreen from '../screens/ChallengeMatchesScreen';
+import AddChallengeMatchScreen from '../screens/AddChallengeMatchScreen';
+import AddScheduledChallengeMatchScreen from '../screens/AddScheduledChallengeMatchScreen';
+import EditChallengeMatchScreen from '../screens/EditChallengeMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
 import {
@@ -187,7 +191,10 @@ export default function AppNavigator() {
         component={MatchesScreen}
         options={{
           title: 'Partidos',
-          drawerItemStyle: !activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
+          drawerItemStyle:
+            !activeGroup?.hasFixedTeams && !activeGroup?.isChallengeMode
+              ? undefined
+              : { display: 'none' },
         }}
       />
       <Drawer.Screen
@@ -196,6 +203,14 @@ export default function AppNavigator() {
         options={{
           title: 'Partidos',
           drawerItemStyle: activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="ChallengeMatches"
+        component={ChallengeMatchesScreen}
+        options={{
+          title: 'Partidos',
+          drawerItemStyle: activeGroup?.isChallengeMode ? undefined : { display: 'none' },
         }}
       />
       <Drawer.Screen
@@ -232,7 +247,10 @@ export default function AppNavigator() {
         component={AddMatchScreen}
         options={({ navigation }) => ({
           title: 'Agregar Partido',
-          drawerItemStyle: isAdmin && !activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
+          drawerItemStyle:
+            isAdmin && !activeGroup?.hasFixedTeams && !activeGroup?.isChallengeMode
+              ? undefined
+              : { display: 'none' },
           headerLeft: () => (
             <IconButton
               icon="chevron-left"
@@ -318,6 +336,47 @@ export default function AppNavigator() {
       <Drawer.Screen
         name="EditMatch"
         component={EditMatchScreen}
+        options={{
+          title: 'Editar Partido',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="AddChallengeMatch"
+        component={AddChallengeMatchScreen}
+        options={({ navigation }) => ({
+          title: 'Agregar Partido',
+          drawerItemStyle:
+            isAdmin && activeGroup?.isChallengeMode ? undefined : { display: 'none' },
+          headerLeft: () => (
+            <IconButton
+              icon="chevron-left"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.navigate('Admin')}
+            />
+          ),
+        })}
+      />
+      <Drawer.Screen
+        name="AddScheduledChallengeMatch"
+        component={AddScheduledChallengeMatchScreen}
+        options={({ navigation }) => ({
+          title: 'Programar Partido',
+          drawerItemStyle: { display: 'none' },
+          headerLeft: () => (
+            <IconButton
+              icon="chevron-left"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.navigate('Admin')}
+            />
+          ),
+        })}
+      />
+      <Drawer.Screen
+        name="EditChallengeMatch"
+        component={EditChallengeMatchScreen}
         options={{
           title: 'Editar Partido',
           drawerItemStyle: { display: 'none' },

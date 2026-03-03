@@ -33,9 +33,11 @@ export default function AdminScreen() {
       icon: 'soccer',
       color: theme.colors.primary,
       onPress: () =>
-        selectedGroup?.hasFixedTeams
-          ? navigation.navigate('AddMatchTeams')
-          : navigation.navigate('AddMatch'),
+        selectedGroup?.isChallengeMode
+          ? navigation.navigate('AddChallengeMatch')
+          : selectedGroup?.hasFixedTeams
+            ? navigation.navigate('AddMatchTeams')
+            : navigation.navigate('AddMatch'),
     },
     {
       id: 'add-scheduled-match',
@@ -43,7 +45,10 @@ export default function AdminScreen() {
       description: 'Crear un partido programado con fecha, hora y alineaciones tentativas',
       icon: 'calendar-plus',
       color: theme.colors.secondary,
-      onPress: () => navigation.navigate('AddScheduledMatch'),
+      onPress: () =>
+        selectedGroup?.isChallengeMode
+          ? navigation.navigate('AddScheduledChallengeMatch')
+          : navigation.navigate('AddScheduledMatch'),
     },
     {
       id: 'add-player',

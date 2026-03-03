@@ -14,12 +14,14 @@ export type AppDrawerParamList = {
   GoalkeepersTable: undefined;
   Matches: undefined;
   MatchesByTeams: undefined;
+  ChallengeMatches: undefined;
   Profile: undefined;
   Invitations: undefined;
   Admin: undefined;
   JoinRequests: undefined;
   AddMatch: undefined;
   AddMatchTeams: undefined;
+  AddChallengeMatch: undefined;
   AddPlayer: undefined;
   LinkPlayers: undefined;
   ManageMembers: undefined;
@@ -27,6 +29,8 @@ export type AppDrawerParamList = {
   TeamStandings: undefined;
   TeamForm: { teamId?: string };
   EditMatch: { matchId: string };
+  EditChallengeMatch: { matchId: string };
   AddScheduledMatch: undefined;
+  AddScheduledChallengeMatch: undefined;
   Logout: undefined;
 };

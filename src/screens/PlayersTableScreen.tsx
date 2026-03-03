@@ -43,7 +43,8 @@ const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF"
 
 export default function PlayersTableScreen() {
   const theme = useTheme();
-  const { selectedGroupId } = useAppSelector(state => state.groups);
+  const { selectedGroupId, groups } = useAppSelector(state => state.groups);
+  const isChallengeMode = groups.find(g => g.id === selectedGroupId)?.isChallengeMode ?? false;
 
   const [selectedYear, setSelectedYear] = useState<number | 'historico'>(
     new Date().getFullYear(),
@@ -66,17 +67,17 @@ export default function PlayersTableScreen() {
 
     setIsLoading(true);
 
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates - use challengeSeasonStats for challenge groups
     const unsubscribe = subscribeToPlayerStats(selectedGroupId, (stats) => {
       setAllYearStats(stats);
       setIsLoading(false);
-    });
+    }, isChallengeMode);
 
     // Cleanup subscription on unmount or groupId change
     return () => {
       unsubscribe();
     };
-  }, [selectedGroupId]);
+  }, [selectedGroupId, isChallengeMode]);
 
   const handleSort = (column: SortColumn) => {
     if (sortBy === column) {
