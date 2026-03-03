@@ -82,13 +82,19 @@ const normalizeNumberInput = (value: string): string => {
 const parseStatValue = (value: string): number =>
   Number.parseInt(value || '0', 10) || 0;
 
-const formatDate = (date: Date): string =>
-  date.toLocaleDateString('es-ES', {
+const formatDate = (date: Date): string => {
+  const datePart = date.toLocaleDateString('es-ES', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
+  const timePart = date.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${datePart}, ${timePart}`;
+};
 
 /**
  * Converts a MatchPlayer (from Firestore) to a TeamPlayer (UI model).
@@ -689,15 +695,13 @@ export default function EditMatchScreen({ route }: Props) {
 
           <DatePicker
             locale="ES"
-            mode="date"
+            mode="datetime"
             modal
             open={showDatePicker}
             date={matchDate ?? new Date()}
             onConfirm={date => {
               setShowDatePicker(false);
-              const startOfDay = new Date(date);
-              startOfDay.setHours(0, 0, 0, 0);
-              setMatchDate(startOfDay);
+              setMatchDate(date);
             }}
             onCancel={() => setShowDatePicker(false)}
             title="Seleccione fecha del partido"
