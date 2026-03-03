@@ -50,6 +50,7 @@ export default function GroupsScreen() {
   const [isCreating, setIsCreating] = useState(false);
 
   const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
+  const firestoreUser = useAppSelector(state => state.auth.firestoreUser);
   const { selectedGroupId } = useAppSelector(state => state.groups);
   const reduxGroups = useAppSelector(state => state.groups.groups);
 
@@ -121,6 +122,8 @@ export default function GroupsScreen() {
         newGroupType,
         hasFixedTeams,
         isChallengeMode,
+        firestoreUser?.displayName ?? '',
+        firestoreUser?.photoURL ?? null,
       );
 
       Alert.alert('Éxito', 'Grupo creado correctamente');

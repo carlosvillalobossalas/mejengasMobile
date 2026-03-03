@@ -431,7 +431,7 @@ export async function createGroupMember(
   userId: string,
 ): Promise<string> {
   const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
-  
+
   const docRef = await membersRef.add({
     groupId,
     userId,
@@ -455,6 +455,8 @@ export async function createGroup(
   type: string,
   hasFixedTeams: boolean,
   isChallengeMode: boolean = false,
+  ownerDisplayName: string = '',
+  ownerPhotoUrl: string | null = null,
 ): Promise<string> {
   const groupsRef = firestore().collection(GROUPS_COLLECTION);
 
@@ -477,9 +479,13 @@ export async function createGroup(
   await membersRef.add({
     groupId: docRef.id,
     userId: ownerId,
-    playerId: null,
+    displayName: ownerDisplayName,
+    photoUrl: ownerPhotoUrl ?? null,
+    isGuest: false,
     role: 'owner',
     status: 'active',
+    legacyPlayerId: '',
+    legacyPlayerIds: [],
     createdAt: firestore.FieldValue.serverTimestamp(),
     updatedAt: firestore.FieldValue.serverTimestamp(),
   });
@@ -520,13 +526,13 @@ export async function deleteAllGroupMembersByUserId(
   userId: string,
 ): Promise<void> {
   const membersRef = firestore().collection(GROUP_MEMBERS_COLLECTION);
-  
+
   const snapshot = await membersRef.where('userId', '==', userId).get();
-  
+
   const batch = firestore().batch();
   snapshot.docs.forEach(doc => {
     batch.delete(doc.ref);
   });
-  
+
   await batch.commit();
 }
