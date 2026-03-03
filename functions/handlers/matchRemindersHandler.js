@@ -18,10 +18,10 @@ const GROUP_MEMBERS_V2_COLLECTION = 'groupMembers_v2';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatDate = date =>
-  date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Mexico_City' });
 
 const formatTime = date =>
-  date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' });
 
 /**
  * Creates 3 reminder documents in matchReminders, evenly distributed between
