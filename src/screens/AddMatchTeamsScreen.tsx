@@ -315,11 +315,11 @@ export default function AddMatchTeamsScreen() {
         <TouchableOpacity style={styles.dateRow} onPress={() => setDatePickerOpen(true)}>
           <Icon name="calendar" size={18} color={theme.colors.primary} />
           <Text variant="bodyMedium" style={styles.dateText}>
-            {date.toLocaleDateString('es-MX', {
+            {`${date.toLocaleDateString('es-MX', {
               day: '2-digit',
               month: 'long',
               year: 'numeric',
-            })}
+            })}, ${date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`}
           </Text>
           <Icon name="pencil" size={16} color={theme.colors.onSurfaceVariant} />
         </TouchableOpacity>
@@ -355,7 +355,7 @@ export default function AddMatchTeamsScreen() {
         modal
         open={datePickerOpen}
         date={date}
-        mode="date"
+        mode="datetime"
         locale="es"
         title="Fecha del partido"
         confirmText="Confirmar"

@@ -282,12 +282,17 @@ export default function AddMatchScreen() {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('es-ES', {
+    const datePart = date.toLocaleDateString('es-ES', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
+    const timePart = date.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return `${datePart}, ${timePart}`;
   };
 
   if (!selectedGroupId) {
@@ -544,15 +549,13 @@ export default function AddMatchScreen() {
 
           <DatePicker
             locale="ES"
-            mode="date"
+            mode="datetime"
             modal
             open={showDatePicker}
             date={matchDate ?? new Date()}
             onConfirm={(date) => {
               setShowDatePicker(false);
-              const startOfDay = new Date(date);
-              startOfDay.setHours(0, 0, 0, 0);
-              setMatchDate(startOfDay);
+              setMatchDate(date);
             }}
             title="Seleccione fecha del partido"
             confirmText="Confirmar"

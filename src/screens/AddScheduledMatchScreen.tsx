@@ -364,6 +364,7 @@ export default function AddScheduledMatchScreen() {
         modal
         open={showDatePicker}
         date={matchDate}
+        mode="datetime"
         locale="es"
         title="Fecha y hora del partido"
         confirmText="Confirmar"
