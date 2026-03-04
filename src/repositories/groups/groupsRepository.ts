@@ -520,6 +520,40 @@ export async function searchPublicGroupsByName(
 }
 
 /**
+ * Leave a group by stripping the userId and photoUrl from the groupMembers_v2
+ * document. The displayName is kept for historical context. Throws if the user
+ * is the group owner — owners must transfer ownership before leaving.
+ */
+export async function leaveGroup(
+  groupId: string,
+  userId: string,
+): Promise<void> {
+  const snapshot = await firestore()
+    .collection(GROUP_MEMBERS_V2_COLLECTION)
+    .where('groupId', '==', groupId)
+    .where('userId', '==', userId)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    throw new Error('No se encontró la membresía del grupo.');
+  }
+
+  const memberDoc = snapshot.docs[0];
+  const data = memberDoc.data() as Record<string, unknown>;
+
+  if (data.role === 'owner') {
+    throw new Error('El dueño del grupo no puede abandonarlo.');
+  }
+
+  await memberDoc.ref.update({
+    userId: firestore.FieldValue.delete(),
+    photoUrl: firestore.FieldValue.delete(),
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+/**
  * Delete all group members for a specific user
  */
 export async function deleteAllGroupMembersByUserId(

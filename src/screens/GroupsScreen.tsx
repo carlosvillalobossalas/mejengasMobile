@@ -26,7 +26,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { selectGroup } from '../features/groups/groupsSlice';
 import { getUserById } from '../repositories/users/usersRepository';
-import { subscribeToGroupsForUser, createGroup, type Group } from '../repositories/groups/groupsRepository';
+import { subscribeToGroupsForUser, createGroup, leaveGroup, type Group } from '../repositories/groups/groupsRepository';
 
 type GroupType = 'futbol_7' | 'futbol_5' | 'futbol_11';
 
@@ -146,6 +146,35 @@ export default function GroupsScreen() {
     dispatch(selectGroup({ userId, groupId }));
   };
 
+  const handleLeaveGroup = (group: Group) => {
+    if (!userId) return;
+
+    Alert.alert(
+      'Abandonar grupo',
+      `¿Seguro que querés salir de "${group.name}"? Vas a perder acceso a este grupo.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Abandonar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await leaveGroup(group.id, userId);
+              // If the group being left was the active selection, clear it
+              if (selectedGroupId === group.id) {
+                dispatch(selectGroup({ userId, groupId: null }));
+              }
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : 'No se pudo abandonar el grupo.';
+              Alert.alert('Error', message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.container}>
 
@@ -199,13 +228,25 @@ export default function GroupsScreen() {
                   </Text>
                 </View>
 
-                <Button
-                  mode={isSelected ? 'contained' : 'elevated'}
-                  onPress={() => onSelectGroup(group.id)}
-                  compact
-                >
-                  {isSelected ? 'Seleccionado' : 'Seleccionar'}
-                </Button>
+                <View style={styles.cardActions}>
+                  <Button
+                    mode={isSelected ? 'contained' : 'elevated'}
+                    onPress={() => onSelectGroup(group.id)}
+                    compact
+                  >
+                    {isSelected ? 'Seleccionado' : 'Seleccionar'}
+                  </Button>
+                  {group.ownerId !== userId ? (
+                    <Button
+                      mode="text"
+                      textColor={theme.colors.error}
+                      onPress={() => handleLeaveGroup(group)}
+                      compact
+                    >
+                      Abandonar
+                    </Button>
+                  ) : null}
+                </View>
               </View>
             </Card.Content>
           </Card>
@@ -392,6 +433,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  cardActions: {
+    alignItems: 'flex-end',
+    gap: 4,
   },
   textContainer: {
     flex: 1,
