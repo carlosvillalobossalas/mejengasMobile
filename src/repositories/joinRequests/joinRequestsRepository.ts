@@ -17,6 +17,7 @@ export type JoinRequest = {
 const COLLECTION = 'joinRequests';
 const INVITES_COLLECTION = 'invites';
 const GROUP_MEMBERS_V2_COLLECTION = 'groupMembers_v2';
+const USERS_COLLECTION = 'users';
 
 const toIsoString = (value: unknown): string | null => {
   if (!value) return null;
@@ -174,7 +175,17 @@ export async function acceptJoinRequest(params: {
   userPhotoURL: string | null;
   existingMemberId?: string;
 }): Promise<void> {
-  const { requestId, groupId, userId, userDisplayName, userPhotoURL, existingMemberId } = params;
+  const { requestId, groupId, userId, existingMemberId } = params;
+
+  // Always read the latest user document so displayName/photoURL reflect the
+  // current value in Firestore — the join request might have been created with
+  // a stale/missing displayName (e.g. Apple Sign-In hidden-email fallback).
+  const userDoc = await firestore().collection(USERS_COLLECTION).doc(userId).get();
+  const userData = (userDoc.data() ?? {}) as Record<string, unknown>;
+  const userDisplayName =
+    (userData.displayName as string | undefined)?.trim() || params.userDisplayName;
+  const userPhotoURL =
+    (userData.photoURL as string | undefined) ?? params.userPhotoURL ?? null;
 
   const requestRef = firestore().collection(COLLECTION).doc(requestId);
 

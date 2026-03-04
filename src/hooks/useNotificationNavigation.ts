@@ -3,6 +3,8 @@ import messaging, { FirebaseMessagingTypes } from '@react-native-firebase/messag
 
 import { navigationRef } from '../navigation/navigationRef';
 import type { AppDrawerParamList } from '../navigation/types';
+import { store } from '../app/store';
+import { selectGroup } from '../features/groups/groupsSlice';
 
 type NotificationData = {
   type?: string;
@@ -43,8 +45,19 @@ function navigateToScreen(screen: DrawerScreen) {
 }
 
 function handleMessage(message: FirebaseMessagingTypes.RemoteMessage) {
-  const screen = resolveScreen(message.data as NotificationData | undefined);
-  if (screen) navigateToScreen(screen);
+  const data = message.data as NotificationData | undefined;
+  const screen = resolveScreen(data);
+  if (!screen) return;
+
+  // Si la notificación trae un groupId, seleccionarlo antes de navegar para
+  // que la pantalla de destino muestre los datos del grupo correcto.
+  const groupId = data?.groupId;
+  const userId = store.getState().auth.firebaseUser?.uid;
+  if (groupId && userId) {
+    store.dispatch(selectGroup({ userId, groupId }));
+  }
+
+  navigateToScreen(screen);
 }
 
 /**
