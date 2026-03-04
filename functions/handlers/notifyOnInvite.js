@@ -57,6 +57,7 @@ exports.notifyUserOnInvite = onDocumentCreated('invites/{inviteId}', async event
     },
     data: {
       inviteId,
+      groupId: String(data.groupId ?? ''),
       type: 'invite-received',
     },
     android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },

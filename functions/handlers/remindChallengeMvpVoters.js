@@ -107,7 +107,7 @@ exports.remindChallengeMvpVoters = onSchedule('every 12 hours', async () => {
             ? `Todavía podés votar por el MVP en "${groupName}"`
             : 'Todavía podés votar por el MVP del partido',
         },
-        data: { matchId, groupId, type: 'mvp-vote-reminder' },
+        data: { matchId, groupId, matchCollection: 'matchesByChallenge', type: 'mvp-vote-reminder' },
         android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
         apns: { headers: { 'apns-priority': '10' } },
       };

@@ -52,7 +52,7 @@ const notifyGroupOnChallengeMvpResult = async (groupId, matchId, winnerName, gro
 
   const payload = {
     notification: { title: '🏆 MVP calculado', body },
-    data: { matchId, groupId, type: 'mvp-calculated' },
+    data: { matchId, groupId, matchCollection: 'matchesByChallenge', type: 'mvp-calculated' },
     android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
     apns: { headers: { 'apns-priority': '10' } },
   };

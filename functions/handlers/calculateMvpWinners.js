@@ -72,6 +72,7 @@ const notifyGroupOnMvpResult = async (groupId, matchId, winnerName, groupName) =
     data: {
       matchId,
       groupId,
+      matchCollection: 'matches',
       type: 'mvp-calculated',
     },
     android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },

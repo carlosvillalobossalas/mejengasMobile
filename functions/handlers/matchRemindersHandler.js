@@ -153,7 +153,7 @@ const sendPersonalizedReminders = async (db, matchId, groupId, matchDateObj, gro
             ? `Recuerda que juegas en "${groupName}" el ${dateStr} a las ${timeStr}`
             : `Recuerda que tienes un partido el ${dateStr} a las ${timeStr}`,
         },
-        data: { matchId, groupId, type: 'match-reminder-player' },
+        data: { matchId, groupId, matchCollection, type: 'match-reminder-player' },
         android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
         apns: { headers: { 'apns-priority': '10' } },
       };
@@ -177,7 +177,7 @@ const sendPersonalizedReminders = async (db, matchId, groupId, matchDateObj, gro
             ? `Recuerda que puedes anotarte al partido de "${groupName}" del ${dateStr} a las ${timeStr}`
             : `Hay un partido el ${dateStr} a las ${timeStr} en el que puedes anotarte`,
         },
-        data: { matchId, groupId, type: 'match-reminder-group' },
+        data: { matchId, groupId, matchCollection, type: 'match-reminder-group' },
         android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
         apns: { headers: { 'apns-priority': '10' } },
       };
@@ -347,7 +347,7 @@ exports.onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event => {
           ? `El partido de "${groupName}" del ${dateStr} a las ${timeStr} ha sido cancelado`
           : `El partido del ${dateStr} a las ${timeStr} ha sido cancelado`,
       },
-      data: { matchId, groupId, type: 'match-cancelled' },
+      data: { matchId, groupId, matchCollection: MATCHES_COLLECTION, type: 'match-cancelled' },
       android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
       apns: { headers: { 'apns-priority': '10' } },
     };
@@ -490,7 +490,7 @@ exports.onMatchByTeamsUpdated = onDocumentUpdated('matchesByTeams/{matchId}', as
           ? `El partido de "${groupName}" del ${dateStr} a las ${timeStr} ha sido cancelado`
           : `El partido del ${dateStr} a las ${timeStr} ha sido cancelado`,
       },
-      data: { matchId, groupId, type: 'match-cancelled' },
+      data: { matchId, groupId, matchCollection: MATCHES_BY_TEAMS_COLLECTION, type: 'match-cancelled' },
       android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
       apns: { headers: { 'apns-priority': '10' } },
     };
@@ -638,7 +638,7 @@ exports.onChallengeMatchUpdated = onDocumentUpdated('matchesByChallenge/{matchId
           ? `El partido de "${groupName}" del ${dateStr} a las ${timeStr} ha sido cancelado`
           : `El partido del ${dateStr} a las ${timeStr} ha sido cancelado`,
       },
-      data: { matchId, groupId, type: 'match-cancelled' },
+      data: { matchId, groupId, matchCollection: CHALLENGE_MATCHES_COLLECTION, type: 'match-cancelled' },
       android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
       apns: { headers: { 'apns-priority': '10' } },
     };

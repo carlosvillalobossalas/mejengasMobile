@@ -8,6 +8,8 @@ import { selectGroup } from '../features/groups/groupsSlice';
 
 type NotificationData = {
   type?: string;
+  groupId?: string;
+  matchCollection?: string;
   [key: string]: string | undefined;
 };
 
@@ -17,21 +19,34 @@ type DrawerScreen = {
 }[keyof AppDrawerParamList];
 
 /**
- * Maps the notification data payload `type` field to a drawer screen name.
- * Returns null if the type is unknown or missing.
+ * Resuelve a qué pantalla navegar según el tipo de notificación.
+ * Para notificaciones de partidos usa matchCollection para determinar
+ * si es Matches, ChallengeMatches o MatchesByTeams.
  */
+function resolveMatchScreen(matchCollection: string | undefined): DrawerScreen {
+  switch (matchCollection) {
+    case 'matchesByChallenge': return 'ChallengeMatches';
+    case 'matchesByTeams': return 'MatchesByTeams';
+    default: return 'Matches';
+  }
+}
+
 function resolveScreen(data: NotificationData | undefined): DrawerScreen | null {
   switch (data?.type) {
     case 'match-created':
-      return 'Matches';
+    case 'match-scheduled':
+    case 'match-cancelled':
+    case 'match-reminder-player':
+    case 'match-reminder-group':
+    case 'mvp-calculated':
+    case 'mvp-vote-reminder':
+      return resolveMatchScreen(data?.matchCollection);
     case 'invite-received':
       return 'Invitations';
     case 'join-request-received':
-      // Admin/owner tapped the notification → go directly to the requests list
       return 'JoinRequests';
     case 'join-request-accepted':
     case 'join-request-rejected':
-      // User tapped the notification → go to their groups screen
       return 'Groups';
     default:
       return null;
