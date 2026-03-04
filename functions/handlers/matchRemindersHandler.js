@@ -1,5 +1,5 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 
 const CHALLENGE_MATCHES_COLLECTION = 'matchesByChallenge';
 const logger = require('firebase-functions/logger');
@@ -78,11 +78,18 @@ const createReminderDocs = (batch, db, matchId, groupId, matchDateTs, fromTimest
  * @param {string} matchCollection - Firestore collection the match belongs to
  */
 const sendPersonalizedReminders = async (db, matchId, groupId, matchDateObj, groupName, matchCollection = MATCHES_COLLECTION) => {
-  // Fetch match to verify it is still scheduled and get current lineup
-  const matchDoc = await db.collection(matchCollection).doc(matchId).get();
+  // Fetch match to verify it is still scheduled and get current lineup.
+  // If not found in the given collection, try the other one as a fallback
+  // (handles legacy reminder docs created without the matchCollection field).
+  let matchDoc = await db.collection(matchCollection).doc(matchId).get();
   if (!matchDoc.exists) {
-    logger.warn('sendPersonalizedReminders: match not found', { matchId, matchCollection });
-    return;
+    const fallback = matchCollection === MATCHES_COLLECTION ? CHALLENGE_MATCHES_COLLECTION : MATCHES_COLLECTION;
+    matchDoc = await db.collection(fallback).doc(matchId).get();
+    if (!matchDoc.exists) {
+      logger.warn('sendPersonalizedReminders: match not found', { matchId, matchCollection });
+      return;
+    }
+    logger.info('sendPersonalizedReminders: found match in fallback collection', { matchId, fallback });
   }
 
   const match = matchDoc.data();
@@ -349,6 +356,37 @@ exports.onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event => {
     await batch.commit();
     logger.info('onMatchUpdated: reminders recalculated', { matchId, created });
   }
+});
+
+// ─── Trigger: challenge match created ─────────────────────────────────────────
+
+/**
+ * Fires when a new challenge match document is created.
+ * If the match starts as 'scheduled', creates up to 3 reminder documents
+ * with matchCollection = 'matchesByChallenge'.
+ *
+ * This mirrors the logic in onChallengeMatchUpdated (date-change branch) but
+ * runs at creation time so reminders exist from the very first save.
+ */
+exports.onChallengeMatchCreated = onDocumentCreated('matchesByChallenge/{matchId}', async event => {
+  const matchId = event.params.matchId;
+  const data = event.data?.data();
+
+  if (!data) return;
+  if (data.status !== 'scheduled') return;
+
+  const groupId = data.groupId;
+  const matchDate = data.date;
+  if (!groupId || !matchDate) return;
+
+  const db = admin.firestore();
+  const now = admin.firestore.Timestamp.now();
+
+  const batch = db.batch();
+  const created = createReminderDocs(batch, db, matchId, groupId, matchDate, now, CHALLENGE_MATCHES_COLLECTION);
+  await batch.commit();
+
+  logger.info('onChallengeMatchCreated: reminders created', { matchId, created });
 });
 
 // ─── Trigger: challenge match updated ─────────────────────────────────────────
