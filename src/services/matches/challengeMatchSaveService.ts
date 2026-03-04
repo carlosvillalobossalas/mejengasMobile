@@ -2,7 +2,6 @@ import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firest
 
 const CHALLENGE_MATCHES_COLLECTION = 'matchesByChallenge';
 const CHALLENGE_SEASON_STATS_COLLECTION = 'challengeSeasonStats';
-const MATCH_REMINDERS_COLLECTION = 'matchReminders';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -170,15 +169,15 @@ export async function saveChallengeMatch(match: ChallengeMatchToSave): Promise<v
 
 /**
  * Save a scheduled challenge match.
- * Creates 3 reminders at 24h, 12h and 6h before the match date.
- * No stats are updated — the match has not been played yet.
+ * Reminders at 24h, 12h and 6h are created server-side by the
+ * onChallengeMatchCreated Cloud Function trigger — no client-side reminder
+ * docs needed here.
  */
 export async function saveScheduledChallengeMatch(
   match: ScheduledChallengeMatchToSave,
 ): Promise<void> {
   const { groupId } = match;
   const season = match.date.getFullYear();
-  const now = new Date();
 
   const batch = firestore().batch();
   const matchRef = firestore().collection(CHALLENGE_MATCHES_COLLECTION).doc();
@@ -205,28 +204,6 @@ export async function saveScheduledChallengeMatch(
     mvpVoting: null,
     mvpVotes: {},
   });
-
-  // Create reminders at 24h, 12h and 6h before the match
-  const matchTimestamp = match.date.getTime();
-  const nowTimestamp = now.getTime();
-  const offsets = [24 * 60 * 60 * 1000, 12 * 60 * 60 * 1000, 6 * 60 * 60 * 1000];
-
-  for (const offset of offsets) {
-    const reminderTime = matchTimestamp - offset;
-    if (reminderTime > nowTimestamp) {
-      const reminderRef = firestore().collection(MATCH_REMINDERS_COLLECTION).doc();
-      batch.set(reminderRef, {
-        matchId: matchRef.id,
-        groupId,
-        matchDate: matchDateTs,
-        scheduledAt: firestore.Timestamp.fromDate(new Date(reminderTime)),
-        status: 'pending',
-        sentAt: null,
-        matchCollection: 'matchesByChallenge',
-        createdAt: firestore.FieldValue.serverTimestamp(),
-      });
-    }
-  }
 
   await batch.commit();
 }

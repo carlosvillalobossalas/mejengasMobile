@@ -129,8 +129,7 @@ function addSeasonStatsByTeamsToBatch(
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-/**
- * Save a team-based match to 'matchesByTeams' and atomically update:
+/* ─ Partidos jugados ──────────────────────────────────────────────────────
  * - seasonStats       (per player, same format as individual matches)
  * - seasonStatsByTeams (per team: won/lost/draw/matches/goals/goalsConceded/points)
  *
@@ -288,6 +287,65 @@ export async function saveMatchByTeams(match: MatchByTeamsToSave): Promise<void>
       }),
     });
   }
+
+  await batch.commit();
+}
+
+// ─ Partidos programados ─────────────────────────────────────────────────────
+
+export type ScheduledMatchByTeamsToSave = {
+  date: Date;
+  groupId: string;
+  team1Id: string;
+  team2Id: string;
+  players1: Array<{ groupMemberId: string; position: 'POR' | 'DEF' | 'MED' | 'DEL' | null }>;
+  players2: Array<{ groupMemberId: string; position: 'POR' | 'DEF' | 'MED' | 'DEL' | null }>;
+};
+
+/**
+ * Guarda un partido programado en 'matchesByTeams'.
+ * Los recordatorios (24h, 12h, 6h) los crea el trigger onMatchByTeamsCreated en Cloud Functions.
+ */
+export async function saveScheduledMatchByTeams(
+  match: ScheduledMatchByTeamsToSave,
+): Promise<void> {
+  const { groupId, team1Id, team2Id } = match;
+  const season = match.date.getFullYear();
+
+  const batch = firestore().batch();
+  const matchRef = firestore().collection(MATCHES_BY_TEAMS_COLLECTION).doc();
+
+  batch.set(matchRef, {
+    groupId,
+    season,
+    team1Id,
+    team2Id,
+    date: firestore.Timestamp.fromDate(match.date),
+    registeredDate: firestore.FieldValue.serverTimestamp(),
+    status: 'scheduled',
+    goalsTeam1: 0,
+    goalsTeam2: 0,
+    mvpGroupMemberId: null,
+    players1: match.players1.map(p => ({
+      groupMemberId: p.groupMemberId,
+      position: p.position ?? '',
+      goals: 0,
+      assists: 0,
+      ownGoals: 0,
+      isSub: false,
+    })),
+    players2: match.players2.map(p => ({
+      groupMemberId: p.groupMemberId,
+      position: p.position ?? '',
+      goals: 0,
+      assists: 0,
+      ownGoals: 0,
+      isSub: false,
+    })),
+    mvpVoting: null,
+    mvpVotes: {},
+    statsSnapshot: null,
+  });
 
   await batch.commit();
 }

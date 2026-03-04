@@ -2,6 +2,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 
 const CHALLENGE_MATCHES_COLLECTION = 'matchesByChallenge';
+const MATCHES_BY_TEAMS_COLLECTION = 'matchesByTeams';
 const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const {
@@ -241,6 +242,34 @@ exports.sendMatchReminders = onSchedule('every 1 hours', async () => {
   }
 });
 
+// ─── Trigger: match created ───────────────────────────────────────────────────
+
+/**
+ * Fires when a new match document is created in the 'matches' collection.
+ * If the match starts as 'scheduled', creates up to 3 reminder documents
+ * at 24h, 12h and 6h before the match with matchCollection = 'matches'.
+ */
+exports.onMatchCreated = onDocumentCreated('matches/{matchId}', async event => {
+  const matchId = event.params.matchId;
+  const data = event.data?.data();
+
+  if (!data) return;
+  if (data.status !== 'scheduled') return;
+
+  const groupId = data.groupId;
+  const matchDate = data.date;
+  if (!groupId || !matchDate) return;
+
+  const db = admin.firestore();
+  const now = admin.firestore.Timestamp.now();
+
+  const batch = db.batch();
+  const created = createReminderDocs(batch, db, matchId, groupId, matchDate, now, MATCHES_COLLECTION);
+  await batch.commit();
+
+  logger.info('onMatchCreated: reminders created', { matchId, created });
+});
+
 // ─── Trigger: match updated ────────────────────────────────────────────────────
 
 /**
@@ -355,6 +384,149 @@ exports.onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event => {
 
     await batch.commit();
     logger.info('onMatchUpdated: reminders recalculated', { matchId, created });
+  }
+});
+
+// ─── Trigger: matchesByTeams created ─────────────────────────────────────────
+
+/**
+ * Fires when a new matchesByTeams document is created.
+ * If the match starts as 'scheduled', creates up to 3 reminder documents
+ * at 24h, 12h and 6h before the match with matchCollection = 'matchesByTeams'.
+ */
+exports.onMatchByTeamsCreated = onDocumentCreated('matchesByTeams/{matchId}', async event => {
+  const matchId = event.params.matchId;
+  const data = event.data?.data();
+
+  if (!data) return;
+  if (data.status !== 'scheduled') return;
+
+  const groupId = data.groupId;
+  const matchDate = data.date;
+  if (!groupId || !matchDate) return;
+
+  const db = admin.firestore();
+  const now = admin.firestore.Timestamp.now();
+
+  const batch = db.batch();
+  const created = createReminderDocs(batch, db, matchId, groupId, matchDate, now, MATCHES_BY_TEAMS_COLLECTION);
+  await batch.commit();
+
+  logger.info('onMatchByTeamsCreated: reminders created', { matchId, created });
+});
+
+// ─── Trigger: matchesByTeams updated ──────────────────────────────────────────
+
+/**
+ * Mirrors onMatchUpdated for the matchesByTeams collection.
+ *
+ * 1. status changed to 'cancelled':
+ *    - Cancela todos los recordatorios pendientes
+ *    - Envía notificación de cancelación a todos los miembros del grupo
+ *
+ * 2. status sigue 'scheduled' y la fecha cambió:
+ *    - Cancela los recordatorios existentes
+ *    - Crea 3 nuevos recordatorios con la nueva fecha
+ */
+exports.onMatchByTeamsUpdated = onDocumentUpdated('matchesByTeams/{matchId}', async event => {
+  const matchId = event.params.matchId;
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+
+  if (!before || !after) return;
+
+  const db = admin.firestore();
+
+  // ── Caso 1: Partido cancelado ────────────────────────────────────────────
+  if (before.status !== 'cancelled' && after.status === 'cancelled') {
+    const groupId = after.groupId;
+    if (!groupId) return;
+
+    const remindersSnap = await db
+      .collection(MATCH_REMINDERS_COLLECTION)
+      .where('matchId', '==', matchId)
+      .where('status', '==', 'pending')
+      .get();
+
+    if (!remindersSnap.empty) {
+      const cancelBatch = db.batch();
+      remindersSnap.docs.forEach(doc =>
+        cancelBatch.update(doc.ref, { status: 'cancelled' }),
+      );
+      await cancelBatch.commit();
+      logger.info('onMatchByTeamsUpdated: pending reminders cancelled', { matchId, count: remindersSnap.size });
+    }
+
+    const groupDoc = await db.collection(GROUPS_COLLECTION).doc(groupId).get();
+    const groupName = groupDoc.exists ? String(groupDoc.data().name ?? '').trim() : '';
+
+    const matchDate = after.date?.toDate ? after.date.toDate() : new Date();
+    const dateStr = formatDate(matchDate);
+    const timeStr = formatTime(matchDate);
+
+    const membersSnap = await db
+      .collection(GROUP_MEMBERS_V2_COLLECTION)
+      .where('groupId', '==', groupId)
+      .get();
+
+    if (membersSnap.empty) return;
+
+    const userIds = uniqueNonEmpty(
+      membersSnap.docs.map(doc => String(doc.data().userId ?? '').trim()).filter(Boolean),
+    );
+    if (userIds.length === 0) return;
+
+    const usersRef = db.collection(USERS_COLLECTION);
+    const userDocs = await Promise.all(userIds.map(id => usersRef.doc(id).get()));
+    const tokens = uniqueNonEmpty(
+      userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+    );
+    if (tokens.length === 0) return;
+
+    const payload = {
+      notification: {
+        title: '❌ Partido cancelado',
+        body: groupName
+          ? `El partido de "${groupName}" del ${dateStr} a las ${timeStr} ha sido cancelado`
+          : `El partido del ${dateStr} a las ${timeStr} ha sido cancelado`,
+      },
+      data: { matchId, groupId, type: 'match-cancelled' },
+      android: { priority: 'high', notification: { channelId: 'mejengas_default_channel' } },
+      apns: { headers: { 'apns-priority': '10' } },
+    };
+
+    for (const tokensChunk of chunk(tokens, MAX_TOKENS_PER_BATCH)) {
+      await admin.messaging().sendEachForMulticast({ tokens: tokensChunk, ...payload });
+    }
+
+    logger.info('onMatchByTeamsUpdated: cancellation notification sent', { matchId, groupId });
+    return;
+  }
+
+  // ── Caso 2: Fecha cambió en un partido todavía programado ────────────────
+  if (
+    after.status === 'scheduled' &&
+    before.date?.toMillis() !== after.date?.toMillis()
+  ) {
+    const groupId = after.groupId;
+    const newMatchDate = after.date;
+    if (!newMatchDate || !groupId) return;
+
+    const now = admin.firestore.Timestamp.now();
+
+    const existingSnap = await db
+      .collection(MATCH_REMINDERS_COLLECTION)
+      .where('matchId', '==', matchId)
+      .where('status', '==', 'pending')
+      .get();
+
+    const batch = db.batch();
+    existingSnap.docs.forEach(doc => batch.update(doc.ref, { status: 'cancelled' }));
+
+    const created = createReminderDocs(batch, db, matchId, groupId, newMatchDate, now, MATCHES_BY_TEAMS_COLLECTION);
+
+    await batch.commit();
+    logger.info('onMatchByTeamsUpdated: reminders recalculated', { matchId, created });
   }
 });
 

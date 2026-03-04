@@ -33,7 +33,6 @@ type PlayerStats = {
 
 const MATCHES_COLLECTION = 'matches';
 const SEASON_STATS_COLLECTION = 'seasonStats';
-const MATCH_REMINDERS_COLLECTION = 'matchReminders';
 
 /**
  * Adds two batch operations on the seasonStats doc for a single player:
@@ -118,6 +117,7 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
     groupId,
     season,
     date: firestore.Timestamp.fromDate(match.date),
+    createdAt: firestore.FieldValue.serverTimestamp(),
     registeredDate: firestore.FieldValue.serverTimestamp(),
     goalsTeam1: team1Goals,
     goalsTeam2: team2Goals,
@@ -207,17 +207,17 @@ export type ScheduledMatchToSave = {
 /**
  * Save a scheduled match to the 'matches' collection.
  *
- * - status: 'scheduled' — match has not been played yet.
- * - All goals/assists/ownGoals are 0.
- * - mvpVoting is null — MVP logic is only triggered for 'finished' matches.
- * - No seasonStats are updated (nothing has been played).
+ * - status: 'scheduled' — el partido aún no se ha jugado.
+ * - Los goles/asistencias/ownGoals son 0.
+ * - mvpVoting es null — el MVP solo se habilita para partidos 'finished'.
+ * - No se actualizan seasonStats.
+ * - Los recordatorios (24h, 12h, 6h) los crea el trigger onMatchCreated en Cloud Functions.
  */
 export async function saveScheduledMatch(
   match: ScheduledMatchToSave,
 ): Promise<void> {
   const { groupId } = match;
   const season = match.date.getFullYear();
-  const now = new Date();
 
   const batch = firestore().batch();
   const matchRef = firestore().collection(MATCHES_COLLECTION).doc();
@@ -226,6 +226,7 @@ export async function saveScheduledMatch(
     groupId,
     season,
     date: firestore.Timestamp.fromDate(match.date),
+    createdAt: firestore.FieldValue.serverTimestamp(),
     registeredDate: firestore.FieldValue.serverTimestamp(),
     goalsTeam1: 0,
     goalsTeam2: 0,
@@ -245,35 +246,9 @@ export async function saveScheduledMatch(
       assists: 0,
       ownGoals: 0,
     })),
-    // No MVP voting for scheduled matches — only 'finished' matches trigger MVP logic
     mvpVoting: null,
     mvpVotes: {},
   });
-
-  // Create 3 evenly-spaced reminders between now and the match date.
-  // Intervals: 1/3, 2/3 and 3/3 of the total time span.
-  const matchTimestamp = match.date.getTime();
-  const nowTimestamp = now.getTime();
-  const interval = matchTimestamp - nowTimestamp;
-
-  if (interval > 0) {
-    const matchDateTs = firestore.Timestamp.fromDate(match.date);
-    for (let i = 1; i <= 3; i++) {
-      const scheduledAt = firestore.Timestamp.fromDate(
-        new Date(nowTimestamp + interval * (i / 3)),
-      );
-      const reminderRef = firestore().collection(MATCH_REMINDERS_COLLECTION).doc();
-      batch.set(reminderRef, {
-        matchId: matchRef.id,
-        groupId,
-        matchDate: matchDateTs,
-        scheduledAt,
-        status: 'pending',
-        sentAt: null,
-        createdAt: firestore.FieldValue.serverTimestamp(),
-      });
-    }
-  }
 
   await batch.commit();
 }
