@@ -21,8 +21,6 @@ import ManageMembersScreen from '../screens/ManageMembersScreen';
 import ManageTeamsScreen from '../screens/ManageTeamsScreen';
 import TeamStandingsScreen from '../screens/TeamStandingsScreen';
 import TeamFormScreen from '../screens/TeamFormScreen';
-import EditMatchScreen from '../screens/EditMatchScreen';
-import AddScheduledMatchScreen from '../screens/AddScheduledMatchScreen';
 import ChallengeMatchesScreen from '../screens/ChallengeMatchesScreen';
 import AddChallengeMatchScreen from '../screens/AddChallengeMatchScreen';
 import AddScheduledChallengeMatchScreen from '../screens/AddScheduledChallengeMatchScreen';
@@ -335,7 +333,7 @@ export default function AppNavigator() {
       />
       <Drawer.Screen
         name="EditMatch"
-        component={EditMatchScreen}
+        component={AddMatchScreen}
         options={{
           title: 'Editar Partido',
           drawerItemStyle: { display: 'none' },
@@ -381,22 +379,6 @@ export default function AppNavigator() {
           title: 'Editar Partido',
           drawerItemStyle: { display: 'none' },
         }}
-      />
-      <Drawer.Screen
-        name="AddScheduledMatch"
-        component={AddScheduledMatchScreen}
-        options={({ navigation }) => ({
-          title: 'Programar Partido',
-          drawerItemStyle: { display: 'none' },
-          headerLeft: () => (
-            <IconButton
-              icon="chevron-left"
-              iconColor={theme.colors.secondary}
-              size={26}
-              onPress={() => navigation.navigate('Admin')}
-            />
-          ),
-        })}
       />
       <Drawer.Screen
         name="Logout"

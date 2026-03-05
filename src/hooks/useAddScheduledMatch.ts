@@ -12,6 +12,9 @@ export type ScheduledSlot = {
   groupMemberId: string | null;
   position: ScheduledPosition | null;
   isSub: boolean;
+  goals: string;
+  assists: string;
+  ownGoals: string;
 };
 
 const PLAYERS_BY_TYPE: Record<string, number> = {
@@ -32,7 +35,14 @@ const createEmptySlots = (count: number, groupType: string): ScheduledSlot[] =>
   Array.from({ length: count }, (_, i) => {
     const formation = DEFAULT_FORMATION[groupType];
     const position: ScheduledPosition = formation?.[i] ?? (i === 0 ? 'POR' : 'DEF');
-    return { groupMemberId: null, position, isSub: false };
+    return {
+      groupMemberId: null,
+      position,
+      isSub: false,
+      goals: '0',
+      assists: '0',
+      ownGoals: '0',
+    };
   });
 
 export function useAddScheduledMatch() {
@@ -103,7 +113,15 @@ export function useAddScheduledMatch() {
     const setSlots = pickerTeam === 1 ? setTeam1Slots : setTeam2Slots;
     setSlots(prev =>
       prev.map((s, i) =>
-        i === pickerSlotIndex ? { ...s, groupMemberId: memberId } : s,
+        i === pickerSlotIndex
+          ? {
+            ...s,
+            groupMemberId: memberId,
+            goals: '0',
+            assists: '0',
+            ownGoals: '0',
+          }
+          : s,
       ),
     );
     closePicker();
@@ -132,7 +150,9 @@ export function useAddScheduledMatch() {
     const setSlots = team === 1 ? setTeam1Slots : setTeam2Slots;
     setSlots(prev =>
       prev.map((s, i) =>
-        i === slotIndex ? { ...s, groupMemberId: null } : s,
+        i === slotIndex
+          ? { ...s, groupMemberId: null, goals: '0', assists: '0', ownGoals: '0' }
+          : s,
       ),
     );
   };
@@ -141,13 +161,42 @@ export function useAddScheduledMatch() {
     const setSlots = team === 1 ? setTeam1Slots : setTeam2Slots;
     setSlots(prev => [
       ...prev,
-      { groupMemberId: null, position: 'DEF', isSub: true },
+      {
+        groupMemberId: null,
+        position: 'DEF',
+        isSub: true,
+        goals: '0',
+        assists: '0',
+        ownGoals: '0',
+      },
     ]);
   };
 
   const removeSub = (team: 1 | 2, slotIndex: number) => {
     const setSlots = team === 1 ? setTeam1Slots : setTeam2Slots;
     setSlots(prev => prev.filter((_, i) => i !== slotIndex));
+  };
+
+  const updateStat = (
+    team: 1 | 2,
+    slotIndex: number,
+    field: 'goals' | 'assists' | 'ownGoals',
+    value: string,
+  ) => {
+    const setSlots = team === 1 ? setTeam1Slots : setTeam2Slots;
+    setSlots(prev =>
+      prev.map((slot, index) =>
+        index === slotIndex ? { ...slot, [field]: value } : slot,
+      ),
+    );
+  };
+
+  const setTeamSlots = (team: 1 | 2, slots: ScheduledSlot[]) => {
+    if (team === 1) {
+      setTeam1Slots(slots);
+      return;
+    }
+    setTeam2Slots(slots);
   };
 
   const filledCount = (slots: ScheduledSlot[]) =>
@@ -178,6 +227,8 @@ export function useAddScheduledMatch() {
     clearSlot,
     addSub,
     removeSub,
+    updateStat,
+    setTeamSlots,
     filledCount,
   };
 }

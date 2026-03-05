@@ -30,7 +30,6 @@ export type AppDrawerParamList = {
   TeamForm: { teamId?: string };
   EditMatch: { matchId: string };
   EditChallengeMatch: { matchId: string };
-  AddScheduledMatch: undefined;
   AddScheduledChallengeMatch: undefined;
   Logout: undefined;
 };

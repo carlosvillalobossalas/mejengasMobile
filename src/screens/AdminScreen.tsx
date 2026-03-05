@@ -12,7 +12,7 @@ type AdminOption = {
   id: string;
   title: string;
   description: string;
-  icon: 'soccer' | 'account-plus' | 'link-variant' | 'account-group' | 'account-clock' | 'calendar-plus';
+  icon: 'soccer' | 'account-plus' | 'link-variant' | 'account-group' | 'account-clock';
   color: string;
   onPress: () => void;
 };
@@ -28,8 +28,8 @@ export default function AdminScreen() {
   const adminOptions: AdminOption[] = [
     {
       id: 'add-match',
-      title: 'Agregar Partido Finalizado',
-      description: 'Registrar un nuevo partido con alineaciones y resultados',
+      title: 'Agregar Partido',
+      description: 'Crear un partido y elegir si queda programado o finalizado',
       icon: 'soccer',
       color: theme.colors.primary,
       onPress: () =>
@@ -38,17 +38,6 @@ export default function AdminScreen() {
           : selectedGroup?.hasFixedTeams
             ? navigation.navigate('AddMatchTeams')
             : navigation.navigate('AddMatch'),
-    },
-    {
-      id: 'add-scheduled-match',
-      title: 'Programar Partido',
-      description: 'Crear un partido programado con fecha, hora y alineaciones tentativas',
-      icon: 'calendar-plus',
-      color: theme.colors.secondary,
-      onPress: () =>
-        selectedGroup?.isChallengeMode
-          ? navigation.navigate('AddScheduledChallengeMatch')
-          : navigation.navigate('AddScheduledMatch'),
     },
     {
       id: 'add-player',
