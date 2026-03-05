@@ -79,6 +79,17 @@ export async function getGroupMembersV2ByGroupId(
 }
 
 /**
+ * Get a groupMember_v2 by its document ID.
+ */
+export async function getGroupMemberV2ById(
+  memberId: string,
+): Promise<GroupMemberV2 | null> {
+  const doc = await firestore().collection(COLLECTION).doc(memberId).get();
+  if (!doc.exists) return null;
+  return mapDoc(doc);
+}
+
+/**
  * Subscribe to all groupMembers_v2 for a group with real-time updates.
  * Returns an unsubscribe function.
  */

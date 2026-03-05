@@ -5,6 +5,7 @@ import { type GroupMemberV2 } from '../../repositories/groupMembersV2/groupMembe
 import { getUserById, type User } from '../../repositories/users/usersRepository';
 
 const SEASON_STATS_COLLECTION = 'seasonStats';
+const CHALLENGE_SEASON_STATS_COLLECTION = 'challengeSeasonStats';
 const GROUP_MEMBERS_COLLECTION = 'groupMembers_v2';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -41,6 +42,8 @@ export type SeasonStatCard = {
   group: Group | null;
   /** Whether this card shows goalkeeper or field-player stats */
   type: 'player' | 'goalkeeper';
+  /** Data source collection */
+  source: 'regular' | 'challenge';
   playerStats?: PlayerStatBlock;
   goalkeeperStats?: GoalkeeperStatBlock;
 };
@@ -203,6 +206,7 @@ export async function getGroupMemberProfileData(
         season,
         group,
         type: 'player',
+        source: 'regular',
         playerStats: ps,
       });
 
@@ -237,6 +241,7 @@ export async function getGroupMemberProfileData(
         season,
         group,
         type: 'goalkeeper',
+        source: 'regular',
         goalkeeperStats: gs,
       });
 
@@ -304,24 +309,35 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
 
   const memberIds = membersSnap.docs.map(d => d.id);
 
-  // 3. Query seasonStats for all memberIds — Firestore 'in' supports up to 30 items;
-  //    chunk if the user belongs to more groups than that.
+  // 3. Query stats collections for all memberIds — Firestore 'in' supports up to 30 items.
   const CHUNK_SIZE = 30;
   const chunks: string[][] = [];
   for (let i = 0; i < memberIds.length; i += CHUNK_SIZE) {
     chunks.push(memberIds.slice(i, i + CHUNK_SIZE));
   }
 
-  const statsSnaps = await Promise.all(
-    chunks.map(chunk =>
-      firestore()
-        .collection(SEASON_STATS_COLLECTION)
-        .where('groupMemberId', 'in', chunk)
-        .get(),
+  const [regularStatsSnaps, challengeStatsSnaps] = await Promise.all([
+    Promise.all(
+      chunks.map(chunk =>
+        firestore()
+          .collection(SEASON_STATS_COLLECTION)
+          .where('groupMemberId', 'in', chunk)
+          .get(),
+      ),
     ),
-  );
+    Promise.all(
+      chunks.map(chunk =>
+        firestore()
+          .collection(CHALLENGE_SEASON_STATS_COLLECTION)
+          .where('groupMemberId', 'in', chunk)
+          .get(),
+      ),
+    ),
+  ]);
 
-  const allStatsDocs = statsSnaps.flatMap(s => s.docs);
+  const allRegularStatsDocs = regularStatsSnaps.flatMap(s => s.docs);
+  const allChallengeStatsDocs = challengeStatsSnaps.flatMap(s => s.docs);
+  const allStatsDocs = [...allRegularStatsDocs, ...allChallengeStatsDocs];
 
   // 4. Collect unique group IDs and resolve them
   const groupIds = [
@@ -337,7 +353,10 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
   const historicPlayer = emptyPlayerStats();
   const historicGoalkeeper = emptyGoalkeeperStats();
 
-  allStatsDocs.forEach(doc => {
+  const appendSeasonCardFromDoc = (
+    doc: FirebaseFirestoreTypes.QueryDocumentSnapshot,
+    source: 'regular' | 'challenge',
+  ) => {
     const d = doc.data() as {
       groupId: string;
       season: number;
@@ -358,9 +377,16 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
         won: playerStats.won ?? 0,
         draw: playerStats.draw ?? 0,
         lost: playerStats.lost ?? 0,
-        mvp: playerStats.mvps ?? 0,
+        mvp: source === 'challenge' ? (playerStats.mvp ?? 0) : (playerStats.mvps ?? 0),
       };
-      seasonCards.push({ id: `${doc.id}_player`, season, group, type: 'player', playerStats: ps });
+      seasonCards.push({
+        id: `${doc.id}_${source}_player`,
+        season,
+        group,
+        type: 'player',
+        source,
+        playerStats: ps,
+      });
       historicPlayer.matches += ps.matches;
       historicPlayer.goals += ps.goals;
       historicPlayer.assists += ps.assists;
@@ -382,9 +408,18 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
         won: goalkeeperStats.won ?? 0,
         draw: goalkeeperStats.draw ?? 0,
         lost: goalkeeperStats.lost ?? 0,
-        mvp: goalkeeperStats.mvps ?? 0,
+        mvp: source === 'challenge'
+          ? (goalkeeperStats.mvp ?? 0)
+          : (goalkeeperStats.mvps ?? 0),
       };
-      seasonCards.push({ id: `${doc.id}_goalkeeper`, season, group, type: 'goalkeeper', goalkeeperStats: gs });
+      seasonCards.push({
+        id: `${doc.id}_${source}_goalkeeper`,
+        season,
+        group,
+        type: 'goalkeeper',
+        source,
+        goalkeeperStats: gs,
+      });
       historicGoalkeeper.matches += gs.matches;
       historicGoalkeeper.goalsConceded += gs.goalsConceded;
       historicGoalkeeper.cleanSheets += gs.cleanSheets;
@@ -396,7 +431,10 @@ export async function getUserProfileData(userId: string): Promise<UserProfileDat
       historicGoalkeeper.lost += gs.lost;
       historicGoalkeeper.mvp += gs.mvp;
     }
-  });
+  };
+
+  allRegularStatsDocs.forEach(doc => appendSeasonCardFromDoc(doc, 'regular'));
+  allChallengeStatsDocs.forEach(doc => appendSeasonCardFromDoc(doc, 'challenge'));
 
   // 6. Sort: newest season first, then by group name, player cards before goalkeeper cards
   seasonCards.sort((a, b) => {
