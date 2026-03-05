@@ -545,7 +545,7 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   },
   header: {
     backgroundColor: theme.colors.primary,
-    paddingVertical: 16,
+    paddingVertical: 10,
     paddingHorizontal: 16,
   },
   headerContent: {

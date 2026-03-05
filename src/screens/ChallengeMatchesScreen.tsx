@@ -593,7 +593,7 @@ const styles = (theme: MD3Theme) =>
     contentContainer: { padding: 16, paddingBottom: 32 },
     header: {
       backgroundColor: theme.colors.primary,
-      paddingVertical: 16,
+      paddingVertical: 10,
       paddingHorizontal: 16,
     },
     headerContent: { gap: 12 },
