@@ -130,7 +130,7 @@ function SlotRow({
               onDismiss={onDismissMenu}
               anchor={
                 <TouchableOpacity
-                  style={[styles(t).posChip, { backgroundColor: '#2E7D32', borderColor: '#2E7D32' }]}
+                  style={[styles(t).posChip, { backgroundColor: t.colors.secondary, borderColor: t.colors.secondary }]}
                   onPress={onToggleMenu}
                 >
                   <Text style={[styles(t).posChipText, { color: '#FFF' }]}>
@@ -151,7 +151,7 @@ function SlotRow({
                 />
               ))}
             </Menu>
-            <Text style={{ fontSize: 9, color: '#2E7D32', fontWeight: '700', marginTop: 2 }}>SUP</Text>
+            <Text style={{ fontSize: 9, color: t.colors.secondary, fontWeight: '700', marginTop: 2 }}>SUP</Text>
           </View>
         ) : isFirstStarter ? (
           <View style={[styles(t).posChip, { backgroundColor: '#E8EAF6', borderColor: '#3949AB' }]}>
@@ -415,7 +415,7 @@ export default function AddScheduledMatchScreen() {
             onPress={() => addSub(activeTeamNum)}
             activeOpacity={0.7}
           >
-            <Icon name="plus-circle-outline" size={20} color="#2E7D32" />
+            <Icon name="plus-circle-outline" size={20} color={theme.colors.onSecondary} />
             <Text style={styles(theme).addSubText}>Agregar suplente</Text>
           </TouchableOpacity>
         </Card.Content>
@@ -534,7 +534,7 @@ const styles = (theme: MD3Theme) =>
       minHeight: 54,
     },
     subSlotRow: {
-      backgroundColor: '#F1F8E9',
+      backgroundColor: '#FFF',
     },
     addSubButton: {
       flexDirection: 'row',
@@ -542,10 +542,10 @@ const styles = (theme: MD3Theme) =>
       justifyContent: 'center',
       padding: 12,
       gap: 8,
-      backgroundColor: '#E8F5E9',
+      backgroundColor: theme.colors.secondary,
     },
     addSubText: {
-      color: '#2E7D32',
+      color: theme.colors.onSecondary,
       fontWeight: '600',
     },
     playerButton: {

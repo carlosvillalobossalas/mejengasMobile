@@ -411,9 +411,9 @@ export default function AddMatchScreen() {
                             onPress={() => setPositionMenuIndex(index)}
                             style={styles(theme).positionAnchor}
                           >
-                            <Surface style={[styles(theme).positionPicker, { borderColor: '#2E7D32' }]} elevation={1}>
-                              <Text style={[styles(theme).positionText, { color: '#2E7D32' }]}>{player.position}</Text>
-                              <Icon name="chevron-down" size={16} color="#2E7D32" />
+                            <Surface style={[styles(theme).positionPicker, { borderColor: theme.colors.secondary, backgroundColor: theme.colors.secondary }]} elevation={1}>
+                              <Text style={[styles(theme).positionText, { color: theme.colors.onSecondary }]}>{player.position}</Text>
+                              <Icon name="chevron-down" size={16} color={theme.colors.onSecondary} />
                             </Surface>
                           </TouchableOpacity>
                         }
@@ -426,7 +426,7 @@ export default function AddMatchScreen() {
                           />
                         ))}
                       </Menu>
-                      <Text style={{ fontSize: 9, color: '#2E7D32', fontWeight: '700', marginTop: 2 }}>SUP</Text>
+                      <Text style={{ fontSize: 9, color: theme.colors.onSecondary, fontWeight: '700', marginTop: 2 }}>SUP</Text>
                     </View>
                   ) : index === firstStarterIndex ? (
                     <View style={styles(theme).positionLocked}>
@@ -548,7 +548,7 @@ export default function AddMatchScreen() {
             onPress={handleAddSub}
             activeOpacity={0.7}
           >
-            <Icon name="plus-circle-outline" size={20} color="#2E7D32" />
+            <Icon name="plus-circle-outline" size={20} color={theme.colors.onSecondary} />
             <Text style={styles(theme).addSubText}>Agregar suplente</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -812,7 +812,7 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     minHeight: 60,
   },
   subRow: {
-    backgroundColor: '#F1F8E9',
+    backgroundColor: '#FFF',
   },
   addSubButton: {
     flexDirection: 'row',
@@ -820,12 +820,12 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     justifyContent: 'center',
     padding: 12,
     gap: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: theme.colors.secondary,
     borderBottomWidth: 1,
-    borderBottomColor: '#C8E6C9',
+    borderBottomColor: theme.colors.secondary,
   },
   addSubText: {
-    color: '#2E7D32',
+    color: theme.colors.onSecondary,
     fontWeight: '600',
   },
   positionPicker: {

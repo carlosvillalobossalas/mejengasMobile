@@ -352,7 +352,7 @@ export default function AddScheduledChallengeMatchScreen() {
                               style={[styles(theme).posChip, styles(theme).subChip]}
                               onPress={() => setOpenMenuFor(index)}
                             >
-                              <Text style={[styles(theme).posChipText, { color: '#2E7D32' }]}>
+                              <Text style={[styles(theme).posChipText, { color: '#FFF' }]}>
                                 {slot.position}
                               </Text>
                             </TouchableOpacity>
@@ -370,7 +370,7 @@ export default function AddScheduledChallengeMatchScreen() {
                             />
                           ))}
                         </Menu>
-                        <Text style={{ fontSize: 9, color: '#2E7D32', fontWeight: '700', marginTop: 2 }}>
+                        <Text style={{ fontSize: 9, color: theme.colors.secondary, fontWeight: '700', marginTop: 2 }}>
                           SUP
                         </Text>
                       </View>
@@ -444,7 +444,7 @@ export default function AddScheduledChallengeMatchScreen() {
           onPress={handleAddSubSlot}
           activeOpacity={0.7}
         >
-          <Icon name="plus-circle-outline" size={20} color="#2E7D32" />
+          <Icon name="plus-circle-outline" size={20} color={theme.colors.onSecondary} />
           <Text style={styles(theme).addSubText}>Agregar suplente</Text>
         </TouchableOpacity>
 
@@ -571,11 +571,11 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     gap: 10,
   },
   subSlotRow: {
-    backgroundColor: '#F1F8E9',
+    backgroundColor: '#FFF',
   },
   subChip: {
-    backgroundColor: '#C8E6C9',
-    borderColor: '#C8E6C9',
+    backgroundColor: theme.colors.secondary,
+    borderColor: theme.colors.secondary,
   },
   addSubButton: {
     flexDirection: 'row',
@@ -583,14 +583,12 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#FFF',
+    backgroundColor: theme.colors.secondary,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#C8E6C9',
   },
   addSubText: {
     fontSize: 14,
-    color: '#2E7D32',
+    color: theme.colors.onSecondary,
     fontWeight: '600' as const,
   },
   playerButton: {

@@ -405,13 +405,13 @@ export default function AddChallengeMatchScreen() {
                             style={styles(theme).positionAnchor}
                           >
                             <Surface
-                              style={[styles(theme).positionPicker, { borderColor: '#2E7D32' }]}
+                              style={[styles(theme).positionPicker, { borderColor: theme.colors.secondary, backgroundColor: theme.colors.secondary }]}
                               elevation={1}
                             >
-                              <Text style={[styles(theme).positionText, { color: '#2E7D32' }]}>
+                              <Text style={[styles(theme).positionText, { color: theme.colors.onSecondary }]}> 
                                 {player.position}
                               </Text>
-                              <Icon name="chevron-down" size={16} color="#2E7D32" />
+                              <Icon name="chevron-down" size={16} color={theme.colors.onSecondary} />
                             </Surface>
                           </TouchableOpacity>
                         }
@@ -424,7 +424,7 @@ export default function AddChallengeMatchScreen() {
                           />
                         ))}
                       </Menu>
-                      <Text style={{ fontSize: 9, color: '#2E7D32', fontWeight: '700', marginTop: 2 }}>
+                      <Text style={{ fontSize: 9, color: theme.colors.secondary, fontWeight: '700', marginTop: 2 }}>
                         SUP
                       </Text>
                     </View>
@@ -547,7 +547,7 @@ export default function AddChallengeMatchScreen() {
             onPress={handleAddSub}
             activeOpacity={0.7}
           >
-            <Icon name="plus-circle-outline" size={20} color="#2E7D32" />
+            <Icon name="plus-circle-outline" size={20} color={theme.colors.onSecondary} />
             <Text style={styles(theme).addSubText}>Agregar suplente</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -825,10 +825,10 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     minHeight: 60,
   },
   subRow: {
-    backgroundColor: '#F1F8E9',
+    backgroundColor: '#FFF',
   },
   subPositionBadge: {
-    backgroundColor: '#C8E6C9',
+    backgroundColor: theme.colors.secondary,
   },
   addSubButton: {
     flexDirection: 'row',
@@ -836,13 +836,13 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#F1F8E9',
+    backgroundColor: theme.colors.secondary,
     borderTopWidth: 1,
-    borderTopColor: '#C8E6C9',
+    borderTopColor: theme.colors.secondary,
   },
   addSubText: {
     fontSize: 14,
-    color: '#2E7D32',
+    color: theme.colors.onSecondary,
     fontWeight: '600' as const,
   },
   positionPicker: {
