@@ -9,22 +9,24 @@ const POSITION_EMOJI: Record<string, string> = {
   DEL: '⚡',
 };
 
-const getDisplayName = (groupMemberId: string, allPlayers: GroupMemberV2[]): string => {
+const getDisplayName = (groupMemberId: string | null, allPlayers: GroupMemberV2[]): string => {
+  if (!groupMemberId) return 'Por asignar';
   const member = allPlayers.find(p => p.id === groupMemberId);
-  return member?.displayName ?? 'Desconocido';
+  return member?.displayName ?? 'Por asignar';
 };
 
 const formatPlayerLine = (
-  groupMemberId: string,
+  groupMemberId: string | null,
   position: string,
   goals: number,
   assists: number,
   ownGoals: number,
   allPlayers: GroupMemberV2[],
   isMvp: boolean,
+  isSub: boolean = false,
 ): string => {
   const name = getDisplayName(groupMemberId, allPlayers);
-  const posEmoji = POSITION_EMOJI[position] ?? '👤';
+  const posEmoji = isSub ? '🔄' : (POSITION_EMOJI[position] ?? '👤');
 
   const stats: string[] = [];
   if (goals > 0) stats.push(`⚽ x${goals}`);
@@ -89,9 +91,9 @@ export function buildChallengeMatchSummaryText(
   lines.push('');
   lines.push('──────────────────');
 
-  // Players
-  const starters = sortByPosition(match.players.filter(p => !p.isSub));
-  const subs = match.players.filter(p => p.isSub);
+  // Players — skip unassigned (null groupMemberId) slots
+  const starters = sortByPosition(match.players.filter(p => !p.isSub && p.groupMemberId !== null));
+  const subs = match.players.filter(p => p.isSub && p.groupMemberId !== null);
 
   if (starters.length > 0) {
     lines.push('');
@@ -123,6 +125,7 @@ export function buildChallengeMatchSummaryText(
             p.ownGoals,
             allPlayers,
             p.groupMemberId === match.mvpGroupMemberId,
+            true,
           ),
         );
       });

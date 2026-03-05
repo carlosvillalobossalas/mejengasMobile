@@ -22,9 +22,10 @@ const formatPlayerLine = (
   ownGoals: number,
   allPlayers: GroupMemberV2[],
   isMvp: boolean,
+  isSub: boolean = false,
 ): string => {
   const name = getDisplayName(groupMemberId, allPlayers);
-  const posEmoji = POSITION_EMOJI[position] ?? '👤';
+  const posEmoji = isSub ? '🔄' : (POSITION_EMOJI[position] ?? '👤');
 
   const stats: string[] = [];
   if (goals > 0) stats.push(`⚽ x${goals}`);
@@ -78,7 +79,9 @@ export function buildMatchSummaryText(match: Match, allPlayers: GroupMemberV2[])
 
   lines.push('');
   lines.push('🔵 *EQUIPO 1*');
-  sortByPosition(match.players1).forEach(p => {
+  const starters1 = sortByPosition(match.players1.filter(p => !p.isSub));
+  const subs1 = sortByPosition(match.players1.filter(p => p.isSub));
+  starters1.forEach(p => {
     if (!p.groupMemberId) return;
     lines.push(
       formatPlayerLine(
@@ -92,10 +95,31 @@ export function buildMatchSummaryText(match: Match, allPlayers: GroupMemberV2[])
       ),
     );
   });
+  if (subs1.length > 0) {
+    lines.push('');
+    lines.push('👥 *Suplentes*');
+    subs1.forEach(p => {
+      if (!p.groupMemberId) return;
+      lines.push(
+        formatPlayerLine(
+          p.groupMemberId,
+          p.position,
+          p.goals,
+          p.assists,
+          p.ownGoals,
+          allPlayers,
+          p.groupMemberId === match.mvpGroupMemberId,
+          true,
+        ),
+      );
+    });
+  }
 
   lines.push('');
   lines.push('🔴 *EQUIPO 2*');
-  sortByPosition(match.players2).forEach(p => {
+  const starters2 = sortByPosition(match.players2.filter(p => !p.isSub));
+  const subs2 = sortByPosition(match.players2.filter(p => p.isSub));
+  starters2.forEach(p => {
     if (!p.groupMemberId) return;
     lines.push(
       formatPlayerLine(
@@ -109,6 +133,25 @@ export function buildMatchSummaryText(match: Match, allPlayers: GroupMemberV2[])
       ),
     );
   });
+  if (subs2.length > 0) {
+    lines.push('');
+    lines.push('👥 *Suplentes*');
+    subs2.forEach(p => {
+      if (!p.groupMemberId) return;
+      lines.push(
+        formatPlayerLine(
+          p.groupMemberId,
+          p.position,
+          p.goals,
+          p.assists,
+          p.ownGoals,
+          allPlayers,
+          p.groupMemberId === match.mvpGroupMemberId,
+          true,
+        ),
+      );
+    });
+  }
 
   lines.push('');
   lines.push('──────────────────');

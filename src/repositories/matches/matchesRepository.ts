@@ -15,6 +15,7 @@ export type MatchPlayer = {
   goals: number;
   assists: number;
   ownGoals: number;
+  isSub?: boolean;
 };
 
 export type Match = {
@@ -66,6 +67,7 @@ const mapPlayerArray = (data: unknown): MatchPlayer[] => {
       goals: Number(player.goals ?? 0),
       assists: Number(player.assists ?? 0),
       ownGoals: Number(player.ownGoals ?? 0),
+      isSub: Boolean(player.isSub ?? false),
     }));
 };
 
