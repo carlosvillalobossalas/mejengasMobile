@@ -23,8 +23,6 @@ import TeamStandingsScreen from '../screens/TeamStandingsScreen';
 import TeamFormScreen from '../screens/TeamFormScreen';
 import ChallengeMatchesScreen from '../screens/ChallengeMatchesScreen';
 import AddChallengeMatchScreen from '../screens/AddChallengeMatchScreen';
-import AddScheduledChallengeMatchScreen from '../screens/AddScheduledChallengeMatchScreen';
-import EditChallengeMatchScreen from '../screens/EditChallengeMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
 import {
@@ -358,7 +356,7 @@ export default function AppNavigator() {
       />
       <Drawer.Screen
         name="AddScheduledChallengeMatch"
-        component={AddScheduledChallengeMatchScreen}
+        component={AddChallengeMatchScreen}
         options={({ navigation }) => ({
           title: 'Programar Partido',
           drawerItemStyle: { display: 'none' },
@@ -374,7 +372,7 @@ export default function AppNavigator() {
       />
       <Drawer.Screen
         name="EditChallengeMatch"
-        component={EditChallengeMatchScreen}
+        component={AddChallengeMatchScreen}
         options={{
           title: 'Editar Partido',
           drawerItemStyle: { display: 'none' },

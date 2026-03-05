@@ -39,7 +39,7 @@ const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF"
 export default function MatchesScreen() {
   const theme = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
-  const { selectedGroupId } = useAppSelector(state => state.groups);
+  const { selectedGroupId, groups } = useAppSelector(state => state.groups);
   const { firebaseUser } = useAppSelector(state => state.auth);
 
   const [allMatches, setAllMatches] = useState<Match[]>([]);
@@ -68,6 +68,12 @@ export default function MatchesScreen() {
     voteError,
     clearVoteError,
   } = useMvpVoting(selectedGroupId, firebaseUser?.uid ?? null);
+
+  const isOwner = useMemo(() => {
+    if (!selectedGroupId || !firebaseUser?.uid) return false;
+    const selectedGroup = groups.find(group => group.id === selectedGroupId);
+    return selectedGroup?.ownerId === firebaseUser.uid;
+  }, [groups, selectedGroupId, firebaseUser?.uid]);
 
   // Subscribe to group members in real-time so newly added players appear without manual refresh
   useEffect(() => {
@@ -411,7 +417,7 @@ export default function MatchesScreen() {
                       </Text>
                     </TouchableOpacity>
                   )}
-                  {isAdminOrOwner && (
+                  {isOwner && (
                     <TouchableOpacity
                       onPress={() => handleDeleteMatchPress(match.id)}
                       style={styles(theme).expandedActionItem}

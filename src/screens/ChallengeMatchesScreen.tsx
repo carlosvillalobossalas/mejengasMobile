@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { ScrollView, View, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { ScrollView, View, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import {
   Text,
   Surface,
@@ -17,6 +17,7 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import { useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import auth from '@react-native-firebase/auth';
 
 import { useAppSelector } from '../app/hooks';
 import { useChallengeMatches } from '../hooks/useChallengeMatches';
@@ -108,6 +109,7 @@ export default function ChallengeMatchesScreen() {
 
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
+  const [deletingMatchId, setDeletingMatchId] = useState<string | null>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const cardRefs = useRef<Map<string, View | null>>(new Map());
@@ -147,6 +149,63 @@ export default function ChallengeMatchesScreen() {
     if (!currentUser?.uid || !selectedGroupId || !activeGroup) return false;
     return activeGroup.ownerId === currentUser.uid;
   }, [currentUser?.uid, selectedGroupId, activeGroup]);
+
+  const deleteChallengeMatch = useCallback(async (matchId: string) => {
+    if (deletingMatchId) return;
+
+    setDeletingMatchId(matchId);
+    try {
+      const currentAuthUser = auth().currentUser;
+      if (!currentAuthUser) throw new Error('No autenticado');
+
+      const idToken = await currentAuthUser.getIdToken();
+      const response = await fetch(
+        'https://us-central1-mejengas-a7794.cloudfunctions.net/deleteChallengeMatch',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ data: { matchId } }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        const errorMessage =
+          (errorBody as { error?: { message?: string } })?.error?.message ??
+          'No se pudo eliminar el partido';
+        throw new Error(errorMessage);
+      }
+
+      setExpandedMatchId(prev => (prev === matchId ? null : prev));
+      setSelectedVotingMatchId(prev => (prev === matchId ? null : prev));
+      Alert.alert('Partido eliminado', 'El partido se eliminó correctamente.');
+    } catch (error) {
+      console.error('ChallengeMatchesScreen: error deleting match', error);
+      Alert.alert('Error', 'No se pudo eliminar el partido. Intenta de nuevo.');
+    } finally {
+      setDeletingMatchId(null);
+    }
+  }, [deletingMatchId]);
+
+  const handleDeletePress = useCallback((matchId: string) => {
+    Alert.alert(
+      'Eliminar partido',
+      'Esta acción borrará el partido de forma permanente. Si estaba finalizado, también se revertirán sus estadísticas. ¿Deseas continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            void deleteChallengeMatch(matchId);
+          },
+        },
+      ],
+    );
+  }, [deleteChallengeMatch]);
 
   // Group matches by date descending — mirrors MatchesScreen
   const matchesByDate = useMemo(() => {
@@ -360,6 +419,19 @@ export default function ChallengeMatchesScreen() {
                       <Icon name="pencil" size={22} color={theme.colors.primary} />
                       <Text variant="labelSmall" style={styles(theme).expandedActionLabel}>
                         Editar
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {isAdmin && (
+                    <TouchableOpacity
+                      onPress={() => handleDeletePress(match.id)}
+                      style={styles(theme).expandedActionItem}
+                      activeOpacity={0.7}
+                      disabled={deletingMatchId === match.id}
+                    >
+                      <Icon name="delete-outline" size={22} color={theme.colors.error} />
+                      <Text variant="labelSmall" style={styles(theme).expandedActionLabelDanger}>
+                        {deletingMatchId === match.id ? 'Eliminando...' : 'Eliminar'}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -645,6 +717,7 @@ const styles = (theme: MD3Theme) =>
     },
     expandedActionItem: { alignItems: 'center', gap: 4 },
     expandedActionLabel: { color: theme.colors.onSurfaceVariant },
+    expandedActionLabelDanger: { color: theme.colors.error },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',

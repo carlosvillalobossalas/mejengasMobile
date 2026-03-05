@@ -1,54 +1,85 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
-  View,
   TouchableOpacity,
-  ActivityIndicator,
-  Modal,
+  View,
 } from 'react-native';
 import {
-  Text,
-  TextInput,
   Button,
-  Surface,
-  useTheme,
-  List,
+  Card,
   Divider,
+  MD3Theme,
   Menu,
   Snackbar,
-  Portal,
-  Chip,
-  MD3Theme,
+  Surface,
+  Switch,
+  Text,
+  TextInput,
+  useTheme,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import DatePicker from 'react-native-date-picker';
 import { useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import auth from '@react-native-firebase/auth';
 
+import ScheduledPlayerPicker from '../components/ScheduledPlayerPicker';
 import { useAppSelector } from '../app/hooks';
 import {
   getGroupMembersV2ByGroupId,
+  subscribeToGroupMembersV2ByGroupId,
   type GroupMemberV2,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
-import { getGroupsByIds } from '../repositories/groups/groupsRepository';
-import { saveChallengeMatch, type ChallengeTeamPlayer } from '../services/matches/challengeMatchSaveService';
+import {
+  getChallengeMatchById,
+  type ChallengeMatchPlayer,
+} from '../repositories/matches/matchesByChallengeRepository';
+import {
+  saveChallengeMatch,
+  saveScheduledChallengeMatch,
+} from '../services/matches/challengeMatchSaveService';
 import type { AppDrawerParamList } from '../navigation/types';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type Position = 'POR' | 'DEF' | 'MED' | 'DEL';
+type MatchStatusMode = 'scheduled' | 'finished';
+type SlotMenuState = number | null;
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+type ChallengeSlot = {
+  groupMemberId: string | null;
+  position: Position;
+  goals: string;
+  assists: string;
+  ownGoals: string;
+  isSub: boolean;
+};
+
+type AddChallengeRouteParams = {
+  matchId?: string;
+};
+
+interface Props {
+  route?: {
+    params?: AddChallengeRouteParams;
+  };
+}
 
 const POSITIONS: Position[] = ['POR', 'DEF', 'MED', 'DEL'];
-
 const POSITION_LABELS: Record<Position, string> = {
   POR: 'Portero',
   DEF: 'Defensa',
   MED: 'Mediocampo',
   DEL: 'Delantero',
+};
+
+const POSITION_ORDER: Record<Position, number> = { POR: 0, DEF: 1, MED: 2, DEL: 3 };
+
+const DEFAULT_FORMATION: Record<number, Position[]> = {
+  5: ['POR', 'DEF', 'DEF', 'DEL', 'DEL'],
+  7: ['POR', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'DEL'],
+  11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
 };
 
 const PLAYERS_BY_TYPE: Record<string, number> = {
@@ -57,263 +88,595 @@ const PLAYERS_BY_TYPE: Record<string, number> = {
   futbol_11: 11,
 };
 
-const POSITION_ORDER: Record<Position, number> = { POR: 0, DEF: 1, MED: 2, DEL: 3 };
+const parseGoals = (value: string) => Number.parseInt(value || '0', 10) || 0;
 
-const sortPlayers = <T extends { position: Position; isSub: boolean }>(arr: T[]): T[] => {
-  const starters = arr.filter(p => !p.isSub).sort(
-    (a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position],
-  );
-  const subs = arr.filter(p => p.isSub).sort(
-    (a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position],
-  );
-  return [...starters, ...subs];
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const normalizeNumberInput = (value: string): string => {
+const normalizeStatInput = (value: string) => {
   const cleaned = value.replace(/[^0-9]/g, '');
   if (cleaned === '') return '';
   if (cleaned === '0') return '0';
   return cleaned.replace(/^0+(?=\d)/, '');
 };
 
-const parseStatValue = (value: string): number =>
-  Number.parseInt(value || '0', 10) || 0;
-
-const formatDate = (date: Date): string => {
-  const datePart = date.toLocaleDateString('es-ES', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-  const timePart = date.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return `${datePart}, ${timePart}`;
-};
-
-const DEFAULT_FORMATION: Record<number, Position[]> = {
-  5:  ['POR', 'DEF', 'DEF', 'DEL', 'DEL'],
-  7:  ['POR', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'DEL'],
-  11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
-};
-
-const getDefaultPosition = (index: number, total: number): Position => {
-  const slots = DEFAULT_FORMATION[total];
-  if (slots && index < slots.length) return slots[index];
-  return index === 0 ? 'POR' : 'DEF';
-};
-
-const createEmptyPlayer = (index: number, total: number): ChallengeTeamPlayer => ({
-  position: getDefaultPosition(index, total),
+const createEmptySlot = (position: Position): ChallengeSlot => ({
   groupMemberId: null,
+  position,
   goals: '0',
   assists: '0',
   ownGoals: '0',
   isSub: false,
 });
 
-const createSubPlayer = (): ChallengeTeamPlayer => ({
-  position: 'DEF',
+const createSubSlot = (): ChallengeSlot => ({
   groupMemberId: null,
+  position: 'DEF',
   goals: '0',
   assists: '0',
   ownGoals: '0',
   isSub: true,
 });
 
-// ─── Component ────────────────────────────────────────────────────────────────
+const mapSavedPlayerToSlot = (player: ChallengeMatchPlayer): ChallengeSlot => ({
+  groupMemberId: player.groupMemberId,
+  position: player.position,
+  goals: String(player.goals ?? 0),
+  assists: String(player.assists ?? 0),
+  ownGoals: String(player.ownGoals ?? 0),
+  isSub: player.isSub ?? false,
+});
 
-export default function AddChallengeMatchScreen() {
+type SlotRowProps = {
+  slot: ChallengeSlot;
+  index: number;
+  member: GroupMemberV2 | undefined;
+  menuOpen: boolean;
+  showStats: boolean;
+  isSub: boolean;
+  isFirstStarter: boolean;
+  onOpenPicker: () => void;
+  onToggleMenu: () => void;
+  onDismissMenu: () => void;
+  onSetPosition: (position: Position) => void;
+  onRemoveSub: () => void;
+  onChangeStat: (field: 'goals' | 'assists' | 'ownGoals', value: string) => void;
+  theme: MD3Theme;
+};
+
+function SlotRow({
+  slot,
+  index,
+  member,
+  menuOpen,
+  showStats,
+  isSub,
+  isFirstStarter,
+  onOpenPicker,
+  onToggleMenu,
+  onDismissMenu,
+  onSetPosition,
+  onRemoveSub,
+  onChangeStat,
+  theme: t,
+}: SlotRowProps) {
+  return (
+    <View>
+      {index > 0 && <Divider />}
+      <View style={[styles(t).slotRow, isSub && styles(t).subSlotRow]}>
+        {isSub ? (
+          <View style={{ alignItems: 'center' }}>
+            <Menu
+              visible={menuOpen}
+              onDismiss={onDismissMenu}
+              anchor={
+                <TouchableOpacity
+                  style={[styles(t).posChip, styles(t).subChip]}
+                  onPress={onToggleMenu}
+                >
+                  <Text style={[styles(t).posChipText, { color: '#FFF' }]}>{slot.position}</Text>
+                </TouchableOpacity>
+              }
+            >
+              {POSITIONS.map(pos => (
+                <Menu.Item
+                  key={pos}
+                  title={`${pos} · ${POSITION_LABELS[pos]}`}
+                  leadingIcon={slot.position === pos ? 'check' : undefined}
+                  onPress={() => {
+                    onSetPosition(pos);
+                    onDismissMenu();
+                  }}
+                />
+              ))}
+            </Menu>
+            <Text style={{ fontSize: 9, color: t.colors.secondary, fontWeight: '700', marginTop: 2 }}>
+              SUP
+            </Text>
+          </View>
+        ) : isFirstStarter ? (
+          <View style={[styles(t).posChip, { backgroundColor: '#E8EAF6', borderColor: '#3949AB' }]}>
+            <Text style={[styles(t).posChipText, { color: '#3949AB' }]}>POR</Text>
+          </View>
+        ) : (
+          <Menu
+            visible={menuOpen}
+            onDismiss={onDismissMenu}
+            anchor={
+              <TouchableOpacity
+                style={[
+                  styles(t).posChip,
+                  slot.position ? { backgroundColor: t.colors.primary, borderColor: t.colors.primary } : {},
+                  !member && styles(t).posChipDisabled,
+                ]}
+                onPress={onToggleMenu}
+                disabled={!member}
+              >
+                <Text
+                  style={[styles(t).posChipText, { color: member ? '#FFF' : t.colors.onSurfaceVariant }]}
+                >
+                  {slot.position}
+                </Text>
+              </TouchableOpacity>
+            }
+          >
+            {POSITIONS.filter(pos => pos !== 'POR').map(pos => (
+              <Menu.Item
+                key={pos}
+                title={`${pos} · ${POSITION_LABELS[pos]}`}
+                leadingIcon={slot.position === pos ? 'check' : undefined}
+                onPress={() => {
+                  onSetPosition(pos);
+                  onDismissMenu();
+                }}
+              />
+            ))}
+          </Menu>
+        )}
+
+        <TouchableOpacity style={styles(t).playerButton} onPress={onOpenPicker} activeOpacity={0.7}>
+          {member ? (
+            <Text variant="bodyMedium" style={styles(t).playerName} numberOfLines={1}>
+              {member.displayName}
+            </Text>
+          ) : (
+            <>
+              <Icon name="account-plus-outline" size={22} color={t.colors.onSurfaceVariant} />
+              <Text variant="bodySmall" style={styles(t).emptySlotText}>
+                {isSub ? 'Suplente' : `Jugador ${index + 1}`}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {showStats ? (
+          <View style={styles(t).inlineStatsContainer}>
+            <View style={styles(t).inlineStatField}>
+              <Text style={styles(t).inlineStatLabel}>Gol</Text>
+              <TextInput
+                mode="outlined"
+                value={slot.goals}
+                onChangeText={value => onChangeStat('goals', normalizeStatInput(value))}
+                onFocus={() => {
+                  if (slot.goals === '0') onChangeStat('goals', '');
+                }}
+                onBlur={() => {
+                  if (!slot.goals) onChangeStat('goals', '0');
+                }}
+                keyboardType="number-pad"
+                dense
+                style={styles(t).inlineStatInput}
+                disabled={!member}
+              />
+            </View>
+            <View style={styles(t).inlineStatField}>
+              <Text style={styles(t).inlineStatLabel}>Ast</Text>
+              <TextInput
+                mode="outlined"
+                value={slot.assists}
+                onChangeText={value => onChangeStat('assists', normalizeStatInput(value))}
+                onFocus={() => {
+                  if (slot.assists === '0') onChangeStat('assists', '');
+                }}
+                onBlur={() => {
+                  if (!slot.assists) onChangeStat('assists', '0');
+                }}
+                keyboardType="number-pad"
+                dense
+                style={styles(t).inlineStatInput}
+                disabled={!member}
+              />
+            </View>
+            <View style={styles(t).inlineStatField}>
+              <Text style={styles(t).inlineStatLabel}>A.G.</Text>
+              <TextInput
+                mode="outlined"
+                value={slot.ownGoals}
+                onChangeText={value => onChangeStat('ownGoals', normalizeStatInput(value))}
+                onFocus={() => {
+                  if (slot.ownGoals === '0') onChangeStat('ownGoals', '');
+                }}
+                onBlur={() => {
+                  if (!slot.ownGoals) onChangeStat('ownGoals', '0');
+                }}
+                keyboardType="number-pad"
+                dense
+                style={styles(t).inlineStatInput}
+                disabled={!member}
+              />
+            </View>
+          </View>
+        ) : (
+          <View style={styles(t).statsSpacer} />
+        )}
+      </View>
+    </View>
+  );
+}
+
+export default function AddChallengeMatchScreen({ route }: Props) {
   const theme = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
+  const matchId = route?.params?.matchId ?? null;
+  const isEditMode = !!matchId;
+
   const { selectedGroupId, groups } = useAppSelector(state => state.groups);
-  const activeGroup = useMemo(
-    () => groups.find(g => g.id === selectedGroupId),
-    [groups, selectedGroupId],
-  );
+  const selectedGroup = groups.find(group => group.id === selectedGroupId);
+  const playersPerTeam = PLAYERS_BY_TYPE[selectedGroup?.type ?? 'futbol_7'] ?? 7;
 
-  // ── State ──────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<0 | 1>(0);
-  const [players, setPlayers] = useState<ChallengeTeamPlayer[]>([]);
-  const [groupMembers, setGroupMembers] = useState<GroupMemberV2[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
-  const [isPlayerPickerVisible, setIsPlayerPickerVisible] = useState(false);
-  const [positionMenuIndex, setPositionMenuIndex] = useState<number | null>(null);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [slots, setSlots] = useState<ChallengeSlot[]>([]);
+  const [allMembers, setAllMembers] = useState<GroupMemberV2[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+  const [isLoadingMatch, setIsLoadingMatch] = useState(false);
 
-  // Save tab state
-  const [matchDate, setMatchDate] = useState<Date>(new Date());
+  const [matchDate, setMatchDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [opponentName, setOpponentName] = useState('');
   const [goalsOpponent, setGoalsOpponent] = useState('0');
 
-  // ── Load group members ─────────────────────────────────────────────────────
+  const [statusMode, setStatusMode] = useState<MatchStatusMode>('scheduled');
+  const [initialMatchStatus, setInitialMatchStatus] = useState<MatchStatusMode | null>(null);
+
+  const [pickerSlotIndex, setPickerSlotIndex] = useState<number | null>(null);
+  const [openMenuFor, setOpenMenuFor] = useState<SlotMenuState>(null);
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+
   useEffect(() => {
-    const load = async () => {
-      if (!selectedGroupId) return;
-      setIsLoading(true);
-      try {
-        const [members, groupsMap] = await Promise.all([
-          getGroupMembersV2ByGroupId(selectedGroupId),
-          getGroupsByIds([selectedGroupId]),
-        ]);
-        const group = groupsMap.get(selectedGroupId);
-        const count = PLAYERS_BY_TYPE[group?.type ?? 'futbol_7'] ?? 7;
-        setGroupMembers(members);
-        setPlayers(Array.from({ length: count }, (_, i) => createEmptyPlayer(i, count)));
-      } catch (err) {
-        console.error('AddChallengeMatchScreen: error loading data', err);
-        setSnackbarMessage('Error al cargar los jugadores');
+    const baseFormation: Position[] =
+      DEFAULT_FORMATION[playersPerTeam] ??
+      Array.from({ length: playersPerTeam }, (_, i) => (i === 0 ? 'POR' : 'DEF'));
+    setSlots(baseFormation.map(position => createEmptySlot(position)));
+  }, [selectedGroupId, playersPerTeam]);
+
+  useEffect(() => {
+    if (!selectedGroupId) {
+      setAllMembers([]);
+      setIsLoadingMembers(false);
+      return;
+    }
+
+    setIsLoadingMembers(true);
+
+    getGroupMembersV2ByGroupId(selectedGroupId)
+      .then(members => setAllMembers(members))
+      .catch(err => {
+        console.error('AddChallengeMatch: error loading members', err);
+        setSnackbarMessage('Error al cargar jugadores');
         setSnackbarVisible(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
+      })
+      .finally(() => setIsLoadingMembers(false));
+
+    const unsubscribe = subscribeToGroupMembersV2ByGroupId(
+      selectedGroupId,
+      members => setAllMembers(members),
+      error => console.error('AddChallengeMatch: members subscription error', error),
+    );
+
+    return unsubscribe;
   }, [selectedGroupId]);
 
-  // ── Derived state ──────────────────────────────────────────────────────────
-  const goalsTeam = useMemo(
-    () => players.reduce((sum, p) => sum + parseStatValue(p.goals), 0),
-    [players],
-  );
+  useEffect(() => {
+    const loadMatchForEdit = async () => {
+      if (!isEditMode || !matchId || !selectedGroupId) return;
 
-  const selectedPlayerIds = useMemo(() => {
+      setIsLoadingMatch(true);
+      try {
+        const match = await getChallengeMatchById(matchId);
+
+        if (!match) {
+          setSnackbarMessage('Partido no encontrado');
+          setSnackbarVisible(true);
+          navigation.goBack();
+          return;
+        }
+
+        const baseFormation: Position[] =
+          DEFAULT_FORMATION[playersPerTeam] ??
+          Array.from({ length: playersPerTeam }, (_, i) => (i === 0 ? 'POR' : 'DEF'));
+
+        const fillFormation = (savedStarters: ChallengeSlot[]) => {
+          const starterSlots = baseFormation.map(position => createEmptySlot(position));
+
+          const available: Record<Position, number[]> = {
+            POR: [],
+            DEF: [],
+            MED: [],
+            DEL: [],
+          };
+
+          starterSlots.forEach((slot, index) => {
+            available[slot.position].push(index);
+          });
+
+          const unmatched: ChallengeSlot[] = [];
+
+          savedStarters.forEach(player => {
+            const preferred = available[player.position]?.shift();
+            if (preferred !== undefined) {
+              starterSlots[preferred] = player;
+              return;
+            }
+
+            const fallback = (Object.keys(available) as Position[])
+              .map(pos => available[pos])
+              .find(list => list.length > 0)
+              ?.shift();
+
+            if (fallback !== undefined) {
+              starterSlots[fallback] = player;
+              return;
+            }
+
+            unmatched.push(player);
+          });
+
+          return [...starterSlots, ...unmatched];
+        };
+
+        const allLoaded = match.players.map(mapSavedPlayerToSlot);
+        const starters = fillFormation(allLoaded.filter(player => !player.isSub));
+        const subs = allLoaded
+          .filter(player => player.isSub)
+          .sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+
+        setSlots([...starters, ...subs]);
+
+        const loadedStatus: MatchStatusMode = match.status === 'scheduled' ? 'scheduled' : 'finished';
+        setInitialMatchStatus(loadedStatus);
+        setStatusMode(loadedStatus);
+        setMatchDate(new Date(match.date));
+        setOpponentName(match.opponentName ?? '');
+        setGoalsOpponent(String(match.goalsOpponent ?? 0));
+      } catch (error) {
+        console.error('AddChallengeMatch(edit): error loading match', error);
+        setSnackbarMessage('Error al cargar el partido');
+        setSnackbarVisible(true);
+      } finally {
+        setIsLoadingMatch(false);
+      }
+    };
+
+    loadMatchForEdit();
+  }, [isEditMode, matchId, selectedGroupId, playersPerTeam]);
+
+  const assignedIds = useMemo(() => {
     const ids = new Set<string>();
-    players.forEach(p => p.groupMemberId && ids.add(p.groupMemberId));
-    return ids;
-  }, [players]);
-
-  const availablePlayers = useMemo(() => {
-    const currentSlotMemberId =
-      selectedRowIndex !== null ? (players[selectedRowIndex]?.groupMemberId ?? null) : null;
-    return groupMembers.filter(p => {
-      if (!selectedPlayerIds.has(p.id)) return true;
-      return p.id === currentSlotMemberId;
+    slots.forEach(slot => {
+      if (slot.groupMemberId) ids.add(slot.groupMemberId);
     });
-  }, [groupMembers, selectedPlayerIds, selectedRowIndex, players]);
+    return ids;
+  }, [slots]);
+
+  const pickerCurrentId = pickerSlotIndex !== null ? slots[pickerSlotIndex]?.groupMemberId ?? null : null;
+
+  const pickerBlockedIds = useMemo(() => {
+    const blocked = new Set<string>();
+    assignedIds.forEach(id => {
+      if (id !== pickerCurrentId) blocked.add(id);
+    });
+    return blocked;
+  }, [assignedIds, pickerCurrentId]);
+
+  const teamGoals = useMemo(
+    () => slots.reduce((sum, slot) => sum + parseGoals(slot.goals), 0),
+    [slots],
+  );
 
   const validationWarnings = useMemo(() => {
     const warnings: string[] = [];
-    // Only validate starter slots — subs are optional
-    const starters = players.filter(p => !p.isSub);
-    const withPlayer = starters.filter(p => p.groupMemberId !== null).length;
-    if (withPlayer < starters.length) {
-      warnings.push(`Faltan ${starters.length - withPlayer} jugador(es) por seleccionar`);
-    }
-    const porCount = starters.filter(p => p.groupMemberId !== null && p.position === 'POR').length;
-    if (porCount !== 1) {
-      warnings.push(`El equipo debe tener exactamente 1 portero (tiene ${porCount})`);
-    }
+
     if (!opponentName.trim()) {
       warnings.push('Ingresá el nombre del rival');
     }
+
+    if (statusMode === 'finished') {
+      const starters = slots.filter(slot => !slot.isSub);
+      const selectedStarters = starters.filter(slot => slot.groupMemberId !== null).length;
+      const porCount = starters.filter(
+        slot => slot.groupMemberId !== null && slot.position === 'POR',
+      ).length;
+
+      if (selectedStarters < starters.length) {
+        warnings.push(`Faltan ${starters.length - selectedStarters} titular(es) por seleccionar`);
+      }
+
+      if (porCount !== 1) {
+        warnings.push(`El equipo debe tener exactamente 1 portero (tiene ${porCount})`);
+      }
+    }
+
     return warnings;
-  }, [players, opponentName]);
+  }, [slots, opponentName, statusMode]);
 
-  const canSave = validationWarnings.length === 0 && !isSaving;
+  const canSave = selectedGroupId !== null && validationWarnings.length === 0;
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
-  const handlePositionChange = useCallback(
-    (index: number, position: Position) => {
-      setPlayers(prev => sortPlayers([...prev.map((p, i) => i === index ? { ...p, position } : p)]));
-      setPositionMenuIndex(null);
-    },
-    [],
-  );
-
-  const handlePlayerSelect = useCallback(
-    (member: GroupMemberV2) => {
-      if (selectedRowIndex === null) return;
-      setPlayers(prev => {
-        const updated = [...prev];
-        updated[selectedRowIndex] = {
-          ...updated[selectedRowIndex],
-          groupMemberId: member.id,
-        };
-        return updated;
-      });
-      setIsPlayerPickerVisible(false);
-      setSelectedRowIndex(null);
-    },
-    [selectedRowIndex],
-  );
-
-  const handleStatChange = useCallback(
-    (index: number, field: 'goals' | 'assists' | 'ownGoals', value: string) => {
-      setPlayers(prev => {
-        const updated = [...prev];
-        updated[index] = { ...updated[index], [field]: normalizeNumberInput(value) };
-        return updated;
-      });
-    },
-    [],
-  );
-
-  const handleStatFocus = (index: number, field: 'goals' | 'assists' | 'ownGoals') => {
-    if (players[index][field] === '0') {
-      handleStatChange(index, field, '');
+  const handleStatusChange = (value: boolean) => {
+    if (isEditMode && initialMatchStatus === 'finished' && !value) {
+      return;
     }
+    setStatusMode(value ? 'finished' : 'scheduled');
   };
 
-  const handleStatBlur = (index: number, field: 'goals' | 'assists' | 'ownGoals') => {
-    if (!players[index][field]) {
-      handleStatChange(index, field, '0');
-    }
-  };
-
-  const handleClearPlayer = useCallback((index: number) => {
-    setPlayers(prev => {
+  const handleSetPosition = useCallback((index: number, position: Position) => {
+    setSlots(prev => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], groupMemberId: null };
-      return updated;
+      updated[index] = { ...updated[index], position };
+
+      const starters = updated
+        .filter(slot => !slot.isSub)
+        .sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+      const subs = updated
+        .filter(slot => slot.isSub)
+        .sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+
+      return [...starters, ...subs];
     });
   }, []);
 
-  const handleAddSub = useCallback(() => {
-    setPlayers(prev => [...prev, createSubPlayer()]);
+  const handleOpenPicker = useCallback((index: number) => {
+    setPickerSlotIndex(index);
+    setIsPickerVisible(true);
   }, []);
 
-  const handleRemoveSub = useCallback((index: number) => {
-    setPlayers(prev => prev.filter((_, i) => i !== index));
+  const handlePlayerSelect = useCallback((memberId: string | null) => {
+    if (pickerSlotIndex === null) return;
+
+    setSlots(prev => {
+      const updated = [...prev];
+      updated[pickerSlotIndex] = { ...updated[pickerSlotIndex], groupMemberId: memberId };
+      return updated;
+    });
+
+    setIsPickerVisible(false);
+    setPickerSlotIndex(null);
+  }, [pickerSlotIndex]);
+
+  const handleChangeStat = useCallback(
+    (index: number, field: 'goals' | 'assists' | 'ownGoals', value: string) => {
+      setSlots(prev => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], [field]: value };
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const addSub = useCallback(() => {
+    setSlots(prev => [...prev, createSubSlot()]);
   }, []);
 
-  const handleSave = () => {
-    if (validationWarnings.length > 0) return;
-    Alert.alert(
-      'Guardar partido',
-      '¿El partido fue disputado y deseas guardar las estadísticas?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Confirmar', style: 'default', onPress: confirmSave },
-      ],
-    );
-  };
+  const removeSub = useCallback((index: number) => {
+    setSlots(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
-  const confirmSave = async () => {
-    if (!selectedGroupId) return;
+  const saveEditMatch = async () => {
+    if (!matchId || !selectedGroupId) return;
+
     setIsSaving(true);
     try {
-      await saveChallengeMatch({
-        date: matchDate,
-        groupId: selectedGroupId,
-        players,
-        goalsTeam,
-        opponentName,
-        goalsOpponent: parseStatValue(goalsOpponent),
-      });
-      setSnackbarMessage('Partido guardado exitosamente');
+      const currentUser = auth().currentUser;
+      if (!currentUser) throw new Error('No autenticado');
+
+      const idToken = await currentUser.getIdToken();
+      const markAsFinished = initialMatchStatus === 'scheduled' && statusMode === 'finished';
+
+      const response = await fetch(
+        'https://us-central1-mejengas-a7794.cloudfunctions.net/editChallengeMatch',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            data: {
+              matchId,
+              updatedMatchData: {
+                players: slots.map(slot => ({
+                  groupMemberId: slot.groupMemberId,
+                  position: slot.position,
+                  goals: parseGoals(slot.goals),
+                  assists: parseGoals(slot.assists),
+                  ownGoals: parseGoals(slot.ownGoals),
+                  isSub: slot.isSub,
+                })),
+                goalsTeam: teamGoals,
+                opponentName: opponentName.trim(),
+                goalsOpponent: parseGoals(goalsOpponent),
+                date: matchDate.toISOString(),
+                markAsFinished,
+              },
+            },
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        const errorMessage =
+          (errorBody as { error?: { message?: string } })?.error?.message ??
+          'Error al actualizar el partido';
+        throw new Error(errorMessage);
+      }
+
+      setSnackbarMessage(
+        markAsFinished
+          ? 'Partido finalizado y guardado exitosamente'
+          : 'Partido actualizado exitosamente',
+      );
       setSnackbarVisible(true);
       setTimeout(() => navigation.navigate('ChallengeMatches'), 1500);
-    } catch (err) {
-      console.error('AddChallengeMatchScreen: error saving match', err);
+    } catch (error) {
+      console.error('AddChallengeMatch(edit): error saving match', error);
+      setSnackbarMessage('Error al actualizar el partido');
+      setSnackbarVisible(true);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveNewMatch = async () => {
+    if (!selectedGroupId) return;
+
+    setIsSaving(true);
+    try {
+      if (statusMode === 'scheduled') {
+        await saveScheduledChallengeMatch({
+          date: matchDate,
+          groupId: selectedGroupId,
+          players: slots.map(slot => ({
+            groupMemberId: slot.groupMemberId,
+            position: slot.position,
+            isSub: slot.isSub,
+          })),
+          opponentName: opponentName.trim(),
+        });
+        setSnackbarMessage('Partido programado guardado');
+      } else {
+        await saveChallengeMatch({
+          date: matchDate,
+          groupId: selectedGroupId,
+          players: slots.map(slot => ({
+            groupMemberId: slot.groupMemberId,
+            position: slot.position,
+            goals: slot.goals,
+            assists: slot.assists,
+            ownGoals: slot.ownGoals,
+            isSub: slot.isSub,
+          })),
+          goalsTeam: teamGoals,
+          opponentName: opponentName.trim(),
+          goalsOpponent: parseGoals(goalsOpponent),
+        });
+        setSnackbarMessage('Partido finalizado guardado');
+      }
+
+      setSnackbarVisible(true);
+      setTimeout(() => navigation.navigate('ChallengeMatches'), 1500);
+    } catch (error) {
+      console.error('AddChallengeMatch(add): error saving', error);
       setSnackbarMessage('Error al guardar el partido');
       setSnackbarVisible(true);
     } finally {
@@ -321,697 +684,482 @@ export default function AddChallengeMatchScreen() {
     }
   };
 
-  // ── Loading ────────────────────────────────────────────────────────────────
-  if (isLoading) {
+  const handleSave = async () => {
+    if (isSaving || !selectedGroupId || !canSave) return;
+
+    if (!isEditMode) {
+      await saveNewMatch();
+      return;
+    }
+
+    const willMarkAsFinished = initialMatchStatus === 'scheduled' && statusMode === 'finished';
+
+    Alert.alert(
+      'Editar partido',
+      willMarkAsFinished
+        ? '¿Deseas marcar este partido como finalizado? Se recalcularán estadísticas.'
+        : '¿Deseas guardar los cambios de este partido?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          style: 'default',
+          onPress: () => {
+            void saveEditMatch();
+          },
+        },
+      ],
+    );
+  };
+
+  const formatDate = (date: Date): string =>
+    date.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+  const formatTime = (date: Date): string =>
+    date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+  if (isLoadingMembers || isLoadingMatch) {
     return (
-      <View style={styles(theme).centerContainer}>
+      <View style={styles(theme).center}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text variant="bodyMedium" style={styles(theme).loadingText}>
+        <Text variant="bodyMedium" style={{ color: '#666', marginTop: 8 }}>
           Cargando jugadores...
         </Text>
       </View>
     );
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <View style={styles(theme).container}>
-      {/* Tabs */}
-      <View style={styles(theme).tabsContainer}>
-        <TouchableOpacity
-          style={styles(theme).tabButton}
-          onPress={() => setActiveTab(0)}
-          activeOpacity={0.7}
-        >
-          <Surface
-            style={[styles(theme).tab, activeTab === 0 && styles(theme).activeTab]}
-            elevation={activeTab === 0 ? 2 : 0}
-          >
-            <Text
-              variant="labelLarge"
-              style={[styles(theme).tabText, activeTab === 0 && styles(theme).activeTabText]}
-            >
-              Equipo
+    <ScrollView
+      style={styles(theme).container}
+      contentContainerStyle={styles(theme).content}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Card style={styles(theme).card}>
+        <Card.Content style={styles(theme).statusContent}>
+          <View style={{ flex: 1 }}>
+            <Text variant="labelLarge" style={styles(theme).statusLabel}>
+              Estado del partido
             </Text>
-          </Surface>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles(theme).tabButton}
-          onPress={() => setActiveTab(1)}
-          activeOpacity={0.7}
-        >
-          <Surface
-            style={[styles(theme).tab, activeTab === 1 && styles(theme).activeTab]}
-            elevation={activeTab === 1 ? 2 : 0}
-          >
-            <Text
-              variant="labelLarge"
-              style={[styles(theme).tabText, activeTab === 1 && styles(theme).activeTabText]}
-            >
-              Guardar
+            <Text variant="bodySmall" style={styles(theme).statusSwitchText}>
+              {statusMode === 'scheduled' ? 'Programado' : 'Finalizado'}
             </Text>
-          </Surface>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tab 0: Players table */}
-      {activeTab === 0 && (
-        <ScrollView style={styles(theme).content}>
-          <View style={styles(theme).tableHeader}>
-            <Text style={[styles(theme).headerCell, styles(theme).positionColumn]}>Pos.</Text>
-            <Text style={[styles(theme).headerCell, styles(theme).playerColumn]}>Jugador</Text>
-            <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>Gol</Text>
-            <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>Ast</Text>
-            <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>A.G</Text>
-            <View style={{ width: 28 }} />
           </View>
+          <View style={styles(theme).statusSwitchWrap}>
+            <Text style={styles(theme).statusSwitchText}>Programado</Text>
+            <Switch
+              value={statusMode === 'finished'}
+              onValueChange={handleStatusChange}
+              trackColor={{ false: '#D1D5DB', true: theme.colors.primary }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor="#D1D5DB"
+            />
+            <Text style={styles(theme).statusSwitchText}>Finalizado</Text>
+          </View>
+        </Card.Content>
+      </Card>
 
-          {players.map((player, index) => {
-            const member = groupMembers.find(m => m.id === player.groupMemberId);
-            const rowExtraStyle = player.isSub ? styles(theme).subRow : null;
-            return (
-              <View key={index} style={[styles(theme).tableRow, rowExtraStyle]}>
-                {/* Position / SUB badge */}
-                <View style={styles(theme).positionColumn}>
-                  {player.isSub ? (
-                    <View style={{ alignItems: 'center' }}>
-                      <Menu
-                        visible={positionMenuIndex === index}
-                        onDismiss={() => setPositionMenuIndex(null)}
-                        anchor={
-                          <TouchableOpacity
-                            onPress={() => setPositionMenuIndex(index)}
-                            style={styles(theme).positionAnchor}
-                          >
-                            <Surface
-                              style={[styles(theme).positionPicker, { borderColor: theme.colors.secondary, backgroundColor: theme.colors.secondary }]}
-                              elevation={1}
-                            >
-                              <Text style={[styles(theme).positionText, { color: theme.colors.onSecondary }]}> 
-                                {player.position}
-                              </Text>
-                              <Icon name="chevron-down" size={16} color={theme.colors.onSecondary} />
-                            </Surface>
-                          </TouchableOpacity>
-                        }
-                      >
-                        {POSITIONS.map(pos => (
-                          <Menu.Item
-                            key={pos}
-                            onPress={() => handlePositionChange(index, pos)}
-                            title={`${pos} - ${POSITION_LABELS[pos]}`}
-                          />
-                        ))}
-                      </Menu>
-                      <Text style={{ fontSize: 9, color: theme.colors.secondary, fontWeight: '700', marginTop: 2 }}>
-                        SUP
-                      </Text>
-                    </View>
-                  ) : index === 0 ? (
-                    <View style={styles(theme).positionLocked}>
-                      <Text style={styles(theme).positionLockedText}>POR</Text>
-                    </View>
-                  ) : (
-                    <Menu
-                      visible={positionMenuIndex === index}
-                      onDismiss={() => setPositionMenuIndex(null)}
-                      anchor={
-                        <TouchableOpacity
-                          onPress={() => setPositionMenuIndex(index)}
-                          style={styles(theme).positionAnchor}
-                        >
-                          <Surface style={styles(theme).positionPicker} elevation={1}>
-                            <Text style={styles(theme).positionText}>{player.position}</Text>
-                            <Icon name="chevron-down" size={16} color="#666" />
-                          </Surface>
-                        </TouchableOpacity>
-                      }
-                    >
-                      {POSITIONS.filter(pos => pos !== 'POR').map(pos => (
-                        <Menu.Item
-                          key={pos}
-                          onPress={() => handlePositionChange(index, pos)}
-                          title={`${pos} - ${POSITION_LABELS[pos]}`}
-                        />
-                      ))}
-                    </Menu>
-                  )}
-                </View>
-
-                {/* Player selector */}
-                <TouchableOpacity
-                  style={styles(theme).playerColumn}
-                  onPress={() => {
-                    setSelectedRowIndex(index);
-                    setIsPlayerPickerVisible(true);
-                  }}
-                >
-                  <Surface style={styles(theme).playerSelector} elevation={1}>
-                    <Text style={styles(theme).playerText} numberOfLines={1}>
-                      {member?.displayName ?? `J${index + 1}`}
-                    </Text>
-                    {player.groupMemberId ? (
-                      <TouchableOpacity
-                        onPress={() => handleClearPlayer(index)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Icon name="close" size={16} color={theme.colors.error} />
-                      </TouchableOpacity>
-                    ) : (
-                      <Icon name="menu-down" size={20} color="#666" />
-                    )}
-                  </Surface>
-                </TouchableOpacity>
-
-                {/* Goals */}
-                <View style={styles(theme).statColumn}>
-                  <TextInput
-                    mode="outlined"
-                    value={player.goals}
-                    onChangeText={v => handleStatChange(index, 'goals', v)}
-                    onFocus={() => handleStatFocus(index, 'goals')}
-                    onBlur={() => handleStatBlur(index, 'goals')}
-                    keyboardType="number-pad"
-                    style={styles(theme).statInput}
-                    dense
-                  />
-                </View>
-
-                {/* Assists */}
-                <View style={styles(theme).statColumn}>
-                  <TextInput
-                    mode="outlined"
-                    value={player.assists}
-                    onChangeText={v => handleStatChange(index, 'assists', v)}
-                    onFocus={() => handleStatFocus(index, 'assists')}
-                    onBlur={() => handleStatBlur(index, 'assists')}
-                    keyboardType="number-pad"
-                    style={styles(theme).statInput}
-                    dense
-                  />
-                </View>
-
-                {/* Own Goals */}
-                <View style={styles(theme).statColumn}>
-                  <TextInput
-                    mode="outlined"
-                    value={player.ownGoals}
-                    onChangeText={v => handleStatChange(index, 'ownGoals', v)}
-                    onFocus={() => handleStatFocus(index, 'ownGoals')}
-                    onBlur={() => handleStatBlur(index, 'ownGoals')}
-                    keyboardType="number-pad"
-                    style={styles(theme).statInput}
-                    dense
-                  />
-                </View>
-
-                {/* Delete — only for sub rows */}
-                <View style={{ width: 28, alignItems: 'center' }}>
-                  {player.isSub && (
-                    <TouchableOpacity
-                      onPress={() => handleRemoveSub(index)}
-                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                    >
-                      <Icon name="delete-outline" size={18} color={theme.colors.error} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            );
-          })}
-
-          {/* Add substitute button */}
-          <TouchableOpacity
-            style={styles(theme).addSubButton}
-            onPress={handleAddSub}
-            activeOpacity={0.7}
-          >
-            <Icon name="plus-circle-outline" size={20} color={theme.colors.onSecondary} />
-            <Text style={styles(theme).addSubText}>Agregar suplente</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      )}
-
-      {/* Tab 1: Save */}
-      {activeTab === 1 && (
-        <ScrollView style={styles(theme).content} contentContainerStyle={styles(theme).summaryContent}>
-          {/* Score display */}
-          <Surface style={styles(theme).scoreCard} elevation={2}>
-            <View style={styles(theme).scoreContainer}>
-              <View style={styles(theme).teamScore}>
-                <Text variant="titleLarge" style={styles(theme).teamLabel}>
-                  {activeGroup?.name ?? 'Mi Equipo'}
-                </Text>
-                <View style={styles(theme).scoreCircle}>
-                  <Text variant="displayMedium" style={styles(theme).scoreText}>
-                    {goalsTeam}
-                  </Text>
-                </View>
-              </View>
-
-              <Text variant="headlineMedium" style={styles(theme).vsText}>
-                VS
-              </Text>
-
-              <View style={styles(theme).teamScore}>
-                <Text variant="titleLarge" style={styles(theme).teamLabel}>
-                  {opponentName.trim() || 'Rival'}
-                </Text>
-                <View style={styles(theme).scoreCircle}>
-                  <Text variant="displayMedium" style={styles(theme).scoreText}>
-                    {parseStatValue(goalsOpponent)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <Chip
-              style={[
-                styles(theme).resultChip,
-                {
-                  backgroundColor:
-                    goalsTeam > parseStatValue(goalsOpponent)
-                      ? '#4CAF50'
-                      : goalsTeam < parseStatValue(goalsOpponent)
-                        ? '#F44336'
-                        : '#FF9800',
-                },
-              ]}
-              textStyle={styles(theme).resultChipText}
-            >
-              {goalsTeam > parseStatValue(goalsOpponent)
-                ? 'Victoria'
-                : goalsTeam < parseStatValue(goalsOpponent)
-                  ? 'Derrota'
-                  : 'Empate'}
-            </Chip>
-          </Surface>
-
-          {/* Rival */}
-          <Surface style={styles(theme).dateCard} elevation={1}>
-            <Text variant="titleMedium" style={styles(theme).dateLabel}>
-              Rival
+      <Card style={styles(theme).card} onPress={() => setShowDatePicker(true)}>
+        <Card.Content style={styles(theme).dateCardContent}>
+          <View style={[styles(theme).dateIconBox, { backgroundColor: theme.colors.primary }]}>
+            <Icon name="calendar-clock" size={26} color="#FFF" />
+          </View>
+          <View style={styles(theme).dateInfo}>
+            <Text variant="labelSmall" style={styles(theme).dateLabel}>
+              Fecha del partido
             </Text>
+            <Text variant="bodyLarge" style={styles(theme).dateValue}>
+              {formatDate(matchDate)}
+            </Text>
+            <Text variant="bodyMedium" style={{ color: theme.colors.primary, fontWeight: '600' }}>
+              {formatTime(matchDate)}
+            </Text>
+          </View>
+          <Icon name="pencil-outline" size={20} color={theme.colors.primary} />
+        </Card.Content>
+      </Card>
+
+      <Card style={styles(theme).card}>
+        <Card.Content style={styles(theme).opponentCardContent}>
+          <View style={[styles(theme).dateIconBox, { backgroundColor: '#FF7043' }]}>
+            <Icon name="shield-outline" size={26} color="#FFF" />
+          </View>
+          <View style={{ flex: 1, gap: 8 }}>
             <TextInput
               mode="outlined"
-              label="Nombre del rival"
+              label="Rival"
               value={opponentName}
               onChangeText={setOpponentName}
               placeholder="Ej: Los Piratas"
+              dense
             />
-            <TextInput
-              mode="outlined"
-              label="Goles del rival"
-              value={goalsOpponent}
-              onChangeText={v => setGoalsOpponent(normalizeNumberInput(v))}
-              keyboardType="numeric"
-              onFocus={() => { if (goalsOpponent === '0') setGoalsOpponent(''); }}
-              onBlur={() => { if (!goalsOpponent) setGoalsOpponent('0'); }}
-            />
-          </Surface>
+            {statusMode === 'finished' && (
+              <TextInput
+                mode="outlined"
+                label="Goles del rival"
+                value={goalsOpponent}
+                onChangeText={value => setGoalsOpponent(normalizeStatInput(value))}
+                onFocus={() => {
+                  if (goalsOpponent === '0') setGoalsOpponent('');
+                }}
+                onBlur={() => {
+                  if (!goalsOpponent) setGoalsOpponent('0');
+                }}
+                keyboardType="number-pad"
+                dense
+              />
+            )}
+          </View>
+        </Card.Content>
+      </Card>
 
-          {/* Date picker */}
-          <Surface style={styles(theme).dateCard} elevation={1}>
-            <Text variant="titleMedium" style={styles(theme).dateLabel}>
-              Fecha del partido
-            </Text>
-            <TextInput
-              value={formatDate(matchDate)}
-              mode="outlined"
-              editable={false}
-              right={<TextInput.Icon icon="calendar" onPress={() => setShowDatePicker(true)} />}
-              onPressIn={() => setShowDatePicker(true)}
-            />
-          </Surface>
+      <Card style={styles(theme).card}>
+        <Card.Content style={styles(theme).slotsContent}>
+          {slots.map((slot, index) => {
+            const member = allMembers.find(player => player.id === slot.groupMemberId);
 
-          <DatePicker
-            modal
-            open={showDatePicker}
-            date={matchDate}
-            mode="datetime"
-            locale="es"
-            onConfirm={date => {
-              setShowDatePicker(false);
-              setMatchDate(date);
-            }}
-            onCancel={() => setShowDatePicker(false)}
-          />
+            return (
+              <SlotRow
+                key={`${slot.isSub ? 'sub' : 'starter'}_${index}`}
+                slot={slot}
+                index={index}
+                member={member}
+                menuOpen={openMenuFor === index}
+                showStats={statusMode === 'finished'}
+                isSub={slot.isSub}
+                isFirstStarter={!slot.isSub && index === 0}
+                onOpenPicker={() => handleOpenPicker(index)}
+                onToggleMenu={() => setOpenMenuFor(index)}
+                onDismissMenu={() => setOpenMenuFor(null)}
+                onSetPosition={position => handleSetPosition(index, position)}
+                onRemoveSub={() => removeSub(index)}
+                onChangeStat={(field, value) => handleChangeStat(index, field, value)}
+                theme={theme}
+              />
+            );
+          })}
 
-          {/* Validation warnings */}
-          {validationWarnings.length > 0 && (
-            <Surface style={styles(theme).warningsCard} elevation={0}>
-              {validationWarnings.map((warning, i) => (
-                <View key={i} style={styles(theme).warningRow}>
-                  <Icon name="alert-circle" size={16} color={theme.colors.error} />
-                  <Text style={styles(theme).warningText}>{warning}</Text>
-                </View>
-              ))}
-            </Surface>
-          )}
+          <Divider />
+          <TouchableOpacity style={styles(theme).addSubButton} onPress={addSub} activeOpacity={0.7}>
+            <Icon name="plus-circle-outline" size={20} color={theme.colors.onSecondary} />
+            <Text style={styles(theme).addSubText}>Agregar suplente</Text>
+          </TouchableOpacity>
+        </Card.Content>
+      </Card>
 
-          {/* Save button */}
-          <Button
-            mode="contained"
-            onPress={handleSave}
-            disabled={!canSave}
-            loading={isSaving}
-            style={styles(theme).saveButton}
-            contentStyle={styles(theme).saveButtonContent}
-            icon="content-save"
-          >
-            Guardar Partido
-          </Button>
-        </ScrollView>
+      {validationWarnings.length > 0 && (
+        <Card style={styles(theme).warningCard}>
+          <Card.Content style={styles(theme).warningContent}>
+            {validationWarnings.map((warning, index) => (
+              <View key={`warning_${index}`} style={styles(theme).warningRow}>
+                <Icon name="alert-circle" size={16} color={theme.colors.error} />
+                <Text style={styles(theme).warningText}>{warning}</Text>
+              </View>
+            ))}
+          </Card.Content>
+        </Card>
       )}
 
-      {/* Player picker modal */}
-      <Portal>
-        <Modal
-          visible={isPlayerPickerVisible}
-          onRequestClose={() => {
-            setIsPlayerPickerVisible(false);
-            setSelectedRowIndex(null);
-          }}
-          animationType="slide"
-          transparent
-        >
-          <View style={styles(theme).modalOverlay}>
-            <Surface style={styles(theme).modalContent} elevation={5}>
-              <View style={styles(theme).modalHeader}>
-                <Text variant="titleLarge" style={styles(theme).modalTitle}>
-                  Seleccionar Jugador
+      {statusMode === 'finished' && (
+        <Card style={styles(theme).compactScoreCard}>
+          <Card.Content style={styles(theme).compactScoreContent}>
+            <View style={styles(theme).compactScoreRow}>
+              <View style={styles(theme).compactTeamBlock}>
+                <Text variant="labelSmall" style={styles(theme).compactScoreLabel}>
+                  Mi Equipo
                 </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setIsPlayerPickerVisible(false);
-                    setSelectedRowIndex(null);
-                  }}
-                >
-                  <Icon name="close" size={24} color={theme.colors.onSurface} />
-                </TouchableOpacity>
+                <Text variant="headlineSmall" style={styles(theme).compactScoreNumber}>
+                  {teamGoals}
+                </Text>
               </View>
-              <ScrollView style={styles(theme).modalList}>
-                {availablePlayers.length === 0 ? (
-                  <View style={styles(theme).emptyPlayersContainer}>
-                    <Icon name="account-off" size={48} color="#999" />
-                    <Text style={styles(theme).emptyPlayersText}>
-                      {groupMembers.length === 0
-                        ? 'No hay jugadores en este grupo'
-                        : 'Todos los jugadores ya están seleccionados'}
-                    </Text>
-                  </View>
-                ) : (
-                  availablePlayers.map((member, i) => (
-                    <React.Fragment key={member.id}>
-                      <List.Item
-                        title={member.displayName}
-                        onPress={() => handlePlayerSelect(member)}
-                        left={(props) => <List.Icon {...props} icon="account" />}
-                        right={(props) => <List.Icon {...props} icon="chevron-right" />}
-                      />
-                      {i < availablePlayers.length - 1 && <Divider />}
-                    </React.Fragment>
-                  ))
-                )}
-              </ScrollView>
-            </Surface>
-          </View>
-        </Modal>
-      </Portal>
 
-      <Snackbar
-        visible={snackbarVisible}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={3000}
+              <Text variant="bodyMedium" style={styles(theme).compactScoreVs}>
+                VS
+              </Text>
+
+              <View style={styles(theme).compactTeamBlock}>
+                <Text variant="labelSmall" style={styles(theme).compactScoreLabel}>
+                  Rival
+                </Text>
+                <Text variant="headlineSmall" style={styles(theme).compactScoreNumber}>
+                  {parseGoals(goalsOpponent)}
+                </Text>
+              </View>
+            </View>
+          </Card.Content>
+        </Card>
+      )}
+
+      <Button
+        mode="contained"
+        onPress={handleSave}
+        loading={isSaving}
+        disabled={isSaving || !canSave}
+        style={styles(theme).saveButton}
+        contentStyle={styles(theme).saveButtonContent}
+        icon={statusMode === 'scheduled' ? 'calendar-check' : 'content-save'}
       >
+        {isEditMode
+          ? 'Guardar cambios'
+          : statusMode === 'scheduled'
+            ? 'Guardar Partido Programado'
+            : 'Guardar Partido Finalizado'}
+      </Button>
+
+      <DatePicker
+        modal
+        open={showDatePicker}
+        date={matchDate}
+        mode="datetime"
+        locale="es"
+        title="Fecha y hora del partido"
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        onConfirm={date => {
+          setMatchDate(date);
+          setShowDatePicker(false);
+        }}
+        onCancel={() => setShowDatePicker(false)}
+      />
+
+      <ScheduledPlayerPicker
+        visible={isPickerVisible}
+        members={allMembers}
+        blockedIds={pickerBlockedIds}
+        currentId={pickerCurrentId}
+        teamLabel="Mi equipo"
+        onSelect={handlePlayerSelect}
+        onDismiss={() => {
+          setIsPickerVisible(false);
+          setPickerSlotIndex(null);
+        }}
+      />
+
+      <Snackbar visible={snackbarVisible} onDismiss={() => setSnackbarVisible(false)} duration={2000}>
         {snackbarMessage}
       </Snackbar>
-    </View>
+    </ScrollView>
   );
 }
 
-const styles = (theme: MD3Theme) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    gap: 16,
-  },
-  loadingText: {
-    color: '#666',
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    elevation: 2,
-  },
-  tabButton: {
-    flex: 1,
-  },
-  tab: {
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF',
-  },
-  activeTab: {
-    backgroundColor: theme.colors.primary,
-  },
-  tabText: {
-    fontWeight: 'bold',
-    color: '#666',
-  },
-  activeTabText: {
-    color: '#FFF',
-  },
-  content: {
-    flex: 1,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.primary,
-    padding: 12,
-    gap: 8,
-  },
-  headerCell: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  positionColumn: {
-    width: 60,
-  },
-  playerColumn: {
-    flex: 1,
-  },
-  statColumn: {
-    width: 50,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    padding: 12,
-    gap: 8,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    alignItems: 'center',
-    minHeight: 60,
-  },
-  subRow: {
-    backgroundColor: '#FFF',
-  },
-  subPositionBadge: {
-    backgroundColor: theme.colors.secondary,
-  },
-  addSubButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: theme.colors.secondary,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.secondary,
-  },
-  addSubText: {
-    fontSize: 14,
-    color: theme.colors.onSecondary,
-    fontWeight: '600' as const,
-  },
-  positionPicker: {
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    backgroundColor: '#FFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 4,
-  },
-  positionAnchor: {
-    width: '100%',
-  },
-  positionLocked: {
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    backgroundColor: '#E8EAF6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  positionLockedText: {
-    fontWeight: 'bold',
-    fontSize: 12,
-    color: '#3949AB',
-  },
-  positionText: {
-    textAlign: 'center',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  playerSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFF',
-  },
-  playerText: {
-    flex: 1,
-    fontSize: 13,
-  },
-  statInput: {
-    height: 36,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  summaryContent: {
-    padding: 16,
-    gap: 20,
-  },
-  scoreCard: {
-    padding: 20,
-    borderRadius: 12,
-    backgroundColor: '#FFF',
-    alignItems: 'center',
-    gap: 16,
-  },
-  scoreContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    width: '100%',
-  },
-  teamScore: {
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  teamLabel: {
-    fontWeight: 'bold',
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  scoreCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: theme.colors.primaryContainer,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scoreText: {
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-  },
-  vsText: {
-    fontWeight: 'bold',
-    color: '#666',
-  },
-  resultChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  resultChipText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  dateCard: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#FFF',
-    gap: 12,
-  },
-  dateLabel: {
-    fontWeight: 'bold',
-  },
-  saveButton: {
-    borderRadius: 8,
-  },
-  saveButtonContent: {
-    paddingVertical: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    height: '80%',
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  modalTitle: {
-    fontWeight: 'bold',
-  },
-  modalList: {
-    flex: 1,
-    paddingHorizontal: 8,
-    paddingBottom: 20,
-  },
-  emptyPlayersContainer: {
-    padding: 40,
-    alignItems: 'center',
-    gap: 16,
-  },
-  emptyPlayersText: {
-    color: '#999',
-    textAlign: 'center',
-  },
-  warningsCard: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: theme.colors.errorContainer,
-    gap: 8,
-  },
-  warningRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  warningText: {
-    flex: 1,
-    color: theme.colors.error,
-    fontSize: 13,
-  },
-});
+const styles = (theme: MD3Theme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: '#F5F5F5',
+    },
+    content: {
+      padding: 12,
+      paddingBottom: 40,
+      gap: 16,
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    card: {
+      borderRadius: 12,
+      backgroundColor: theme.colors.surface,
+    },
+    statusContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    statusLabel: {
+      fontWeight: '600',
+    },
+    statusSwitchWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    statusSwitchText: {
+      color: theme.colors.onSurfaceVariant,
+      fontSize: 12,
+    },
+    dateCardContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 8,
+    },
+    opponentCardContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 8,
+    },
+    dateIconBox: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dateInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    dateLabel: {
+      color: theme.colors.onSurfaceVariant,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    dateValue: {
+      fontWeight: '600',
+      textTransform: 'capitalize',
+    },
+    slotsContent: {
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+    },
+    slotRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+      gap: 8,
+      minHeight: 54,
+    },
+    subSlotRow: {
+      backgroundColor: '#FFF',
+    },
+    subChip: {
+      backgroundColor: theme.colors.secondary,
+      borderColor: theme.colors.secondary,
+    },
+    addSubButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 12,
+      gap: 8,
+      backgroundColor: theme.colors.secondary,
+    },
+    addSubText: {
+      color: theme.colors.onSecondary,
+      fontWeight: '600',
+    },
+    playerButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    statsSpacer: {
+      width: 138,
+    },
+    inlineStatsContainer: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 6,
+      width: 138,
+    },
+    inlineStatField: {
+      width: 42,
+      alignItems: 'center',
+      gap: 2,
+    },
+    inlineStatLabel: {
+      fontSize: 9,
+      color: theme.colors.onSurfaceVariant,
+      fontWeight: '600',
+    },
+    inlineStatInput: {
+      width: 42,
+      height: 34,
+      backgroundColor: theme.colors.surface,
+    },
+    playerName: {
+      flex: 1,
+      fontWeight: '500',
+    },
+    emptySlotText: {
+      color: theme.colors.onSurfaceVariant,
+      flex: 1,
+    },
+    posChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
+      minWidth: 46,
+      alignItems: 'center',
+    },
+    posChipDisabled: {
+      opacity: 0.3,
+    },
+    posChipText: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
+    warningCard: {
+      borderRadius: 12,
+      backgroundColor: theme.colors.errorContainer,
+    },
+    warningContent: {
+      gap: 8,
+    },
+    warningRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    warningText: {
+      flex: 1,
+      color: theme.colors.error,
+      fontSize: 13,
+    },
+    compactScoreCard: {
+      borderRadius: 12,
+      backgroundColor: theme.colors.surface,
+    },
+    compactScoreContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+    },
+    compactScoreLabel: {
+      color: theme.colors.onSurfaceVariant,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    compactScoreRow: {
+      flexDirection: 'row',
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    compactTeamBlock: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 72,
+    },
+    compactScoreNumber: {
+      fontWeight: '700',
+      minWidth: 26,
+      textAlign: 'center',
+    },
+    compactScoreVs: {
+      color: theme.colors.onSurfaceVariant,
+      fontWeight: '600',
+    },
+    saveButton: {
+      borderRadius: 8,
+    },
+    saveButtonContent: {
+      paddingVertical: 6,
+    },
+  });

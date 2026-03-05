@@ -110,8 +110,8 @@ exports.deleteMatch = onCall(async request => {
   }
 
   const callerRole = String(memberSnap.docs[0].data().role ?? '');
-  if (callerRole !== 'admin' && callerRole !== 'owner') {
-    throw new HttpsError('permission-denied', 'Solo administradores pueden eliminar partidos.');
+  if (callerRole !== 'owner') {
+    throw new HttpsError('permission-denied', 'Solo el owner puede eliminar partidos.');
   }
 
   await db.runTransaction(async t => {
