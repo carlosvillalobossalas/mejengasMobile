@@ -90,8 +90,8 @@ export async function updateUserDisplayName(
 }
 
 /**
- * Search users by display name (case-insensitive partial match)
- * @param searchTerm Term to search for in displayName
+ * Search users by displayName or email (case-insensitive partial match).
+ * @param searchTerm Term to search for in displayName/email
  * @param limit Maximum number of results to return
  */
 export async function searchUsersByName(
@@ -116,10 +116,15 @@ export async function searchUsersByName(
 
   // Filter by partial match (case-insensitive)
   const filtered = users.filter(user => {
-    if (!user.displayName) {
-      return false;
-    }
-    return user.displayName.toLowerCase().includes(normalizedSearch);
+    const displayNameMatches =
+      typeof user.displayName === 'string' &&
+      user.displayName.toLowerCase().includes(normalizedSearch);
+
+    const emailMatches =
+      typeof user.email === 'string' &&
+      user.email.toLowerCase().includes(normalizedSearch);
+
+    return displayNameMatches || emailMatches;
   });
 
   return filtered.slice(0, limit);

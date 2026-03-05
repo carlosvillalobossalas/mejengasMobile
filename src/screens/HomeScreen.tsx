@@ -25,9 +25,9 @@ import {
 import type { Group } from '../repositories/groups/groupsRepository';
 import { selectGroup } from '../features/groups/groupsSlice';
 import {
-    searchGroupMembersByDisplayName,
-    type GroupMemberV2,
-} from '../repositories/groupMembersV2/groupMembersV2Repository';
+    searchUsersByName,
+    type User,
+} from '../repositories/users/usersRepository';
 import PlayerProfileModal from '../components/PlayerProfileModal';
 import GroupInfoModal from '../components/GroupInfoModal';
 
@@ -52,9 +52,9 @@ export default function HomeScreen() {
     const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
     const [searchQuery, setSearchQuery] = useState('');
     const [userRole, setUserRole] = useState<string | null>(null);
-    const [searchResults, setSearchResults] = useState<GroupMemberV2[]>([]);
+    const [searchResults, setSearchResults] = useState<User[]>([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [selectedGroupMemberId, setSelectedGroupMemberId] = useState<string | null>(null);
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
     const [selectedMemberName, setSelectedMemberName] = useState<string | undefined>(undefined);
     const [selectedMemberPhoto, setSelectedMemberPhoto] = useState<string | undefined>(undefined);
     const bottomSheetRef = useRef<BottomSheet | null>(null);
@@ -104,7 +104,7 @@ export default function HomeScreen() {
         return () => unsubscribe();
     }, [selectedGroupId, currentUser?.uid]);
 
-    // Execute search when debounced query or selected group changes
+    // Execute search when debounced query changes
     useEffect(() => {
         const executeSearch = async () => {
             if (!debouncedSearchQuery || debouncedSearchQuery.trim().length < 2) {
@@ -116,15 +116,13 @@ export default function HomeScreen() {
 
             setIsSearching(true);
             try {
-                // Search public groups the user doesn't already belong to
+                // Search registered users + public groups
                 const userGroupIds = groups.map(g => g.id);
-                const [memberResults, publicGroups] = await Promise.all([
-                    selectedGroupId
-                        ? searchGroupMembersByDisplayName(selectedGroupId, debouncedSearchQuery)
-                        : Promise.resolve([]),
+                const [usersResults, publicGroups] = await Promise.all([
+                    searchUsersByName(debouncedSearchQuery),
                     searchPublicGroupsByName(debouncedSearchQuery, userGroupIds),
                 ]);
-                setSearchResults(memberResults);
+                setSearchResults(usersResults);
                 setGroupResults(publicGroups);
             } catch (error) {
                 console.error('Error searching:', error);
@@ -136,13 +134,13 @@ export default function HomeScreen() {
         };
 
         executeSearch();
-    }, [debouncedSearchQuery, selectedGroupId, groups]);
+    }, [debouncedSearchQuery, groups]);
 
-    const handleSelectMember = (member: GroupMemberV2) => {
+    const handleSelectMember = (member: User) => {
         searchbarRef.current?.blur();
-        setSelectedGroupMemberId(member.id);
-        setSelectedMemberName(member.displayName);
-        setSelectedMemberPhoto(member.photoUrl || undefined);
+        setSelectedUserId(member.id);
+        setSelectedMemberName(member.displayName ?? undefined);
+        setSelectedMemberPhoto(member.photoURL ?? undefined);
         setSearchQuery('');
         setSearchResults([]);
         setGroupResults([]);
@@ -290,10 +288,10 @@ export default function HomeScreen() {
                                 {searchResults.map((member, index) => (
                                     <View key={member.id}>
                                         <List.Item
-                                            title={member.displayName}
-                                            description={member.isGuest ? 'Jugador invitado' : 'Miembro del grupo'}
-                                            left={member.photoUrl ? () => (
-                                                <Avatar.Image size={40} source={{ uri: member.photoUrl! }} style={styles.searchAvatar} />
+                                            title={member.displayName ?? 'Sin nombre'}
+                                            description={member.email ?? 'Usuario registrado'}
+                                            left={member.photoURL ? () => (
+                                                <Avatar.Image size={40} source={{ uri: member.photoURL ?? undefined }} style={styles.searchAvatar} />
                                             ) : () => (
                                                 <Avatar.Icon size={40} icon="account" style={styles.searchAvatar} />
                                             )}
@@ -530,7 +528,7 @@ export default function HomeScreen() {
                 </BottomSheet>
 
                 <PlayerProfileModal
-                    groupMemberId={selectedGroupMemberId}
+                    userId={selectedUserId}
                     playerName={selectedMemberName}
                     playerPhotoURL={selectedMemberPhoto}
                     bottomSheetRef={bottomSheetRef}
