@@ -57,6 +57,9 @@ type SlotRowProps = {
   onDismissMenu: () => void;
   onSetPosition: (pos: ScheduledPosition | null) => void;
   onClear: () => void;
+  isSub?: boolean;
+  isFirstStarter?: boolean;
+  onRemoveSub?: () => void;
   theme: MD3Theme;
 };
 
@@ -70,12 +73,15 @@ function SlotRow({
   onDismissMenu,
   onSetPosition,
   onClear,
+  isSub = false,
+  isFirstStarter = false,
+  onRemoveSub,
   theme: t,
 }: SlotRowProps) {
   return (
     <View>
       {index > 0 && <Divider />}
-      <View style={styles(t).slotRow}>
+      <View style={[styles(t).slotRow, isSub && styles(t).subSlotRow]}>
         {/* Player selector */}
         <TouchableOpacity
           style={styles(t).playerButton}
@@ -110,52 +116,95 @@ function SlotRow({
                 color={t.colors.onSurfaceVariant}
               />
               <Text variant="bodySmall" style={styles(t).emptySlotText}>
-                Jugador {index + 1}
+                {isSub ? 'Suplente' : `Jugador ${index + 1}`}
               </Text>
             </>
           )}
         </TouchableOpacity>
 
-        {/* Position menu */}
-        <Menu
-          visible={menuOpen}
-          onDismiss={onDismissMenu}
-          anchor={
-            <TouchableOpacity
-              style={[
-                styles(t).posChip,
-                slot.position ? { backgroundColor: t.colors.primary, borderColor: t.colors.primary } : {},
-                !member && styles(t).posChipDisabled,
-              ]}
-              onPress={onToggleMenu}
-              disabled={!member}
+        {/* Position */}
+        {isSub ? (
+          <View style={{ alignItems: 'center' }}>
+            <Menu
+              visible={menuOpen}
+              onDismiss={onDismissMenu}
+              anchor={
+                <TouchableOpacity
+                  style={[styles(t).posChip, { backgroundColor: '#2E7D32', borderColor: '#2E7D32' }]}
+                  onPress={onToggleMenu}
+                >
+                  <Text style={[styles(t).posChipText, { color: '#FFF' }]}>
+                    {slot.position ?? 'DEF'}
+                  </Text>
+                </TouchableOpacity>
+              }
             >
-              <Text
+              {POSITIONS.map(pos => (
+                <Menu.Item
+                  key={pos}
+                  title={`${pos} · ${POSITION_LABELS[pos]}`}
+                  leadingIcon={slot.position === pos ? 'check' : undefined}
+                  onPress={() => {
+                    onSetPosition(pos);
+                    onDismissMenu();
+                  }}
+                />
+              ))}
+            </Menu>
+            <Text style={{ fontSize: 9, color: '#2E7D32', fontWeight: '700', marginTop: 2 }}>SUP</Text>
+          </View>
+        ) : isFirstStarter ? (
+          <View style={[styles(t).posChip, { backgroundColor: '#E8EAF6', borderColor: '#3949AB' }]}>
+            <Text style={[styles(t).posChipText, { color: '#3949AB' }]}>POR</Text>
+          </View>
+        ) : (
+          <Menu
+            visible={menuOpen}
+            onDismiss={onDismissMenu}
+            anchor={
+              <TouchableOpacity
                 style={[
-                  styles(t).posChipText,
-                  { color: slot.position ? '#FFF' : t.colors.onSurfaceVariant },
+                  styles(t).posChip,
+                  slot.position ? { backgroundColor: t.colors.primary, borderColor: t.colors.primary } : {},
+                  !member && styles(t).posChipDisabled,
                 ]}
+                onPress={onToggleMenu}
+                disabled={!member}
               >
-                {slot.position ?? '—'}
-              </Text>
-            </TouchableOpacity>
-          }
-        >
-          {POSITIONS.map(pos => (
-            <Menu.Item
-              key={pos}
-              title={`${pos} · ${POSITION_LABELS[pos]}`}
-              leadingIcon={slot.position === pos ? 'check' : undefined}
-              onPress={() => {
-                onSetPosition(slot.position === pos ? null : pos);
-                onDismissMenu();
-              }}
-            />
-          ))}
-        </Menu>
+                <Text
+                  style={[
+                    styles(t).posChipText,
+                    { color: slot.position ? '#FFF' : t.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {slot.position ?? '—'}
+                </Text>
+              </TouchableOpacity>
+            }
+          >
+            {POSITIONS.filter(pos => pos !== 'POR').map(pos => (
+              <Menu.Item
+                key={pos}
+                title={`${pos} · ${POSITION_LABELS[pos]}`}
+                leadingIcon={slot.position === pos ? 'check' : undefined}
+                onPress={() => {
+                  onSetPosition(slot.position === pos ? null : pos);
+                  onDismissMenu();
+                }}
+              />
+            ))}
+          </Menu>
+        )}
 
-        {/* Clear slot */}
-        {member ? (
+        {/* Clear / delete */}
+        {isSub ? (
+          <TouchableOpacity
+            onPress={onRemoveSub}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Icon name="delete-outline" size={22} color={t.colors.error} />
+          </TouchableOpacity>
+        ) : member ? (
           <TouchableOpacity
             onPress={onClear}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -202,16 +251,27 @@ export default function AddScheduledMatchScreen() {
     selectPlayer,
     setPosition,
     clearSlot,
+    addSub,
+    removeSub,
     filledCount,
   } = useAddScheduledMatch();
 
   const activeTeamNum: 1 | 2 = activeTeam === '1' ? 1 : 2;
   const activeSlots = activeTeam === '1' ? team1Slots : team2Slots;
-  const pickerBlockedIds = pickerTeam === 1 ? team2Ids : team1Ids;
+
+  // Block opposite-team IDs + same-team IDs (minus the slot currently being edited)
   const pickerCurrentId =
     pickerTeam !== null && pickerSlotIndex !== null
       ? (pickerTeam === 1 ? team1Slots : team2Slots)[pickerSlotIndex]?.groupMemberId ?? null
       : null;
+  const pickerBlockedIds = (() => {
+    if (pickerTeam === null) return new Set<string>();
+    const oppositeIds = pickerTeam === 1 ? team2Ids : team1Ids;
+    const sameTeamIds = pickerTeam === 1 ? team1Ids : team2Ids;
+    const blocked = new Set<string>(oppositeIds);
+    sameTeamIds.forEach(id => { if (id !== pickerCurrentId) blocked.add(id); });
+    return blocked;
+  })();
 
   const handleSave = async () => {
     if (isSaving || !selectedGroupId) return;
@@ -221,11 +281,9 @@ export default function AddScheduledMatchScreen() {
         date: matchDate,
         groupId: selectedGroupId,
         team1Players: team1Slots
-          .filter((s): s is typeof s & { groupMemberId: string } => s.groupMemberId !== null)
-          .map(s => ({ groupMemberId: s.groupMemberId, position: s.position })),
+          .map(s => ({ groupMemberId: s.groupMemberId, position: s.position, isSub: s.isSub })),
         team2Players: team2Slots
-          .filter((s): s is typeof s & { groupMemberId: string } => s.groupMemberId !== null)
-          .map(s => ({ groupMemberId: s.groupMemberId, position: s.position })),
+          .map(s => ({ groupMemberId: s.groupMemberId, position: s.position, isSub: s.isSub })),
       });
       setSnackbarMessage('Partido programado guardado');
       setSnackbarVisible(true);
@@ -319,30 +377,47 @@ export default function AddScheduledMatchScreen() {
       {/* ── Player slots ─────────────────────────────────────────────────── */}
       <Card style={styles(theme).card}>
         <Card.Content style={styles(theme).slotsContent}>
-          {activeSlots.map((slot, index) => (
-            <SlotRow
-              key={index}
-              slot={slot}
-              index={index}
-              team={activeTeamNum}
-              member={allMembers.find(m => m.id === slot.groupMemberId)}
-              menuOpen={
-                openMenuFor?.team === activeTeamNum && openMenuFor?.index === index
-              }
-              onOpenPicker={() => openPicker(activeTeamNum, index)}
-              onToggleMenu={() =>
-                setOpenMenuFor(
+          {activeSlots.map((slot, index) => {
+            const firstStarterIndex = activeSlots.findIndex(s => !s.isSub);
+            return (
+              <SlotRow
+                key={index}
+                slot={slot}
+                index={index}
+                team={activeTeamNum}
+                member={allMembers.find(m => m.id === slot.groupMemberId)}
+                menuOpen={
                   openMenuFor?.team === activeTeamNum && openMenuFor?.index === index
-                    ? null
-                    : { team: activeTeamNum, index },
-                )
-              }
-              onDismissMenu={() => setOpenMenuFor(null)}
-              onSetPosition={pos => setPosition(activeTeamNum, index, pos)}
-              onClear={() => clearSlot(activeTeamNum, index)}
-              theme={theme}
-            />
-          ))}
+                }
+                onOpenPicker={() => openPicker(activeTeamNum, index)}
+                onToggleMenu={() =>
+                  setOpenMenuFor(
+                    openMenuFor?.team === activeTeamNum && openMenuFor?.index === index
+                      ? null
+                      : { team: activeTeamNum, index },
+                  )
+                }
+                onDismissMenu={() => setOpenMenuFor(null)}
+                onSetPosition={pos => setPosition(activeTeamNum, index, pos)}
+                onClear={() => clearSlot(activeTeamNum, index)}
+                isSub={slot.isSub}
+                isFirstStarter={!slot.isSub && index === firstStarterIndex}
+                onRemoveSub={slot.isSub ? () => removeSub(activeTeamNum, index) : undefined}
+                theme={theme}
+              />
+            );
+          })}
+
+          {/* Add substitute button */}
+          <Divider />
+          <TouchableOpacity
+            style={styles(theme).addSubButton}
+            onPress={() => addSub(activeTeamNum)}
+            activeOpacity={0.7}
+          >
+            <Icon name="plus-circle-outline" size={20} color="#2E7D32" />
+            <Text style={styles(theme).addSubText}>Agregar suplente</Text>
+          </TouchableOpacity>
         </Card.Content>
       </Card>
 
@@ -457,6 +532,21 @@ const styles = (theme: MD3Theme) =>
       paddingHorizontal: 12,
       gap: 10,
       minHeight: 54,
+    },
+    subSlotRow: {
+      backgroundColor: '#F1F8E9',
+    },
+    addSubButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 12,
+      gap: 8,
+      backgroundColor: '#E8F5E9',
+    },
+    addSubText: {
+      color: '#2E7D32',
+      fontWeight: '600',
     },
     playerButton: {
       flex: 1,

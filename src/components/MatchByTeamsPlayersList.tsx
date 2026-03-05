@@ -42,8 +42,8 @@ type PlayerRowProps = {
 
 function PlayerRow({ player, groupMembers, mvpGroupMemberId, accentColor }: PlayerRowProps) {
   const member = groupMembers.find(m => m.id === player.groupMemberId);
-  const displayName = member?.displayName ?? 'Desconocido';
-  const isMvp = mvpGroupMemberId === player.groupMemberId;
+  const displayName = member?.displayName ?? 'Por asignar';
+  const isMvp = !!player.groupMemberId && mvpGroupMemberId === player.groupMemberId;
   const hasStats = player.goals > 0 || player.assists > 0 || player.ownGoals > 0;
 
   return (
@@ -121,9 +121,9 @@ export default function MatchByTeamsPlayersList({
       </View>
 
       {/* Starters */}
-      {starters.map(p => (
+      {starters.map((p, idx) => (
         <PlayerRow
-          key={p.groupMemberId}
+          key={`${teamName}_starter_${p.groupMemberId || 'empty'}_${idx}`}
           player={p}
           groupMembers={groupMembers}
           mvpGroupMemberId={mvpGroupMemberId}
@@ -138,9 +138,9 @@ export default function MatchByTeamsPlayersList({
             <Icon name="swap-horizontal" size={13} color={color} />
             <Text style={[styles.subsTitle, { color }]}>Suplentes</Text>
           </View>
-          {subs.map(p => (
+          {subs.map((p, idx) => (
             <PlayerRow
-              key={p.groupMemberId}
+              key={`${teamName}_sub_${p.groupMemberId || 'empty'}_${idx}`}
               player={p}
               groupMembers={groupMembers}
               mvpGroupMemberId={mvpGroupMemberId}

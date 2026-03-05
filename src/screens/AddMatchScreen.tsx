@@ -37,6 +37,7 @@ type TeamPlayer = {
   goals: string;
   assists: string;
   ownGoals: string;
+  isSub: boolean;
 };
 
 const POSITIONS: Position[] = ['POR', 'DEF', 'MED', 'DEL'];
@@ -76,6 +77,7 @@ const createDefaultTeamPlayers = (total: number): TeamPlayer[] =>
     goals: '0',
     assists: '0',
     ownGoals: '0',
+    isSub: false,
   }));
 
 const normalizeNumberInput = (value: string) => {
@@ -162,28 +164,36 @@ export default function AddMatchScreen() {
   }, [JSON.stringify(team1Players.map(p => p.groupMemberId)), JSON.stringify(team2Players.map(p => p.groupMemberId))]);
 
   const availablePlayers = useMemo(() => {
-    return players.filter(player => !selectedPlayerIds.has(player.id));
-  }, [players, selectedPlayerIds]);
+    const currentTeam = activeTab === 0 ? team1Players : team2Players;
+    const currentSlotMemberId =
+      selectedRowIndex !== null ? (currentTeam[selectedRowIndex]?.groupMemberId ?? null) : null;
+    return players.filter(p => {
+      if (!selectedPlayerIds.has(p.id)) return true;
+      return p.id === currentSlotMemberId;
+    });
+  }, [players, selectedPlayerIds, selectedRowIndex, activeTab, team1Players, team2Players]);
 
   const validationWarnings = useMemo(() => {
     const warnings: string[] = [];
 
-    const team1Selected = team1Players.filter(p => p.groupMemberId !== null).length;
-    const team2Selected = team2Players.filter(p => p.groupMemberId !== null).length;
+    const team1Starters = team1Players.filter(p => !p.isSub);
+    const team2Starters = team2Players.filter(p => !p.isSub);
+    const team1Selected = team1Starters.filter(p => p.groupMemberId !== null).length;
+    const team2Selected = team2Starters.filter(p => p.groupMemberId !== null).length;
 
-    if (team1Selected < teamSize) {
-      warnings.push(`Equipo 1: faltan ${teamSize - team1Selected} jugador(es) por seleccionar`);
+    if (team1Selected < team1Starters.length) {
+      warnings.push(`Equipo 1: faltan ${team1Starters.length - team1Selected} titular(es) por seleccionar`);
     }
-    if (team2Selected < teamSize) {
-      warnings.push(`Equipo 2: faltan ${teamSize - team2Selected} jugador(es) por seleccionar`);
+    if (team2Selected < team2Starters.length) {
+      warnings.push(`Equipo 2: faltan ${team2Starters.length - team2Selected} titular(es) por seleccionar`);
     }
 
     if (!matchDate) {
       warnings.push('Selecciona una fecha para el partido');
     }
 
-    const team1PorCount = team1Players.filter(p => p.position === 'POR').length;
-    const team2PorCount = team2Players.filter(p => p.position === 'POR').length;
+    const team1PorCount = team1Starters.filter(p => p.position === 'POR').length;
+    const team2PorCount = team2Starters.filter(p => p.position === 'POR').length;
 
     if (team1PorCount !== 1) {
       warnings.push(`Equipo 1 debe tener exactamente 1 portero (tiene ${team1PorCount})`);
@@ -198,10 +208,10 @@ export default function AddMatchScreen() {
   const canSave = validationWarnings.length === 0;
 
   const handlePositionChange = useCallback((index: number, position: Position) => {
-    const updated = [...currentTeamPlayers];
-    updated[index].position = position;
-    const sorted = [...updated].sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
-    setCurrentTeamPlayers(sorted);
+    const updated = currentTeamPlayers.map((p, i) => (i === index ? { ...p, position } : p));
+    const starters = updated.filter(p => !p.isSub).sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+    const subs = updated.filter(p => p.isSub).sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+    setCurrentTeamPlayers([...starters, ...subs]);
   }, [currentTeamPlayers, setCurrentTeamPlayers]);
 
   const handlePlayerSelect = useCallback((member: GroupMemberV2) => {
@@ -244,6 +254,17 @@ export default function AddMatchScreen() {
     setSelectedRowIndex(null);
   }, []);
 
+  const handleAddSub = useCallback(() => {
+    setCurrentTeamPlayers(prev => [
+      ...prev,
+      { position: 'DEF', groupMemberId: null, playerName: '', goals: '0', assists: '0', ownGoals: '0', isSub: true },
+    ]);
+  }, [setCurrentTeamPlayers]);
+
+  const handleRemoveSub = useCallback((index: number) => {
+    setCurrentTeamPlayers(prev => prev.filter((_, i) => i !== index));
+  }, [setCurrentTeamPlayers]);
+
   const handleSaveMatch = async () => {
     // Button is disabled when canSave is false, but guard here for safety
     if (!canSave || !matchDate) return;
@@ -253,8 +274,8 @@ export default function AddMatchScreen() {
       await saveMatch({
         date: matchDate,
         groupId: selectedGroupId!,
-        team1Players,
-        team2Players,
+        team1Players: team1Players,
+        team2Players: team2Players,
         team1Goals,
         team2Goals,
       });
@@ -370,107 +391,166 @@ export default function AddMatchScreen() {
             <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>Gol</Text>
             <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>Ast</Text>
             <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>A.G</Text>
+            <View style={{ width: 28 }} />
           </View>
 
           {/* Table Rows */}
-          {currentTeamPlayers.map((player, index) => (
-            <View key={index} style={styles(theme).tableRow}>
-              {/* Position Picker */}
-              <View style={styles(theme).positionColumn}>
-                {index === 0 ? (
-                  // First row is always the goalkeeper — position is locked
-                  <View style={styles(theme).positionLocked}>
-                    <Text style={styles(theme).positionLockedText}>POR</Text>
-                  </View>
-                ) : (
-                <Menu
-                  visible={positionMenuIndex === index}
-                  onDismiss={() => setPositionMenuIndex(null)}
-                  anchor={
-                    <TouchableOpacity
-                      onPress={() => setPositionMenuIndex(index)}
-                      style={styles(theme).positionAnchor}
+          {currentTeamPlayers.map((player, index) => {
+            const firstStarterIndex = currentTeamPlayers.findIndex(p => !p.isSub);
+            return (
+              <View key={index} style={[styles(theme).tableRow, player.isSub && styles(theme).subRow]}>
+                {/* Position Picker */}
+                <View style={styles(theme).positionColumn}>
+                  {player.isSub ? (
+                    <View style={{ alignItems: 'center' }}>
+                      <Menu
+                        visible={positionMenuIndex === index}
+                        onDismiss={() => setPositionMenuIndex(null)}
+                        anchor={
+                          <TouchableOpacity
+                            onPress={() => setPositionMenuIndex(index)}
+                            style={styles(theme).positionAnchor}
+                          >
+                            <Surface style={[styles(theme).positionPicker, { borderColor: '#2E7D32' }]} elevation={1}>
+                              <Text style={[styles(theme).positionText, { color: '#2E7D32' }]}>{player.position}</Text>
+                              <Icon name="chevron-down" size={16} color="#2E7D32" />
+                            </Surface>
+                          </TouchableOpacity>
+                        }
+                      >
+                        {POSITIONS.map(pos => (
+                          <Menu.Item
+                            key={pos}
+                            onPress={() => { handlePositionChange(index, pos); setPositionMenuIndex(null); }}
+                            title={`${pos} - ${POSITION_LABELS[pos]}`}
+                          />
+                        ))}
+                      </Menu>
+                      <Text style={{ fontSize: 9, color: '#2E7D32', fontWeight: '700', marginTop: 2 }}>SUP</Text>
+                    </View>
+                  ) : index === firstStarterIndex ? (
+                    <View style={styles(theme).positionLocked}>
+                      <Text style={styles(theme).positionLockedText}>POR</Text>
+                    </View>
+                  ) : (
+                    <Menu
+                      visible={positionMenuIndex === index}
+                      onDismiss={() => setPositionMenuIndex(null)}
+                      anchor={
+                        <TouchableOpacity
+                          onPress={() => setPositionMenuIndex(index)}
+                          style={styles(theme).positionAnchor}
+                        >
+                          <Surface style={styles(theme).positionPicker} elevation={1}>
+                            <Text style={styles(theme).positionText}>{player.position}</Text>
+                            <Icon name="chevron-down" size={16} color="#666" />
+                          </Surface>
+                        </TouchableOpacity>
+                      }
                     >
-                      <Surface style={styles(theme).positionPicker} elevation={1}>
-                        <Text style={styles(theme).positionText}>{player.position}</Text>
-                        <Icon name="chevron-down" size={16} color="#666" />
-                      </Surface>
-                    </TouchableOpacity>
-                  }
+                      {POSITIONS.filter(pos => pos !== 'POR').map(pos => (
+                        <Menu.Item
+                          key={pos}
+                          onPress={() => { handlePositionChange(index, pos); setPositionMenuIndex(null); }}
+                          title={`${pos} - ${POSITION_LABELS[pos]}`}
+                        />
+                      ))}
+                    </Menu>
+                  )}
+                </View>
+
+                {/* Player Selector */}
+                <TouchableOpacity
+                  style={styles(theme).playerColumn}
+                  onPress={() => openPlayerPicker(index)}
                 >
-                  {POSITIONS.filter(pos => pos !== 'POR').map(pos => (
-                    <Menu.Item
-                      key={pos}
-                      onPress={() => {
-                        handlePositionChange(index, pos);
-                        setPositionMenuIndex(null);
-                      }}
-                      title={`${pos} - ${POSITION_LABELS[pos]}`}
-                    />
-                  ))}
-                </Menu>
-                )}
-              </View>
+                  <Surface style={styles(theme).playerSelector} elevation={1}>
+                    <Text style={styles(theme).playerText} numberOfLines={1}>
+                      {player.playerName || 'Por asignar'}
+                    </Text>
+                    {player.groupMemberId ? (
+                      <TouchableOpacity
+                        onPress={() => {
+                          const updated = [...currentTeamPlayers];
+                          updated[index] = { ...updated[index], groupMemberId: null, playerName: '' };
+                          setCurrentTeamPlayers(updated);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Icon name="close" size={16} color={theme.colors.error} />
+                      </TouchableOpacity>
+                    ) : (
+                      <Icon name="menu-down" size={20} color="#666" />
+                    )}
+                  </Surface>
+                </TouchableOpacity>
 
-              {/* Player Selector */}
-              <TouchableOpacity
-                style={styles(theme).playerColumn}
-                onPress={() => openPlayerPicker(index)}
-              >
-                <Surface style={styles(theme).playerSelector} elevation={1}>
-                  <Text
-                    style={styles(theme).playerText}
-                    numberOfLines={1}
-                  >
-                    {player.playerName || `J${index + 1}`}
-                  </Text>
-                  <Icon name="menu-down" size={20} color="#666" />
-                </Surface>
-              </TouchableOpacity>
+                {/* Goals */}
+                <View style={styles(theme).statColumn}>
+                  <TextInput
+                    mode="outlined"
+                    value={player.goals}
+                    onChangeText={(value) => handleStatChange(index, 'goals', value)}
+                    onFocus={() => handleStatFocus(index, 'goals')}
+                    onBlur={() => handleStatBlur(index, 'goals')}
+                    keyboardType="number-pad"
+                    style={styles(theme).statInput}
+                    dense
+                  />
+                </View>
 
-              {/* Goals */}
-              <View style={styles(theme).statColumn}>
-                <TextInput
-                  mode="outlined"
-                  value={player.goals}
-                  onChangeText={(value) => handleStatChange(index, 'goals', value)}
-                  onFocus={() => handleStatFocus(index, 'goals')}
-                  onBlur={() => handleStatBlur(index, 'goals')}
-                  keyboardType="number-pad"
-                  style={styles(theme).statInput}
-                  dense
-                />
-              </View>
+                {/* Assists */}
+                <View style={styles(theme).statColumn}>
+                  <TextInput
+                    mode="outlined"
+                    value={player.assists}
+                    onChangeText={(value) => handleStatChange(index, 'assists', value)}
+                    onFocus={() => handleStatFocus(index, 'assists')}
+                    onBlur={() => handleStatBlur(index, 'assists')}
+                    keyboardType="number-pad"
+                    style={styles(theme).statInput}
+                    dense
+                  />
+                </View>
 
-              {/* Assists */}
-              <View style={styles(theme).statColumn}>
-                <TextInput
-                  mode="outlined"
-                  value={player.assists}
-                  onChangeText={(value) => handleStatChange(index, 'assists', value)}
-                  onFocus={() => handleStatFocus(index, 'assists')}
-                  onBlur={() => handleStatBlur(index, 'assists')}
-                  keyboardType="number-pad"
-                  style={styles(theme).statInput}
-                  dense
-                />
-              </View>
+                {/* Own Goals */}
+                <View style={styles(theme).statColumn}>
+                  <TextInput
+                    mode="outlined"
+                    value={player.ownGoals}
+                    onChangeText={(value) => handleStatChange(index, 'ownGoals', value)}
+                    onFocus={() => handleStatFocus(index, 'ownGoals')}
+                    onBlur={() => handleStatBlur(index, 'ownGoals')}
+                    keyboardType="number-pad"
+                    style={styles(theme).statInput}
+                    dense
+                  />
+                </View>
 
-              {/* Own Goals */}
-              <View style={styles(theme).statColumn}>
-                <TextInput
-                  mode="outlined"
-                  value={player.ownGoals}
-                  onChangeText={(value) => handleStatChange(index, 'ownGoals', value)}
-                  onFocus={() => handleStatFocus(index, 'ownGoals')}
-                  onBlur={() => handleStatBlur(index, 'ownGoals')}
-                  keyboardType="number-pad"
-                  style={styles(theme).statInput}
-                  dense
-                />
+                {/* Delete for subs */}
+                <View style={{ width: 28, alignItems: 'center' }}>
+                  {player.isSub && (
+                    <TouchableOpacity
+                      onPress={() => handleRemoveSub(index)}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    >
+                      <Icon name="delete-outline" size={18} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
+
+          {/* Add substitute button */}
+          <TouchableOpacity
+            style={styles(theme).addSubButton}
+            onPress={handleAddSub}
+            activeOpacity={0.7}
+          >
+            <Icon name="plus-circle-outline" size={20} color="#2E7D32" />
+            <Text style={styles(theme).addSubText}>Agregar suplente</Text>
+          </TouchableOpacity>
         </ScrollView>
       ) : (
         <ScrollView style={styles(theme).content} contentContainerStyle={styles(theme).summaryContent}>
@@ -730,6 +810,23 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     borderBottomColor: '#E0E0E0',
     alignItems: 'center',
     minHeight: 60,
+  },
+  subRow: {
+    backgroundColor: '#F1F8E9',
+  },
+  addSubButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    gap: 8,
+    backgroundColor: '#E8F5E9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#C8E6C9',
+  },
+  addSubText: {
+    color: '#2E7D32',
+    fontWeight: '600',
   },
   positionPicker: {
     paddingVertical: 8,

@@ -25,10 +25,10 @@ const POSITION_LABEL: Record<string, string> = {
 };
 
 /** Minimal player shape used internally — satisfied by both MatchPlayer and MatchByTeamsPlayer */
-type AnyMatchPlayer = { groupMemberId: string; position: string };
+type AnyMatchPlayer = { groupMemberId: string | null; position: string };
 
 type ResolvedPlayer = {
-  groupMemberId: string;
+  groupMemberId: string | null;
   position: string;
   displayName: string;
   photoUrl: string | null;
@@ -77,14 +77,17 @@ export default function MvpVotingModal({
       return {
         groupMemberId: p.groupMemberId,
         position: p.position,
-        displayName: member?.displayName ?? 'Jugador',
+        displayName: member?.displayName ?? 'Por asignar',
         photoUrl: member?.photoUrl ?? null,
       };
     };
 
+    const withAssignedPlayer = (p: AnyMatchPlayer): p is AnyMatchPlayer & { groupMemberId: string } =>
+      typeof p.groupMemberId === 'string' && p.groupMemberId.trim().length > 0;
+
     return {
-      team1: match.players1.map(resolve),
-      team2: match.players2.map(resolve),
+      team1: match.players1.filter(withAssignedPlayer).map(resolve),
+      team2: match.players2.filter(withAssignedPlayer).map(resolve),
     };
   }, [match, allPlayers]);
 
@@ -116,12 +119,12 @@ export default function MvpVotingModal({
 
   const s = styles(theme);
 
-  const renderRow = (p: ResolvedPlayer) => {
+  const renderRow = (p: ResolvedPlayer, rowKey: string) => {
     const isVoted = myCurrentVote === p.groupMemberId;
     const isLoadingThis = votingForId === p.groupMemberId;
 
     return (
-      <View key={p.groupMemberId} style={s.row}>
+      <View key={rowKey} style={s.row}>
         <View style={s.playerInfo}>
           {p.photoUrl ? (
             <Avatar.Image size={36} source={{ uri: p.photoUrl }} />
@@ -150,7 +153,7 @@ export default function MvpVotingModal({
         ) : (
           <Button
             mode="outlined"
-            onPress={() => handleVote(p.groupMemberId)}
+            onPress={() => p.groupMemberId && handleVote(p.groupMemberId)}
             disabled={isVoting}
             compact
             style={s.voteButton}
@@ -195,14 +198,14 @@ export default function MvpVotingModal({
           <Text variant="labelLarge" style={s.teamHeader}>
             Equipo 1
           </Text>
-          {participants.team1.map(renderRow)}
+          {participants.team1.map((p, idx) => renderRow(p, `team1_${p.groupMemberId ?? 'empty'}_${idx}`))}
 
           <Divider style={s.divider} />
 
           <Text variant="labelLarge" style={s.teamHeader}>
             Equipo 2
           </Text>
-          {participants.team2.map(renderRow)}
+          {participants.team2.map((p, idx) => renderRow(p, `team2_${p.groupMemberId ?? 'empty'}_${idx}`))}
         </ScrollView>
 
         <Button onPress={onDismiss} style={s.closeButton}>

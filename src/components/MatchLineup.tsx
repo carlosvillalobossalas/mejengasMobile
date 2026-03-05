@@ -8,7 +8,7 @@ import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV
 // LineupPlayer is a superset of MatchPlayer that also accepts the isSub flag
 // present in team-based matches. Both types are structurally compatible.
 type LineupPlayer = {
-    groupMemberId: string;
+    groupMemberId: string | null;
     position: 'POR' | 'DEF' | 'MED' | 'DEL';
     goals: number;
     assists: number;
@@ -106,24 +106,61 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     const currentPlayers = (activeTeam === 0 ? team1Players : team2Players).filter(p => !p.isSub);
     const activeTeamColor = activeTeam === 0 ? team1Color : team2Color;
 
-    const renderPlayer = (player: LineupPlayer) => {
-        if (!player || !player.groupMemberId) return null;
+    const renderPlayer = (player: LineupPlayer, playerIndex: number) => {
+        // Group players by position to calculate indices (supports multiple empty slots)
+        const playersInPosition = currentPlayers.filter(p => p && p.position === player.position);
+        const indexInPosition = playersInPosition.indexOf(player);
+
+        const coords = getPositionCoordinates(player.position, indexInPosition, playersInPosition.length);
+        const hasStats = (player.goals > 0 || player.assists > 0 || player.ownGoals > 0);
+        const key = player.groupMemberId ?? `empty_${player.position}_${playerIndex}`;
+
+        if (!player.groupMemberId) {
+            return (
+                <View
+                    key={key}
+                    style={[
+                        styles(theme).playerContainer,
+                        {
+                            left: `${coords.x}%`,
+                            top: `${coords.y}%`,
+                        },
+                    ]}
+                >
+                    <View style={styles(theme).avatarWrapper}>
+                        <View style={styles(theme).emptyAvatarWrapper}>
+                            <Icon name="account-question" size={26} color="rgba(255,255,255,0.6)" />
+                        </View>
+                        <View
+                            style={[
+                                styles(theme).positionChip,
+                                { borderColor: 'rgba(255,255,255,0.4)' },
+                            ]}
+                        >
+                            <Text style={[styles(theme).positionText, { color: 'rgba(255,255,255,0.6)' }]}> 
+                                {player.position}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <Surface style={[styles(theme).nameSurface, { opacity: 0.6 }]} elevation={1}>
+                        <Text variant="labelSmall" style={[styles(theme).nameText, { color: '#999', fontStyle: 'italic' }]} numberOfLines={1}>
+                            ?
+                        </Text>
+                    </Surface>
+                </View>
+            );
+        }
 
         const playerInfo = getPlayerInfo(player.groupMemberId, allPlayers);
         if (!playerInfo) return null;
         const playerName = getShortName(playerInfo.displayName);
         const playerPhoto = playerInfo.photoUrl;
-        // Group players by position to calculate indices
-        const playersInPosition = currentPlayers.filter(p => p && p.position === player.position);
-        const indexInPosition = playersInPosition.findIndex(p => p.groupMemberId === player.groupMemberId);
-
-        const coords = getPositionCoordinates(player.position, indexInPosition, playersInPosition.length);
-        const hasStats = (player.goals > 0 || player.assists > 0 || player.ownGoals > 0);
-        const isMVP = mvpGroupMemberId && player.groupMemberId === mvpGroupMemberId;
+        const isMVP = player.groupMemberId !== null && mvpGroupMemberId === player.groupMemberId;
 
         return (
             <View
-                key={player.groupMemberId}
+                key={key}
                 style={[
                     styles(theme).playerContainer,
                     {
@@ -288,7 +325,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                 </View>
 
                 {/* Players */}
-                {currentPlayers.map(player => renderPlayer(player))}
+                {currentPlayers.map((player, index) => renderPlayer(player, index))}
             </View>
         </View>
     );
@@ -410,6 +447,14 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
         borderWidth: 3,
         borderColor: '#FFF',
         backgroundColor: '#FFF',
+    },
+    emptyAvatarWrapper: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: 'rgba(0,0,0,0.25)',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     avatar: {
         backgroundColor: 'transparent',

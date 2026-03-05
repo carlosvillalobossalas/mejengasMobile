@@ -3,6 +3,24 @@ const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const { chunk } = require('../utils/helpers');
 
+const VALID_POSITIONS = new Set(['POR', 'DEF', 'MED', 'DEL']);
+
+const normalizePlayers = players =>
+  (players ?? []).map(player => {
+    const rawGroupMemberId = typeof player?.groupMemberId === 'string'
+      ? player.groupMemberId.trim()
+      : null;
+
+    return {
+      groupMemberId: rawGroupMemberId ? rawGroupMemberId : null,
+      position: VALID_POSITIONS.has(player?.position) ? player.position : 'DEF',
+      goals: Number(player?.goals ?? 0) || 0,
+      assists: Number(player?.assists ?? 0) || 0,
+      ownGoals: Number(player?.ownGoals ?? 0) || 0,
+      isSub: Boolean(player?.isSub ?? false),
+    };
+  });
+
 /**
  * Applies (or reverts) a match's statistical impact to all affected seasonStats
  * documents within the given transaction.
@@ -115,6 +133,9 @@ exports.editMatch = onCall(async request => {
     throw new HttpsError('invalid-argument', 'date es requerida y debe ser una cadena ISO-8601.');
   }
 
+  const normalizedPlayers1 = normalizePlayers(players1);
+  const normalizedPlayers2 = normalizePlayers(players2);
+
   const db = admin.firestore();
   const FieldValue = admin.firestore.FieldValue;
 
@@ -146,8 +167,8 @@ exports.editMatch = onCall(async request => {
 
   // ── STEP 1: Validate no duplicate players ─────────────────────────────────
   // Null groupMemberIds represent empty/unassigned slots — skip them in validation.
-  const ids1 = players1.map(p => p.groupMemberId).filter(id => !!id);
-  const ids2 = players2.map(p => p.groupMemberId).filter(id => !!id);
+  const ids1 = normalizedPlayers1.map(p => p.groupMemberId).filter(id => !!id);
+  const ids2 = normalizedPlayers2.map(p => p.groupMemberId).filter(id => !!id);
 
   const set1 = new Set(ids1);
   if (set1.size < ids1.length) {
@@ -212,13 +233,13 @@ exports.editMatch = onCall(async request => {
       season: old.season,
       goalsTeam1,
       goalsTeam2,
-      players1,
-      players2,
+      players1: normalizedPlayers1,
+      players2: normalizedPlayers2,
     };
 
     const baseMatchUpdate = {
-      players1,
-      players2,
+      players1: normalizedPlayers1,
+      players2: normalizedPlayers2,
       goalsTeam1,
       goalsTeam2,
       date: admin.firestore.Timestamp.fromDate(parsedDate),

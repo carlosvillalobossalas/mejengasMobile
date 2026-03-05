@@ -11,6 +11,7 @@ export type ScheduledPosition = 'POR' | 'DEF' | 'MED' | 'DEL';
 export type ScheduledSlot = {
   groupMemberId: string | null;
   position: ScheduledPosition | null;
+  isSub: boolean;
 };
 
 const PLAYERS_BY_TYPE: Record<string, number> = {
@@ -31,7 +32,7 @@ const createEmptySlots = (count: number, groupType: string): ScheduledSlot[] =>
   Array.from({ length: count }, (_, i) => {
     const formation = DEFAULT_FORMATION[groupType];
     const position: ScheduledPosition = formation?.[i] ?? (i === 0 ? 'POR' : 'DEF');
-    return { groupMemberId: null, position };
+    return { groupMemberId: null, position, isSub: false };
   });
 
 export function useAddScheduledMatch() {
@@ -116,10 +117,14 @@ export function useAddScheduledMatch() {
     const setSlots = team === 1 ? setTeam1Slots : setTeam2Slots;
     setSlots(prev => {
       const updated = prev.map((s, i) => (i === slotIndex ? { ...s, position } : s));
-      // Re-sort: POR→DEF→MED→DEL; null positions go last
-      return [...updated].sort(
+      // Sort starters and subs separately, keeping subs below starters
+      const starters = [...updated.filter(s => !s.isSub)].sort(
         (a, b) => (POSITION_ORDER[a.position ?? ''] ?? 99) - (POSITION_ORDER[b.position ?? ''] ?? 99),
       );
+      const subs = [...updated.filter(s => s.isSub)].sort(
+        (a, b) => (POSITION_ORDER[a.position ?? ''] ?? 99) - (POSITION_ORDER[b.position ?? ''] ?? 99),
+      );
+      return [...starters, ...subs];
     });
   };
 
@@ -127,9 +132,22 @@ export function useAddScheduledMatch() {
     const setSlots = team === 1 ? setTeam1Slots : setTeam2Slots;
     setSlots(prev =>
       prev.map((s, i) =>
-        i === slotIndex ? { groupMemberId: null, position: null } : s,
+        i === slotIndex ? { ...s, groupMemberId: null } : s,
       ),
     );
+  };
+
+  const addSub = (team: 1 | 2) => {
+    const setSlots = team === 1 ? setTeam1Slots : setTeam2Slots;
+    setSlots(prev => [
+      ...prev,
+      { groupMemberId: null, position: 'DEF', isSub: true },
+    ]);
+  };
+
+  const removeSub = (team: 1 | 2, slotIndex: number) => {
+    const setSlots = team === 1 ? setTeam1Slots : setTeam2Slots;
+    setSlots(prev => prev.filter((_, i) => i !== slotIndex));
   };
 
   const filledCount = (slots: ScheduledSlot[]) =>
@@ -158,6 +176,8 @@ export function useAddScheduledMatch() {
     selectPlayer,
     setPosition,
     clearSlot,
+    addSub,
+    removeSub,
     filledCount,
   };
 }

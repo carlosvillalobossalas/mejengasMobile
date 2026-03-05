@@ -13,7 +13,8 @@ type PlayersListProps = {
   mvpGroupMemberId?: string | null;
 };
 
-const getPlayerInfo = (groupMemberId: string, allPlayers: GroupMemberV2[]): GroupMemberV2 | undefined => {
+const getPlayerInfo = (groupMemberId: string | null, allPlayers: GroupMemberV2[]): GroupMemberV2 | undefined => {
+  if (!groupMemberId) return undefined;
   return allPlayers.find(p => p.id === groupMemberId);
 };
 
@@ -30,6 +31,16 @@ const getPositionColor = (position: string, theme: MD3Theme): string => {
   }
 };
 
+const POSITION_ORDER: Record<string, number> = { POR: 0, DEF: 1, MED: 2, DEL: 3 };
+
+const sortByPosition = (players: MatchPlayer[]) =>
+  [...players].sort((a, b) => (POSITION_ORDER[a.position] ?? 9) - (POSITION_ORDER[b.position] ?? 9));
+
+const splitRoster = (players: MatchPlayer[]) => ({
+  starters: sortByPosition(players.filter(p => !p.isSub)),
+  subs: sortByPosition(players.filter(p => p.isSub)),
+});
+
 const PlayersList: React.FC<PlayersListProps> = ({
   team1Players = [],
   team2Players = [],
@@ -38,14 +49,14 @@ const PlayersList: React.FC<PlayersListProps> = ({
 }) => {
   const theme = useTheme();
 
-  const renderPlayer = (player: MatchPlayer) => {
+  const renderPlayer = (player: MatchPlayer, rowKey: string) => {
     const playerInfo = getPlayerInfo(player.groupMemberId, allPlayers);
-    const playerName = playerInfo?.displayName ?? 'Desconocido';
-    const isMVP = mvpGroupMemberId && player.groupMemberId === mvpGroupMemberId;
+    const playerName = playerInfo?.displayName ?? 'Por asignar';
+    const isMVP = !!player.groupMemberId && mvpGroupMemberId === player.groupMemberId;
     const hasStats = player.goals > 0 || player.assists > 0 || player.ownGoals > 0;
 
     return (
-      <View key={player.groupMemberId} style={styles(theme).playerRow}>
+      <View key={rowKey} style={styles(theme).playerRow}>
         <View style={styles(theme).playerInfo}>
           <View
             style={[
@@ -60,6 +71,11 @@ const PlayersList: React.FC<PlayersListProps> = ({
           <Text variant="bodyMedium" style={styles(theme).playerName}>
             {playerName}
           </Text>
+          {player.isSub && (
+            <View style={styles(theme).subBadge}>
+              <Text style={styles(theme).subText}>SUP</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles(theme).statsContainer}>
@@ -97,29 +113,38 @@ const PlayersList: React.FC<PlayersListProps> = ({
     );
   };
 
+  const renderTeamSection = (players: MatchPlayer[], teamLabel: string) => {
+    const { starters, subs } = splitRoster(players);
+    return (
+      <View style={styles(theme).teamSection}>
+        <View style={styles(theme).teamHeader}>
+          <Text variant="titleMedium" style={styles(theme).teamTitle}>
+            {teamLabel}
+          </Text>
+        </View>
+        {starters.map((player, idx) =>
+          renderPlayer(player, `${teamLabel}_starter_${player.groupMemberId ?? 'empty'}_${idx}`),
+        )}
+        {subs.length > 0 && (
+          <>
+            <Divider style={styles(theme).subDivider} />
+            <Text variant="labelMedium" style={styles(theme).subLabel}>
+              Suplentes
+            </Text>
+            {subs.map((player, idx) =>
+              renderPlayer(player, `${teamLabel}_sub_${player.groupMemberId ?? 'empty'}_${idx}`),
+            )}
+          </>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles(theme).container}>
-      {/* Team 1 */}
-      <View style={styles(theme).teamSection}>
-        <View style={styles(theme).teamHeader}>
-          <Text variant="titleMedium" style={styles(theme).teamTitle}>
-            Equipo 1
-          </Text>
-        </View>
-        {team1Players.map(player => renderPlayer(player))}
-      </View>
-
+      {renderTeamSection(team1Players, 'Equipo 1')}
       <Divider style={styles(theme).divider} />
-
-      {/* Team 2 */}
-      <View style={styles(theme).teamSection}>
-        <View style={styles(theme).teamHeader}>
-          <Text variant="titleMedium" style={styles(theme).teamTitle}>
-            Equipo 2
-          </Text>
-        </View>
-        {team2Players.map(player => renderPlayer(player))}
-      </View>
+      {renderTeamSection(team2Players, 'Equipo 2')}
     </View>
   );
 };
@@ -143,31 +168,45 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   },
   playerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 6,
   },
   playerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     flex: 1,
   },
   positionBadge: {
-    width: 40,
-    height: 24,
-    borderRadius: 12,
+    width: 36,
+    height: 22,
+    borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   positionText: {
     color: '#FFF',
     fontWeight: 'bold',
-    fontSize: 10,
+    fontSize: 11,
   },
   playerName: {
     flex: 1,
+    color: theme.colors.onSurface,
   },
+  subBadge: {
+    backgroundColor: '#B0BEC5',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  subText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  subDivider: { marginVertical: 6 },
+  subLabel: { color: '#888', marginBottom: 4 },
   statsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -185,16 +224,17 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     gap: 2,
   },
   statValue: {
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '600',
     color: theme.colors.primary,
   },
   statValueBlue: {
-    fontWeight: 'bold',
-    color: theme.colors.secondary,
+    fontSize: 13,
+    color: '#666',
   },
   statValueRed: {
-    fontWeight: 'bold',
-    color: theme.colors.error,
+    fontSize: 13,
+    color: '#E57373',
   },
   divider: {
     height: 2,

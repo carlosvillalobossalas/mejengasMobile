@@ -7,6 +7,7 @@ export type TeamPlayer = {
   goals: string;
   assists: string;
   ownGoals: string;
+  isSub?: boolean;
 };
 
 export type MatchToSave = {
@@ -128,6 +129,7 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
       goals: parseInt(p.goals, 10) || 0,
       assists: parseInt(p.assists, 10) || 0,
       ownGoals: parseInt(p.ownGoals, 10) || 0,
+      isSub: p.isSub ?? false,
     })),
     players2: match.team2Players.map(p => ({
       groupMemberId: p.groupMemberId,
@@ -135,6 +137,7 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
       goals: parseInt(p.goals, 10) || 0,
       assists: parseInt(p.assists, 10) || 0,
       ownGoals: parseInt(p.ownGoals, 10) || 0,
+      isSub: p.isSub ?? false,
     })),
     // MVP voting window: open immediately, closes in 24 h
     mvpVoting: {
@@ -192,9 +195,10 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
 // ─── Scheduled match ─────────────────────────────────────────────────────────
 
 export type ScheduledPlayerToSave = {
-  groupMemberId: string;
+  groupMemberId: string | null;
   /** Position is optional when scheduling — defaults to 'DEF' if not chosen */
   position: 'POR' | 'DEF' | 'MED' | 'DEL' | null;
+  isSub?: boolean;
 };
 
 export type ScheduledMatchToSave = {
@@ -238,6 +242,7 @@ export async function saveScheduledMatch(
       goals: 0,
       assists: 0,
       ownGoals: 0,
+      isSub: p.isSub ?? false,
     })),
     players2: match.team2Players.map(p => ({
       groupMemberId: p.groupMemberId,
@@ -245,6 +250,7 @@ export async function saveScheduledMatch(
       goals: 0,
       assists: 0,
       ownGoals: 0,
+      isSub: p.isSub ?? false,
     })),
     mvpVoting: null,
     mvpVotes: {},
