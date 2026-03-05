@@ -32,6 +32,7 @@ import auth from '@react-native-firebase/auth';
 import { useAppSelector } from '../app/hooks';
 import {
   getGroupMembersV2ByGroupId,
+  subscribeToGroupMembersV2ByGroupId,
   type GroupMemberV2,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import { getMatchById, type MatchPlayer } from '../repositories/matches/matchesRepository';
@@ -250,6 +251,21 @@ export default function EditMatchScreen({ route }: Props) {
 
     load();
   }, [matchId, selectedGroupId]);
+
+  // Keep members list in sync (e.g. when a new player is created in the group)
+  useEffect(() => {
+    if (!selectedGroupId) return;
+
+    const unsubscribe = subscribeToGroupMembersV2ByGroupId(
+      selectedGroupId,
+      members => setPlayers(members),
+      error => {
+        console.error('EditMatchScreen: members subscription error', error);
+      },
+    );
+
+    return unsubscribe;
+  }, [selectedGroupId]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const currentTeamPlayers = activeTab === 0 ? team1Players : team2Players;

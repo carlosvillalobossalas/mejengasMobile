@@ -32,6 +32,7 @@ import auth from '@react-native-firebase/auth';
 import { useAppSelector } from '../app/hooks';
 import {
   getGroupMembersV2ByGroupId,
+  subscribeToGroupMembersV2ByGroupId,
   type GroupMemberV2,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import {
@@ -239,6 +240,21 @@ export default function EditChallengeMatchScreen({ route }: Props) {
     };
     load();
   }, [matchId, selectedGroupId]);
+
+  // Keep members list in sync (e.g. when a new player is created in the group)
+  useEffect(() => {
+    if (!selectedGroupId) return;
+
+    const unsubscribe = subscribeToGroupMembersV2ByGroupId(
+      selectedGroupId,
+      members => setGroupMembers(members),
+      error => {
+        console.error('EditChallengeMatchScreen: members subscription error', error);
+      },
+    );
+
+    return unsubscribe;
+  }, [selectedGroupId]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const goalsTeam = useMemo(
