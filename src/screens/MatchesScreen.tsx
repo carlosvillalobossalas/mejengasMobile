@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import {
   Text,
@@ -20,6 +21,7 @@ import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material
 import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import auth from '@react-native-firebase/auth';
 
 import { useAppSelector } from '../app/hooks';
 import { subscribeToMatchesByGroupId, type Match } from '../repositories/matches/matchesRepository';
@@ -52,6 +54,7 @@ export default function MatchesScreen() {
   const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
   // Whether the current user is admin or owner of the selected group
   const [isAdminOrOwner, setIsAdminOrOwner] = useState(false);
+  const [deletingMatchId, setDeletingMatchId] = useState<string | null>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   // One ref per card — used to measure position in scroll content after collapse
@@ -201,6 +204,64 @@ export default function MatchesScreen() {
     [selectedVotingMatchId, castVote],
   );
 
+  const deleteMatch = useCallback(async (matchId: string) => {
+    if (deletingMatchId) return;
+
+    setDeletingMatchId(matchId);
+    try {
+      const currentUser = auth().currentUser;
+      if (!currentUser) throw new Error('No autenticado');
+
+      const idToken = await currentUser.getIdToken();
+
+      const response = await fetch(
+        'https://us-central1-mejengas-a7794.cloudfunctions.net/deleteMatch',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ data: { matchId } }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        const errorMessage =
+          (errorBody as { error?: { message?: string } })?.error?.message ??
+          'No se pudo eliminar el partido';
+        throw new Error(errorMessage);
+      }
+
+      setExpandedMatchId(prev => (prev === matchId ? null : prev));
+      setSelectedVotingMatchId(prev => (prev === matchId ? null : prev));
+      Alert.alert('Partido eliminado', 'El partido se eliminó correctamente.');
+    } catch (err) {
+      console.error('MatchesScreen: error deleting match', err);
+      Alert.alert('Error', 'No se pudo eliminar el partido. Intenta de nuevo.');
+    } finally {
+      setDeletingMatchId(null);
+    }
+  }, [deletingMatchId]);
+
+  const handleDeleteMatchPress = useCallback((matchId: string) => {
+    Alert.alert(
+      'Eliminar partido',
+      'Esta acción borrará el partido de forma permanente. Si estaba finalizado, también se revertirán sus estadísticas. ¿Deseas continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            void deleteMatch(matchId);
+          },
+        },
+      ],
+    );
+  }, [deleteMatch]);
+
   const renderBackdrop = useCallback(
     (props: any) => (
       <BottomSheetBackdrop
@@ -347,6 +408,22 @@ export default function MatchesScreen() {
                       <Icon name="pencil" size={22} color={theme.colors.primary} />
                       <Text variant="labelSmall" style={styles(theme).expandedActionLabel}>
                         Editar
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {isAdminOrOwner && (
+                    <TouchableOpacity
+                      onPress={() => handleDeleteMatchPress(match.id)}
+                      style={styles(theme).expandedActionItem}
+                      activeOpacity={0.7}
+                      disabled={deletingMatchId === match.id}
+                    >
+                      <Icon name="delete-outline" size={22} color={theme.colors.error} />
+                      <Text
+                        variant="labelSmall"
+                        style={styles(theme).expandedActionLabelDanger}
+                      >
+                        {deletingMatchId === match.id ? 'Eliminando...' : 'Eliminar'}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -808,5 +885,8 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   },
   expandedActionLabel: {
     color: theme.colors.onSurfaceVariant,
+  },
+  expandedActionLabelDanger: {
+    color: theme.colors.error,
   },
 });
