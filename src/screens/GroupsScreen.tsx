@@ -7,6 +7,7 @@ import {
   ScrollView,
   Platform,
   Keyboard,
+  Switch as NativeSwitch,
 } from 'react-native';
 import {
   Button,
@@ -19,7 +20,6 @@ import {
   TextInput,
   FAB,
   SegmentedButtons,
-  Switch,
   useTheme,
 } from 'react-native-paper';
 
@@ -334,13 +334,16 @@ export default function GroupsScreen() {
                         : 'Los equipos se arman libremente por partido'}
                     </Text>
                   </View>
-                  <Switch
+                  <NativeSwitch
                     value={hasFixedTeams}
                     onValueChange={val => {
                       setHasFixedTeams(val);
                       if (val) setIsChallengeMode(false);
                     }}
                     disabled={isCreating || isChallengeMode}
+                    trackColor={{ false: '#D1D5DB', true: theme.colors.primary }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor="#D1D5DB"
                   />
                 </View>
 
@@ -353,13 +356,16 @@ export default function GroupsScreen() {
                         : 'Activar para grupos donde siempre juega el mismo equipo'}
                     </Text>
                   </View>
-                  <Switch
+                  <NativeSwitch
                     value={isChallengeMode}
                     onValueChange={val => {
                       setIsChallengeMode(val);
                       if (val) setHasFixedTeams(false);
                     }}
                     disabled={isCreating || hasFixedTeams}
+                    trackColor={{ false: '#D1D5DB', true: theme.colors.primary }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor="#D1D5DB"
                   />
                 </View>
 
