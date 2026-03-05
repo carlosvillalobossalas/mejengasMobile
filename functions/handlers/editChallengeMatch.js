@@ -142,11 +142,8 @@ exports.editChallengeMatch = onCall(async request => {
     throw new HttpsError('permission-denied', 'Solo administradores pueden editar partidos.');
   }
 
-  // Validate no duplicate players
-  const playerIds = players.map(p => p.groupMemberId);
-  if (playerIds.some(id => !id)) {
-    throw new HttpsError('invalid-argument', 'Todos los jugadores deben tener un groupMemberId válido.');
-  }
+  // Validate no duplicate players — null groupMemberIds are allowed (empty/unassigned slots)
+  const playerIds = players.map(p => p.groupMemberId).filter(id => !!id);
   const playerIdSet = new Set(playerIds);
   if (playerIdSet.size < playerIds.length) {
     throw new HttpsError('invalid-argument', 'Hay jugadores duplicados en el equipo.');

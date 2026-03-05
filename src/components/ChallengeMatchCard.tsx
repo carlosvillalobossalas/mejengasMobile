@@ -163,8 +163,8 @@ export default function ChallengeMatchCard({
   const isCancelled = match.status === 'cancelled';
 
   const sortedPlayers = sortByPosition(match.players);
-  const starters = sortedPlayers.filter(p => !p.isSub);
-  const subs = sortedPlayers.filter(p => p.isSub);
+  const starters = sortedPlayers.filter(p => !p.isSub && p.groupMemberId !== null);
+  const subs = sortedPlayers.filter(p => p.isSub && p.groupMemberId !== null);
 
   const opponentLabel = match.opponentName.trim() || 'Rival';
 

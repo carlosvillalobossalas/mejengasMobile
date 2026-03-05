@@ -56,16 +56,18 @@ export default function ChallengeMvpVotingModal({
 
   const participants = useMemo(() => {
     if (!match) return [];
-    return match.players.map(p => {
-      const member = allPlayers.find(m => m.id === p.groupMemberId);
-      return {
-        groupMemberId: p.groupMemberId,
-        position: p.position,
-        displayName: member?.displayName ?? 'Jugador',
-        photoUrl: member?.photoUrl ?? null,
-        isSub: p.isSub,
-      };
-    });
+    return match.players
+      .filter((p): p is (typeof p) & { groupMemberId: string } => p.groupMemberId !== null)
+      .map(p => {
+        const member = allPlayers.find(m => m.id === p.groupMemberId);
+        return {
+          groupMemberId: p.groupMemberId,
+          position: p.position,
+          displayName: member?.displayName ?? 'Jugador',
+          photoUrl: member?.photoUrl ?? null,
+          isSub: p.isSub,
+        };
+      });
   }, [match, allPlayers]);
 
   const timeRemainingText = useMemo(() => {

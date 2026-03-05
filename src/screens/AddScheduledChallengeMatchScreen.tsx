@@ -43,6 +43,7 @@ type Position = 'POR' | 'DEF' | 'MED' | 'DEL';
 type Slot = {
   groupMemberId: string | null;
   position: Position;
+  isSub: boolean;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -60,14 +61,40 @@ const PLAYERS_BY_TYPE: Record<string, number> = {
   futbol_11: 11,
 };
 
-const getDefaultPosition = (index: number): Position => {
-  if (index === 0) return 'POR';
-  return 'DEF';
+const POSITION_ORDER: Record<Position, number> = { POR: 0, DEF: 1, MED: 2, DEL: 3 };
+
+const sortSlots = <T extends { position: Position; isSub: boolean }>(arr: T[]): T[] => {
+  const starters = arr.filter(p => !p.isSub).sort(
+    (a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position],
+  );
+  const subs = arr.filter(p => p.isSub).sort(
+    (a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position],
+  );
+  return [...starters, ...subs];
 };
 
-const createSlot = (index: number): Slot => ({
+const DEFAULT_FORMATION: Record<number, Position[]> = {
+  5:  ['POR', 'DEF', 'DEF', 'DEL', 'DEL'],
+  7:  ['POR', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'DEL'],
+  11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
+};
+
+const getDefaultPosition = (index: number, total: number): Position => {
+  const slots = DEFAULT_FORMATION[total];
+  if (slots && index < slots.length) return slots[index];
+  return index === 0 ? 'POR' : 'DEF';
+};
+
+const createSlot = (index: number, total: number): Slot => ({
   groupMemberId: null,
-  position: getDefaultPosition(index),
+  position: getDefaultPosition(index, total),
+  isSub: false,
+});
+
+const createSubSlot = (): Slot => ({
+  groupMemberId: null,
+  position: 'DEF',
+  isSub: true,
 });
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -103,7 +130,7 @@ export default function AddScheduledChallengeMatchScreen() {
         const group = groupsMap.get(selectedGroupId);
         const count = PLAYERS_BY_TYPE[group?.type ?? 'futbol_7'] ?? 7;
         setAllMembers(members);
-        setSlots(Array.from({ length: count }, (_, i) => createSlot(i)));
+        setSlots(Array.from({ length: count }, (_, i) => createSlot(i, count)));
       } catch (err) {
         console.error('AddScheduledChallengeMatchScreen: error loading', err);
       } finally {
@@ -134,11 +161,7 @@ export default function AddScheduledChallengeMatchScreen() {
   );
 
   const handleSetPosition = useCallback((index: number, pos: Position) => {
-    setSlots(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], position: pos };
-      return updated;
-    });
+    setSlots(prev => sortSlots(prev.map((s, i) => i === index ? { ...s, position: pos } : s)));
   }, []);
 
   const handleClearSlot = useCallback((index: number) => {
@@ -149,13 +172,27 @@ export default function AddScheduledChallengeMatchScreen() {
     });
   }, []);
 
+  const handleAddSubSlot = useCallback(() => {
+    setSlots(prev => [...prev, createSubSlot()]);
+  }, []);
+
+  const handleRemoveSubSlot = useCallback((index: number) => {
+    setSlots(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const handleSave = async () => {
     if (isSaving || !selectedGroupId) return;
+
+    if (!opponentName.trim()) {
+      setSnackbarMessage('Por favor ingresa el nombre del rival');
+      setSnackbarVisible(true);
+      return;
+    }
+
     setIsSaving(true);
     try {
       const filledSlots: ScheduledChallengePlayerToSave[] = slots
-        .filter((s): s is Slot & { groupMemberId: string } => s.groupMemberId !== null)
-        .map(s => ({ groupMemberId: s.groupMemberId, position: s.position }));
+        .map(s => ({ groupMemberId: s.groupMemberId, position: s.position, isSub: s.isSub }));
 
       await saveScheduledChallengeMatch({
         date: matchDate,
@@ -260,7 +297,7 @@ export default function AddScheduledChallengeMatchScreen() {
               return (
                 <React.Fragment key={index}>
                   {index > 0 && <Divider />}
-                  <View style={styles(theme).slotRow}>
+                  <View style={[styles(theme).slotRow, slot.isSub && styles(theme).subSlotRow]}>
                     {/* Player button */}
                     <TouchableOpacity
                       style={styles(theme).playerButton}
@@ -298,14 +335,46 @@ export default function AddScheduledChallengeMatchScreen() {
                             color={theme.colors.onSurfaceVariant}
                           />
                           <Text variant="bodySmall" style={styles(theme).emptySlotText}>
-                            Jugador {index + 1}
+                            {slot.isSub ? 'Suplente' : `Jugador ${index + 1}`}
                           </Text>
                         </>
                       )}
                     </TouchableOpacity>
 
-                    {/* Position chip — locked POR for index 0 */}
-                    {index === 0 ? (
+                    {/* Position chip */}
+                    {slot.isSub ? (
+                      <View style={{ alignItems: 'center' }}>
+                        <Menu
+                          visible={openMenuFor === index}
+                          onDismiss={() => setOpenMenuFor(null)}
+                          anchor={
+                            <TouchableOpacity
+                              style={[styles(theme).posChip, styles(theme).subChip]}
+                              onPress={() => setOpenMenuFor(index)}
+                            >
+                              <Text style={[styles(theme).posChipText, { color: '#2E7D32' }]}>
+                                {slot.position}
+                              </Text>
+                            </TouchableOpacity>
+                          }
+                        >
+                          {POSITIONS.map(pos => (
+                            <Menu.Item
+                              key={pos}
+                              title={`${pos} · ${POSITION_LABELS[pos]}`}
+                              leadingIcon={slot.position === pos ? 'check' : undefined}
+                              onPress={() => {
+                                handleSetPosition(index, pos);
+                                setOpenMenuFor(null);
+                              }}
+                            />
+                          ))}
+                        </Menu>
+                        <Text style={{ fontSize: 9, color: '#2E7D32', fontWeight: '700', marginTop: 2 }}>
+                          SUP
+                        </Text>
+                      </View>
+                    ) : index === 0 ? (
                       <View style={[styles(theme).posChip, { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}>
                         <Text style={[styles(theme).posChipText, { color: '#FFF' }]}>POR</Text>
                       </View>
@@ -344,8 +413,15 @@ export default function AddScheduledChallengeMatchScreen() {
                       </Menu>
                     )}
 
-                    {/* Clear */}
-                    {slot.groupMemberId ? (
+                    {/* Clear / Delete sub */}
+                    {slot.isSub ? (
+                      <TouchableOpacity
+                        onPress={() => handleRemoveSubSlot(index)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Icon name="delete-outline" size={22} color={theme.colors.error} />
+                      </TouchableOpacity>
+                    ) : slot.groupMemberId ? (
                       <TouchableOpacity
                         onPress={() => handleClearSlot(index)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -361,6 +437,16 @@ export default function AddScheduledChallengeMatchScreen() {
             })}
           </Card.Content>
         </Card>
+
+        {/* Add substitute */}
+        <TouchableOpacity
+          style={styles(theme).addSubButton}
+          onPress={handleAddSubSlot}
+          activeOpacity={0.7}
+        >
+          <Icon name="plus-circle-outline" size={20} color="#2E7D32" />
+          <Text style={styles(theme).addSubText}>Agregar suplente</Text>
+        </TouchableOpacity>
 
         {/* Save */}
         <Button
@@ -483,6 +569,29 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     gap: 10,
+  },
+  subSlotRow: {
+    backgroundColor: '#F1F8E9',
+  },
+  subChip: {
+    backgroundColor: '#C8E6C9',
+    borderColor: '#C8E6C9',
+  },
+  addSubButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  addSubText: {
+    fontSize: 14,
+    color: '#2E7D32',
+    fontWeight: '600' as const,
   },
   playerButton: {
     flex: 1,

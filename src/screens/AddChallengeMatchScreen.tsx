@@ -57,6 +57,18 @@ const PLAYERS_BY_TYPE: Record<string, number> = {
   futbol_11: 11,
 };
 
+const POSITION_ORDER: Record<Position, number> = { POR: 0, DEF: 1, MED: 2, DEL: 3 };
+
+const sortPlayers = <T extends { position: Position; isSub: boolean }>(arr: T[]): T[] => {
+  const starters = arr.filter(p => !p.isSub).sort(
+    (a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position],
+  );
+  const subs = arr.filter(p => p.isSub).sort(
+    (a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position],
+  );
+  return [...starters, ...subs];
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const normalizeNumberInput = (value: string): string => {
@@ -83,12 +95,34 @@ const formatDate = (date: Date): string => {
   return `${datePart}, ${timePart}`;
 };
 
-const createEmptyPlayer = (index: number): ChallengeTeamPlayer => ({
-  position: index === 0 ? 'POR' : 'DEF',
+const DEFAULT_FORMATION: Record<number, Position[]> = {
+  5:  ['POR', 'DEF', 'DEF', 'DEL', 'DEL'],
+  7:  ['POR', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'DEL'],
+  11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
+};
+
+const getDefaultPosition = (index: number, total: number): Position => {
+  const slots = DEFAULT_FORMATION[total];
+  if (slots && index < slots.length) return slots[index];
+  return index === 0 ? 'POR' : 'DEF';
+};
+
+const createEmptyPlayer = (index: number, total: number): ChallengeTeamPlayer => ({
+  position: getDefaultPosition(index, total),
   groupMemberId: null,
   goals: '0',
   assists: '0',
   ownGoals: '0',
+  isSub: false,
+});
+
+const createSubPlayer = (): ChallengeTeamPlayer => ({
+  position: 'DEF',
+  groupMemberId: null,
+  goals: '0',
+  assists: '0',
+  ownGoals: '0',
+  isSub: true,
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -133,7 +167,7 @@ export default function AddChallengeMatchScreen() {
         const group = groupsMap.get(selectedGroupId);
         const count = PLAYERS_BY_TYPE[group?.type ?? 'futbol_7'] ?? 7;
         setGroupMembers(members);
-        setPlayers(Array.from({ length: count }, (_, i) => createEmptyPlayer(i)));
+        setPlayers(Array.from({ length: count }, (_, i) => createEmptyPlayer(i, count)));
       } catch (err) {
         console.error('AddChallengeMatchScreen: error loading data', err);
         setSnackbarMessage('Error al cargar los jugadores');
@@ -168,11 +202,13 @@ export default function AddChallengeMatchScreen() {
 
   const validationWarnings = useMemo(() => {
     const warnings: string[] = [];
-    const withPlayer = players.filter(p => p.groupMemberId !== null).length;
-    if (withPlayer < players.length) {
-      warnings.push(`Faltan ${players.length - withPlayer} jugador(es) por seleccionar`);
+    // Only validate starter slots — subs are optional
+    const starters = players.filter(p => !p.isSub);
+    const withPlayer = starters.filter(p => p.groupMemberId !== null).length;
+    if (withPlayer < starters.length) {
+      warnings.push(`Faltan ${starters.length - withPlayer} jugador(es) por seleccionar`);
     }
-    const porCount = players.filter(p => p.groupMemberId !== null && p.position === 'POR').length;
+    const porCount = starters.filter(p => p.groupMemberId !== null && p.position === 'POR').length;
     if (porCount !== 1) {
       warnings.push(`El equipo debe tener exactamente 1 portero (tiene ${porCount})`);
     }
@@ -187,11 +223,7 @@ export default function AddChallengeMatchScreen() {
   // ── Handlers ───────────────────────────────────────────────────────────────
   const handlePositionChange = useCallback(
     (index: number, position: Position) => {
-      setPlayers(prev => {
-        const updated = [...prev];
-        updated[index] = { ...updated[index], position };
-        return updated;
-      });
+      setPlayers(prev => sortPlayers([...prev.map((p, i) => i === index ? { ...p, position } : p)]));
       setPositionMenuIndex(null);
     },
     [],
@@ -243,6 +275,14 @@ export default function AddChallengeMatchScreen() {
       updated[index] = { ...updated[index], groupMemberId: null };
       return updated;
     });
+  }, []);
+
+  const handleAddSub = useCallback(() => {
+    setPlayers(prev => [...prev, createSubPlayer()]);
+  }, []);
+
+  const handleRemoveSub = useCallback((index: number) => {
+    setPlayers(prev => prev.filter((_, i) => i !== index));
   }, []);
 
   const handleSave = () => {
@@ -344,15 +384,51 @@ export default function AddChallengeMatchScreen() {
             <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>Gol</Text>
             <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>Ast</Text>
             <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>A.G</Text>
+            <View style={{ width: 28 }} />
           </View>
 
           {players.map((player, index) => {
             const member = groupMembers.find(m => m.id === player.groupMemberId);
+            const rowExtraStyle = player.isSub ? styles(theme).subRow : null;
             return (
-              <View key={index} style={styles(theme).tableRow}>
-                {/* Position */}
+              <View key={index} style={[styles(theme).tableRow, rowExtraStyle]}>
+                {/* Position / SUB badge */}
                 <View style={styles(theme).positionColumn}>
-                  {index === 0 ? (
+                  {player.isSub ? (
+                    <View style={{ alignItems: 'center' }}>
+                      <Menu
+                        visible={positionMenuIndex === index}
+                        onDismiss={() => setPositionMenuIndex(null)}
+                        anchor={
+                          <TouchableOpacity
+                            onPress={() => setPositionMenuIndex(index)}
+                            style={styles(theme).positionAnchor}
+                          >
+                            <Surface
+                              style={[styles(theme).positionPicker, { borderColor: '#2E7D32' }]}
+                              elevation={1}
+                            >
+                              <Text style={[styles(theme).positionText, { color: '#2E7D32' }]}>
+                                {player.position}
+                              </Text>
+                              <Icon name="chevron-down" size={16} color="#2E7D32" />
+                            </Surface>
+                          </TouchableOpacity>
+                        }
+                      >
+                        {POSITIONS.map(pos => (
+                          <Menu.Item
+                            key={pos}
+                            onPress={() => handlePositionChange(index, pos)}
+                            title={`${pos} - ${POSITION_LABELS[pos]}`}
+                          />
+                        ))}
+                      </Menu>
+                      <Text style={{ fontSize: 9, color: '#2E7D32', fontWeight: '700', marginTop: 2 }}>
+                        SUP
+                      </Text>
+                    </View>
+                  ) : index === 0 ? (
                     <View style={styles(theme).positionLocked}>
                       <Text style={styles(theme).positionLockedText}>POR</Text>
                     </View>
@@ -449,9 +525,31 @@ export default function AddChallengeMatchScreen() {
                     dense
                   />
                 </View>
+
+                {/* Delete — only for sub rows */}
+                <View style={{ width: 28, alignItems: 'center' }}>
+                  {player.isSub && (
+                    <TouchableOpacity
+                      onPress={() => handleRemoveSub(index)}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    >
+                      <Icon name="delete-outline" size={18} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             );
           })}
+
+          {/* Add substitute button */}
+          <TouchableOpacity
+            style={styles(theme).addSubButton}
+            onPress={handleAddSub}
+            activeOpacity={0.7}
+          >
+            <Icon name="plus-circle-outline" size={20} color="#2E7D32" />
+            <Text style={styles(theme).addSubText}>Agregar suplente</Text>
+          </TouchableOpacity>
         </ScrollView>
       )}
 
@@ -725,6 +823,27 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     borderBottomColor: '#E0E0E0',
     alignItems: 'center',
     minHeight: 60,
+  },
+  subRow: {
+    backgroundColor: '#F1F8E9',
+  },
+  subPositionBadge: {
+    backgroundColor: '#C8E6C9',
+  },
+  addSubButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#F1F8E9',
+    borderTopWidth: 1,
+    borderTopColor: '#C8E6C9',
+  },
+  addSubText: {
+    fontSize: 14,
+    color: '#2E7D32',
+    fontWeight: '600' as const,
   },
   positionPicker: {
     paddingVertical: 8,

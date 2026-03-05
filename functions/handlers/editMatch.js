@@ -145,15 +145,9 @@ exports.editMatch = onCall(async request => {
   }
 
   // ── STEP 1: Validate no duplicate players ─────────────────────────────────
-  const ids1 = players1.map(p => p.groupMemberId);
-  const ids2 = players2.map(p => p.groupMemberId);
-
-  if (ids1.some(id => !id) || ids2.some(id => !id)) {
-    throw new HttpsError(
-      'invalid-argument',
-      'Todos los jugadores deben tener un groupMemberId válido.',
-    );
-  }
+  // Null groupMemberIds represent empty/unassigned slots — skip them in validation.
+  const ids1 = players1.map(p => p.groupMemberId).filter(id => !!id);
+  const ids2 = players2.map(p => p.groupMemberId).filter(id => !!id);
 
   const set1 = new Set(ids1);
   if (set1.size < ids1.length) {

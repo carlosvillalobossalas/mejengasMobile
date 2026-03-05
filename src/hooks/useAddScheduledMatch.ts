@@ -19,8 +19,20 @@ const PLAYERS_BY_TYPE: Record<string, number> = {
   futbol_11: 11,
 };
 
-const createEmptySlots = (count: number): ScheduledSlot[] =>
-  Array.from({ length: count }, () => ({ groupMemberId: null, position: null }));
+const POSITION_ORDER: Record<string, number> = { POR: 0, DEF: 1, MED: 2, DEL: 3 };
+
+const DEFAULT_FORMATION: Record<string, ScheduledPosition[]> = {
+  futbol_5:  ['POR', 'DEF', 'DEF', 'DEL', 'DEL'],
+  futbol_7:  ['POR', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'DEL'],
+  futbol_11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
+};
+
+const createEmptySlots = (count: number, groupType: string): ScheduledSlot[] =>
+  Array.from({ length: count }, (_, i) => {
+    const formation = DEFAULT_FORMATION[groupType];
+    const position: ScheduledPosition = formation?.[i] ?? (i === 0 ? 'POR' : 'DEF');
+    return { groupMemberId: null, position };
+  });
 
 export function useAddScheduledMatch() {
   const { selectedGroupId, groups } = useAppSelector(state => state.groups);
@@ -36,10 +48,10 @@ export function useAddScheduledMatch() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeTeam, setActiveTeam] = useState<'1' | '2'>('1');
   const [team1Slots, setTeam1Slots] = useState<ScheduledSlot[]>(() =>
-    createEmptySlots(playersPerTeam),
+    createEmptySlots(playersPerTeam, selectedGroup?.type ?? 'futbol_7'),
   );
   const [team2Slots, setTeam2Slots] = useState<ScheduledSlot[]>(() =>
-    createEmptySlots(playersPerTeam),
+    createEmptySlots(playersPerTeam, selectedGroup?.type ?? 'futbol_7'),
   );
   const [allMembers, setAllMembers] = useState<GroupMemberV2[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
@@ -61,8 +73,8 @@ export function useAddScheduledMatch() {
 
   // Reset slots when group type changes
   useEffect(() => {
-    setTeam1Slots(createEmptySlots(playersPerTeam));
-    setTeam2Slots(createEmptySlots(playersPerTeam));
+    setTeam1Slots(createEmptySlots(playersPerTeam, selectedGroup?.type ?? 'futbol_7'));
+    setTeam2Slots(createEmptySlots(playersPerTeam, selectedGroup?.type ?? 'futbol_7'));
   }, [playersPerTeam]);
 
   const team1Ids = useMemo(
@@ -102,9 +114,13 @@ export function useAddScheduledMatch() {
     position: ScheduledPosition | null,
   ) => {
     const setSlots = team === 1 ? setTeam1Slots : setTeam2Slots;
-    setSlots(prev =>
-      prev.map((s, i) => (i === slotIndex ? { ...s, position } : s)),
-    );
+    setSlots(prev => {
+      const updated = prev.map((s, i) => (i === slotIndex ? { ...s, position } : s));
+      // Re-sort: POR→DEF→MED→DEL; null positions go last
+      return [...updated].sort(
+        (a, b) => (POSITION_ORDER[a.position ?? ''] ?? 99) - (POSITION_ORDER[b.position ?? ''] ?? 99),
+      );
+    });
   };
 
   const clearSlot = (team: 1 | 2, slotIndex: number) => {

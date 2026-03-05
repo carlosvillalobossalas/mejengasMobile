@@ -70,6 +70,14 @@ const PLAYERS_BY_TYPE: Record<string, number> = {
   futbol_7: 7,
   futbol_11: 11,
 };
+
+const POSITION_ORDER: Record<Position, number> = { POR: 0, DEF: 1, MED: 2, DEL: 3 };
+
+const DEFAULT_FORMATION: Record<number, Position[]> = {
+  5:  ['POR', 'DEF', 'DEF', 'DEL', 'DEL'],
+  7:  ['POR', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'DEL'],
+  11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
+};
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const normalizeNumberInput = (value: string): string => {
@@ -112,8 +120,8 @@ const toTeamPlayer = (
   ownGoals: String(player.ownGoals),
 });
 /** Creates a blank slot to pad a team to the required player count */
-const createEmptyTeamPlayer = (): TeamPlayer => ({
-  position: 'DEF',
+const createEmptyTeamPlayer = (position: Position = 'DEF'): TeamPlayer => ({
+  position,
   groupMemberId: null,
   playerName: '',
   goals: '0',
@@ -179,13 +187,23 @@ export default function EditMatchScreen({ route }: Props) {
 
         setPlayers(membersData);
 
-        // Pad team arrays to fill up to count slots, keeping existing players first
+        // Build teams, fill empty slots with formation positions, then sort POR→DEF→MED→DEL
         const mappedTeam1 = match.players1.map(p => toTeamPlayer(p, membersMap));
         const mappedTeam2 = match.players2.map(p => toTeamPlayer(p, membersMap));
-        const emptySlots1 = Array.from({ length: Math.max(0, count - mappedTeam1.length) }, createEmptyTeamPlayer);
-        const emptySlots2 = Array.from({ length: Math.max(0, count - mappedTeam2.length) }, createEmptyTeamPlayer);
-        setTeam1Players([...mappedTeam1, ...emptySlots1]);
-        setTeam2Players([...mappedTeam2, ...emptySlots2]);
+        const emptySlots1 = Array.from(
+          { length: Math.max(0, count - mappedTeam1.length) },
+          (_, i) => createEmptyTeamPlayer(DEFAULT_FORMATION[count]?.[mappedTeam1.length + i] ?? 'DEF'),
+        );
+        const emptySlots2 = Array.from(
+          { length: Math.max(0, count - mappedTeam2.length) },
+          (_, i) => createEmptyTeamPlayer(DEFAULT_FORMATION[count]?.[mappedTeam2.length + i] ?? 'DEF'),
+        );
+        setTeam1Players(
+          [...mappedTeam1, ...emptySlots1].sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]),
+        );
+        setTeam2Players(
+          [...mappedTeam2, ...emptySlots2].sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]),
+        );
 
         setMatchStatus((match.status ?? 'finished') as 'scheduled' | 'finished' | 'cancelled');
         setMatchDate(new Date(match.date));
@@ -297,7 +315,8 @@ export default function EditMatchScreen({ route }: Props) {
     (index: number, position: Position) => {
       const updated = [...currentTeamPlayers];
       updated[index] = { ...updated[index], position };
-      setCurrentTeamPlayers(updated);
+      const sorted = [...updated].sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+      setCurrentTeamPlayers(sorted);
     },
     [currentTeamPlayers, setCurrentTeamPlayers],
   );
@@ -835,6 +854,7 @@ const styles = (theme: MD3Theme) =>
     container: {
       flex: 1,
       backgroundColor: '#F5F5F5',
+      paddingBottom: 10
     },
     centerContainer: {
       flex: 1,

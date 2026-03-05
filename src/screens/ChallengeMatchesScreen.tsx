@@ -50,9 +50,9 @@ type PlayerRowProps = {
 };
 
 function PlayerRow({ player, groupMembers, mvpGroupMemberId, accentColor, theme: t }: PlayerRowProps) {
-  const member = groupMembers.find(m => m.id === player.groupMemberId);
-  const displayName = member?.displayName ?? 'Desconocido';
-  const isMvp = mvpGroupMemberId === player.groupMemberId;
+  const member = player.groupMemberId ? groupMembers.find(m => m.id === player.groupMemberId) : undefined;
+  const displayName = member?.displayName ?? 'Por asignar';
+  const isMvp = player.groupMemberId !== null && mvpGroupMemberId === player.groupMemberId;
   const hasStats = player.goals > 0 || player.assists > 0 || player.ownGoals > 0;
 
   return (
@@ -406,9 +406,9 @@ export default function ChallengeMatchesScreen() {
                   </Text>
                 </View>
 
-                {starters.map(player => (
+                {starters.map((player, idx) => (
                   <PlayerRow
-                    key={player.groupMemberId}
+                    key={player.groupMemberId ?? `starter_${idx}`}
                     player={player}
                     groupMembers={groupMembers}
                     mvpGroupMemberId={match.mvpGroupMemberId}
@@ -423,9 +423,9 @@ export default function ChallengeMatchesScreen() {
                     <Text variant="labelMedium" style={styles(theme).subLabel}>
                       Suplentes
                     </Text>
-                    {subs.map(player => (
+                    {subs.map((player, idx) => (
                       <PlayerRow
-                        key={player.groupMemberId}
+                        key={player.groupMemberId ?? `sub_${idx}`}
                         player={player}
                         groupMembers={groupMembers}
                         mvpGroupMemberId={match.mvpGroupMemberId}

@@ -55,6 +55,7 @@
 - Use endpoints/ or repositories/ for domain logic
 - Never call Firestore directly inside JSX
 - Always handle loading and error states
+- Use Crashlytics for error reporting 
 
 ---
 

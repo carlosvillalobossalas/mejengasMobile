@@ -59,10 +59,49 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
   const theme = useTheme();
   const color = teamColor ?? theme.colors.primary;
 
-  // Only starters on the field
+  // Only starters on the field (including empty slots for scheduled matches)
   const starters = players.filter(p => !p.isSub);
 
-  const renderPlayer = (player: ChallengeMatchPlayer) => {
+  const renderPlayer = (player: ChallengeMatchPlayer, playerIndex: number) => {
+    // Use indexOf so multiple null-groupMemberId slots in the same position get unique coords
+    const playersInPosition = starters.filter(p => p.position === player.position);
+    const indexInPosition = playersInPosition.indexOf(player);
+    const coords = getPositionCoordinates(player.position, indexInPosition, playersInPosition.length);
+
+    // Unique key: use groupMemberId if present, otherwise fallback to position+index
+    const key = player.groupMemberId ?? `empty_${player.position}_${playerIndex}`;
+
+    // Empty slot: show "?" placeholder with muted styling
+    if (!player.groupMemberId) {
+      return (
+        <View
+          key={key}
+          style={[styles(theme).playerContainer, { left: `${coords.x}%`, top: `${coords.y}%` }]}
+        >
+          <View style={styles(theme).avatarWrapper}>
+            <View style={styles(theme).emptyAvatarWrapper}>
+              <Icon name="account-question" size={26} color="rgba(255,255,255,0.6)" />
+            </View>
+            <View
+              style={[
+                styles(theme).positionChip,
+                { borderColor: 'rgba(255,255,255,0.4)' },
+              ]}
+            >
+              <Text style={[styles(theme).positionText, { color: 'rgba(255,255,255,0.6)' }]}>
+                {player.position}
+              </Text>
+            </View>
+          </View>
+          <Surface style={[styles(theme).nameSurface, { opacity: 0.6 }]} elevation={1}>
+            <Text variant="labelSmall" style={[styles(theme).nameText, { color: '#999', fontStyle: 'italic' }]} numberOfLines={1}>
+              ?
+            </Text>
+          </Surface>
+        </View>
+      );
+    }
+
     const playerInfo = allPlayers.find(p => p.id === player.groupMemberId);
     if (!playerInfo) return null;
 
@@ -71,13 +110,9 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
     const isMvp = mvpGroupMemberId === player.groupMemberId;
     const hasStats = player.goals > 0 || player.assists > 0 || player.ownGoals > 0;
 
-    const playersInPosition = starters.filter(p => p.position === player.position);
-    const indexInPosition = playersInPosition.findIndex(p => p.groupMemberId === player.groupMemberId);
-    const coords = getPositionCoordinates(player.position, indexInPosition, playersInPosition.length);
-
     return (
       <View
-        key={player.groupMemberId}
+        key={key}
         style={[styles(theme).playerContainer, { left: `${coords.x}%`, top: `${coords.y}%` }]}
       >
         <View style={[styles(theme).avatarWrapper, isMvp && styles(theme).mvpAvatarWrapper]}>
@@ -160,7 +195,7 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
           <View style={[styles(theme).smallArea, styles(theme).bottomSmallArea]} />
           <View style={styles(theme).fieldBorder} />
         </View>
-        {starters.map(player => renderPlayer(player))}
+        {starters.map((player, i) => renderPlayer(player, i))}
       </View>
     </View>
   );
@@ -262,6 +297,15 @@ const styles = (theme: MD3Theme) =>
       borderWidth: 3,
       borderColor: '#FFF',
       backgroundColor: '#FFF',
+    },
+    // Empty slot avatar: muted gray circle
+    emptyAvatarWrapper: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: 'rgba(0,0,0,0.25)',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     mvpAvatarWrapper: {
       borderColor: '#FFD700',

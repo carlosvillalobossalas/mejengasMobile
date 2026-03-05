@@ -43,6 +43,8 @@ const FORMATION_SLOTS: Record<string, MatchPosition[]> = {
   futbol_11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
 };
 
+const POSITION_ORDER: Record<MatchPosition, number> = { POR: 0, DEF: 1, MED: 2, DEL: 3 };
+
 export function useAddMatchTeams() {
   const { selectedGroupId, groups } = useAppSelector(state => state.groups);
   const selectedGroup = groups.find(g => g.id === selectedGroupId);
@@ -200,9 +202,15 @@ export function useAddMatchTeams() {
       index: number,
       updates: Partial<Pick<MatchTeamPlayer, 'position' | 'goals' | 'assists' | 'ownGoals'>>,
     ) => {
-      setTeam1Players(prev =>
-        prev.map((p, i) => (i === index ? { ...p, ...updates } : p)),
-      );
+      setTeam1Players(prev => {
+        const updated = prev.map((p, i) => (i === index ? { ...p, ...updates } : p));
+        if ('position' in updates) {
+          const starters = updated.filter(p => !p.isSub).sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+          const subs = updated.filter(p => p.isSub).sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+          return [...starters, ...subs];
+        }
+        return updated;
+      });
     },
     [],
   );
@@ -212,9 +220,15 @@ export function useAddMatchTeams() {
       index: number,
       updates: Partial<Pick<MatchTeamPlayer, 'position' | 'goals' | 'assists' | 'ownGoals'>>,
     ) => {
-      setTeam2Players(prev =>
-        prev.map((p, i) => (i === index ? { ...p, ...updates } : p)),
-      );
+      setTeam2Players(prev => {
+        const updated = prev.map((p, i) => (i === index ? { ...p, ...updates } : p));
+        if ('position' in updates) {
+          const starters = updated.filter(p => !p.isSub).sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+          const subs = updated.filter(p => p.isSub).sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+          return [...starters, ...subs];
+        }
+        return updated;
+      });
     },
     [],
   );

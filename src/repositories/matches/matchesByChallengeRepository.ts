@@ -5,7 +5,7 @@ const COLLECTION = 'matchesByChallenge';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ChallengeMatchPlayer = {
-  groupMemberId: string;
+  groupMemberId: string | null;
   position: 'POR' | 'DEF' | 'MED' | 'DEL';
   goals: number;
   assists: number;
@@ -64,7 +64,7 @@ const mapPlayerArray = (data: unknown): ChallengeMatchPlayer[] => {
   return data
     .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
     .map(p => ({
-      groupMemberId: String(p.groupMemberId ?? ''),
+      groupMemberId: p.groupMemberId != null ? String(p.groupMemberId) : null,
       position: (p.position as ChallengeMatchPlayer['position']) ?? 'DEF',
       goals: Number(p.goals ?? 0),
       assists: Number(p.assists ?? 0),

@@ -54,24 +54,18 @@ const PLAYERS_BY_TYPE: Record<string, number> = {
   futbol_11: 11,
 };
 
+const DEFAULT_FORMATION: Record<number, Position[]> = {
+  5:  ['POR', 'DEF', 'DEF', 'DEL', 'DEL'],
+  7:  ['POR', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'DEL'],
+  11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
+};
+
+const POSITION_ORDER: Record<Position, number> = { POR: 0, DEF: 1, MED: 2, DEL: 3 };
+
 const getDefaultPosition = (index: number, total: number): Position => {
-  if (index === 0) return 'POR';
-  if (total <= 5) {
-    // POR, DEF, DEF, MED, DEL
-    if (index <= 2) return 'DEF';
-    if (index <= 3) return 'MED';
-    return 'DEL';
-  }
-  if (total <= 7) {
-    // POR, DEF x3, MED x2, DEL
-    if (index <= 3) return 'DEF';
-    if (index <= 5) return 'MED';
-    return 'DEL';
-  }
-  // 11: POR, DEF x4, MED x4, DEL x2
-  if (index <= 4) return 'DEF';
-  if (index <= 8) return 'MED';
-  return 'DEL';
+  const slots = DEFAULT_FORMATION[total];
+  if (slots && index < slots.length) return slots[index];
+  return index === 0 ? 'POR' : 'DEF';
 };
 
 const createDefaultTeamPlayers = (total: number): TeamPlayer[] =>
@@ -206,7 +200,8 @@ export default function AddMatchScreen() {
   const handlePositionChange = useCallback((index: number, position: Position) => {
     const updated = [...currentTeamPlayers];
     updated[index].position = position;
-    setCurrentTeamPlayers(updated);
+    const sorted = [...updated].sort((a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position]);
+    setCurrentTeamPlayers(sorted);
   }, [currentTeamPlayers, setCurrentTeamPlayers]);
 
   const handlePlayerSelect = useCallback((member: GroupMemberV2) => {

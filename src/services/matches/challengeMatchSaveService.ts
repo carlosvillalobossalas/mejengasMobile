@@ -11,6 +11,7 @@ export type ChallengeTeamPlayer = {
   goals: string;
   assists: string;
   ownGoals: string;
+  isSub: boolean;
 };
 
 export type ChallengeMatchToSave = {
@@ -23,8 +24,9 @@ export type ChallengeMatchToSave = {
 };
 
 export type ScheduledChallengePlayerToSave = {
-  groupMemberId: string;
+  groupMemberId: string | null;
   position: 'POR' | 'DEF' | 'MED' | 'DEL' | null;
+  isSub?: boolean;
 };
 
 export type ScheduledChallengeMatchToSave = {
@@ -130,7 +132,7 @@ export async function saveChallengeMatch(match: ChallengeMatchToSave): Promise<v
         goals: parseInt(p.goals, 10) || 0,
         assists: parseInt(p.assists, 10) || 0,
         ownGoals: parseInt(p.ownGoals, 10) || 0,
-        isSub: false,
+        isSub: p.isSub,
       })),
     goalsTeam,
     opponentName: match.opponentName.trim(),
@@ -195,7 +197,7 @@ export async function saveScheduledChallengeMatch(
       goals: 0,
       assists: 0,
       ownGoals: 0,
-      isSub: false,
+      isSub: p.isSub ?? false,
     })),
     goalsTeam: 0,
     opponentName: match.opponentName.trim(),

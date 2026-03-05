@@ -10,7 +10,7 @@ export type VotableChallengeMatch = {
     closesAt: FirebaseFirestoreTypes.Timestamp | null;
   } | null;
   mvpVotes: Record<string, string>;
-  players: Array<{ groupMemberId: string }>;
+  players: Array<{ groupMemberId: string | null }>;
 };
 
 export type UseChallengeMatchMvpVotingReturn = {

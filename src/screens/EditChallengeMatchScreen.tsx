@@ -52,6 +52,7 @@ type TeamPlayer = {
   goals: string;
   assists: string;
   ownGoals: string;
+  isSub: boolean;
 };
 
 type EditChallengeMatchParams = {
@@ -73,6 +74,19 @@ const PLAYERS_BY_TYPE: Record<string, number> = {
   futbol_5: 5,
   futbol_7: 7,
   futbol_11: 11,
+};
+
+const POSITION_ORDER: Record<Position, number> = { POR: 0, DEF: 1, MED: 2, DEL: 3 };
+
+/** Sorts starters by position (POR→DEF→MED→DEL) keeping subs at the end. */
+const sortTeamPlayers = (arr: TeamPlayer[]): TeamPlayer[] => {
+  const starters = arr.filter(p => !p.isSub).sort(
+    (a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position],
+  );
+  const subs = arr.filter(p => p.isSub).sort(
+    (a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position],
+  );
+  return [...starters, ...subs];
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -107,19 +121,35 @@ const toTeamPlayer = (
 ): TeamPlayer => ({
   position: player.position,
   groupMemberId: player.groupMemberId,
-  playerName: membersMap.get(player.groupMemberId)?.displayName ?? player.groupMemberId,
+  playerName: player.groupMemberId
+    ? (membersMap.get(player.groupMemberId)?.displayName ?? player.groupMemberId)
+    : '',
   goals: String(player.goals),
   assists: String(player.assists),
   ownGoals: String(player.ownGoals),
+  isSub: player.isSub,
 });
 
-const createEmptyTeamPlayer = (): TeamPlayer => ({
-  position: 'DEF',
+const DEFAULT_FORMATION: Record<number, Position[]> = {
+  5:  ['POR', 'DEF', 'DEF', 'DEL', 'DEL'],
+  7:  ['POR', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'DEL'],
+  11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
+};
+
+const getFormationPosition = (index: number, total: number): Position => {
+  const slots = DEFAULT_FORMATION[total];
+  if (slots && index < slots.length) return slots[index];
+  return index === 0 ? 'POR' : 'DEF';
+};
+
+const createEmptyTeamPlayer = (position: Position = 'DEF'): TeamPlayer => ({
+  position,
   groupMemberId: null,
   playerName: '',
   goals: '0',
   assists: '0',
   ownGoals: '0',
+  isSub: false,
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -181,12 +211,20 @@ export default function EditChallengeMatchScreen({ route }: Props) {
 
         setGroupMembers(membersData);
 
-        const mappedPlayers = match.players.map(p => toTeamPlayer(p, membersMap));
+        // Separate starters and subs from loaded match data
+        const savedStarters = match.players.filter(p => !p.isSub);
+        const savedSubs = match.players.filter(p => p.isSub);
+
+        const mappedStarters = savedStarters.map(p => toTeamPlayer(p, membersMap));
+        const mappedSubs = savedSubs.map(p => toTeamPlayer(p, membersMap));
+
+        // Fill up to full count with empty starter slots using formation-based positions
         const emptySlots = Array.from(
-          { length: Math.max(0, count - mappedPlayers.length) },
-          createEmptyTeamPlayer,
+          { length: Math.max(0, count - mappedStarters.length) },
+          (_, i) => createEmptyTeamPlayer(getFormationPosition(mappedStarters.length + i, count)),
         );
-        setTeamPlayers([...mappedPlayers, ...emptySlots]);
+        // Always display POR→DEF→MED→DEL order regardless of save order
+        setTeamPlayers(sortTeamPlayers([...mappedStarters, ...emptySlots, ...mappedSubs]));
         setMatchStatus(match.status === 'cancelled' ? 'scheduled' : match.status === 'finished' ? 'finished' : 'scheduled');
         setMatchDate(new Date(match.date));
         setOpponentName(match.opponentName);
@@ -228,11 +266,13 @@ export default function EditChallengeMatchScreen({ route }: Props) {
     const requiresFullLineup = matchStatus === 'finished' || markAsFinished;
 
     if (requiresFullLineup) {
-      const withPlayer = teamPlayers.filter(p => p.groupMemberId !== null).length;
-      if (withPlayer < teamPlayers.length) {
-        warnings.push(`Faltan ${teamPlayers.length - withPlayer} jugador(es) por seleccionar`);
+      // Only validate starter slots (not subs)
+      const starters = teamPlayers.filter(p => !p.isSub);
+      const withPlayer = starters.filter(p => p.groupMemberId !== null).length;
+      if (withPlayer < starters.length) {
+        warnings.push(`Faltan ${starters.length - withPlayer} jugador(es) por seleccionar`);
       }
-      const porCount = teamPlayers.filter(p => p.groupMemberId !== null && p.position === 'POR').length;
+      const porCount = starters.filter(p => p.groupMemberId !== null && p.position === 'POR').length;
       if (porCount !== 1) {
         warnings.push(`El equipo debe tener exactamente 1 portero (tiene ${porCount})`);
       }
@@ -256,7 +296,7 @@ export default function EditChallengeMatchScreen({ route }: Props) {
     setTeamPlayers(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], position };
-      return updated;
+      return sortTeamPlayers(updated);
     });
   }, []);
 
@@ -297,6 +337,25 @@ export default function EditChallengeMatchScreen({ route }: Props) {
     if (!teamPlayers[index][field]) handleStatChange(index, field, '0');
   };
 
+  const handleAddSub = useCallback(() => {
+    setTeamPlayers(prev => [
+      ...prev,
+      {
+        position: 'DEF',
+        groupMemberId: null,
+        playerName: '',
+        goals: '0',
+        assists: '0',
+        ownGoals: '0',
+        isSub: true,
+      },
+    ]);
+  }, []);
+
+  const handleRemoveSub = useCallback((index: number) => {
+    setTeamPlayers(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const handleSaveMatch = () => {
     if (validationWarnings.length > 0) return;
 
@@ -325,7 +384,6 @@ export default function EditChallengeMatchScreen({ route }: Props) {
       if (!currentUser) throw new Error('No autenticado');
 
       const idToken = await currentUser.getIdToken();
-      const filledPlayers = teamPlayers.filter(p => p.groupMemberId !== null);
 
       const response = await fetch(
         'https://us-central1-mejengas-a7794.cloudfunctions.net/editChallengeMatch',
@@ -339,13 +397,15 @@ export default function EditChallengeMatchScreen({ route }: Props) {
             data: {
               matchId,
               updatedMatchData: {
-                players: filledPlayers.map(p => ({
+                // Keep all slots (including empty ones with null groupMemberId)
+                // so scheduled match lineups preserve "Por asignar" placeholders
+                players: teamPlayers.map(p => ({
                   groupMemberId: p.groupMemberId,
                   position: p.position,
                   goals: parseStatValue(p.goals),
                   assists: parseStatValue(p.assists),
                   ownGoals: parseStatValue(p.ownGoals),
-                  isSub: false,
+                  isSub: p.isSub,
                 })),
                 goalsTeam,
                 opponentName: opponentName.trim(),
@@ -448,16 +508,55 @@ export default function EditChallengeMatchScreen({ route }: Props) {
             <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>Gol</Text>
             <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>Ast</Text>
             <Text style={[styles(theme).headerCell, styles(theme).statColumn]}>A.G</Text>
+            <View style={{ width: 28 }} />
           </View>
 
           {/* Table rows */}
           {teamPlayers.map((player, index) => {
             const member = groupMembers.find(m => m.id === player.groupMemberId);
+            const rowExtraStyle = player.isSub ? styles(theme).subRow : null;
             return (
-              <View key={index} style={styles(theme).tableRow}>
-                {/* Position */}
+              <View key={index} style={[styles(theme).tableRow, rowExtraStyle]}>
+                {/* Position / SUB badge */}
                 <View style={styles(theme).positionColumn}>
-                  {index === 0 ? (
+                  {player.isSub ? (
+                    <View style={{ alignItems: 'center' }}>
+                      <Menu
+                        visible={positionMenuIndex === index}
+                        onDismiss={() => setPositionMenuIndex(null)}
+                        anchor={
+                          <TouchableOpacity
+                            onPress={() => setPositionMenuIndex(index)}
+                            style={styles(theme).positionAnchor}
+                          >
+                            <Surface
+                              style={[styles(theme).positionPicker, { borderColor: '#2E7D32' }]}
+                              elevation={1}
+                            >
+                              <Text style={[styles(theme).positionText, { color: '#2E7D32' }]}>
+                                {player.position}
+                              </Text>
+                              <Icon name="chevron-down" size={16} color="#2E7D32" />
+                            </Surface>
+                          </TouchableOpacity>
+                        }
+                      >
+                        {POSITIONS.map(pos => (
+                          <Menu.Item
+                            key={pos}
+                            onPress={() => {
+                              handlePositionChange(index, pos);
+                              setPositionMenuIndex(null);
+                            }}
+                            title={`${pos} - ${POSITION_LABELS[pos]}`}
+                          />
+                        ))}
+                      </Menu>
+                      <Text style={{ fontSize: 9, color: '#2E7D32', fontWeight: '700', marginTop: 2 }}>
+                        SUP
+                      </Text>
+                    </View>
+                  ) : index === 0 ? (
                     <View style={styles(theme).positionLocked}>
                       <Text style={styles(theme).positionLockedText}>POR</Text>
                     </View>
@@ -563,9 +662,31 @@ export default function EditChallengeMatchScreen({ route }: Props) {
                     dense
                   />
                 </View>
+
+                {/* Delete — only for sub rows */}
+                <View style={{ width: 28, alignItems: 'center' }}>
+                  {player.isSub && (
+                    <TouchableOpacity
+                      onPress={() => handleRemoveSub(index)}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    >
+                      <Icon name="delete-outline" size={18} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             );
           })}
+
+          {/* Add substitute button */}
+          <TouchableOpacity
+            style={styles(theme).addSubButton}
+            onPress={handleAddSub}
+            activeOpacity={0.7}
+          >
+            <Icon name="plus-circle-outline" size={20} color="#2E7D32" />
+            <Text style={styles(theme).addSubText}>Agregar suplente</Text>
+          </TouchableOpacity>
         </ScrollView>
       )}
 
@@ -784,6 +905,7 @@ const styles = (theme: MD3Theme) =>
     container: {
       flex: 1,
       backgroundColor: '#F5F5F5',
+      paddingBottom: 10
     },
     centerContainer: {
       flex: 1,
@@ -843,6 +965,34 @@ const styles = (theme: MD3Theme) =>
       borderBottomColor: '#E0E0E0',
       alignItems: 'center',
       minHeight: 60,
+    },
+    subRow: {
+      backgroundColor: '#F1F8E9',
+    },
+    // SUP badge in position column for subs
+    subPositionBadge: {
+      backgroundColor: '#C8E6C9',
+    },
+    // "?" text for empty player slots
+    emptyPlayerText: {
+      color: '#BDBDBD',
+      fontStyle: 'italic',
+    },
+    // "+ Agregar suplente" button at bottom of table
+    addSubButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      backgroundColor: '#F1F8E9',
+      borderTopWidth: 1,
+      borderTopColor: '#C8E6C9',
+    },
+    addSubText: {
+      fontSize: 14,
+      color: '#2E7D32',
+      fontWeight: '600',
     },
     positionColumn: {
       width: 60,
