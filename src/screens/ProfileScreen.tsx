@@ -247,102 +247,97 @@ export default function ProfileScreen() {
         )}
       </Surface>
 
-      {/* ── Historic player totals ── */}
       {hasPlayerStats && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <View style={styles.cardHeader}>
-              <Icon name="chart-bar" size={24} color={theme.colors.primary} />
-              <Text style={styles.cardTitle}>
-                {hasGoalkeeperStats ? 'Histórico como Jugador' : 'Histórico Total'}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Icon name="chart-bar" size={20} color={theme.colors.primary} />
+            <Text style={styles.sectionTitle}>
+              {hasGoalkeeperStats ? 'Histórico como Jugador' : 'Histórico Total'}
+            </Text>
+          </View>
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Icon name="soccer" size={28} color="#2196F3" />
+              <Text style={styles.statValue}>{historicPlayer.goals}</Text>
+              <Text style={styles.statLabel}>Goles</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Icon name="shoe-sneaker" size={28} color="#4CAF50" />
+              <Text style={styles.statValue}>{historicPlayer.assists}</Text>
+              <Text style={styles.statLabel}>Asistencias</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Icon name="tshirt-crew" size={28} color="#FF9800" />
+              <Text style={styles.statValue}>
+                {formatRecord(historicPlayer.won, historicPlayer.draw, historicPlayer.lost)}
               </Text>
+              <Text style={styles.statLabel}>V-E-D</Text>
             </View>
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}>
-                <Icon name="soccer" size={28} color="#2196F3" />
-                <Text style={styles.statValue}>{historicPlayer.goals}</Text>
-                <Text style={styles.statLabel}>Goles</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Icon name="shoe-sneaker" size={28} color="#4CAF50" />
-                <Text style={styles.statValue}>{historicPlayer.assists}</Text>
-                <Text style={styles.statLabel}>Asistencias</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Icon name="tshirt-crew" size={28} color="#FF9800" />
-                <Text style={styles.statValue}>
-                  {formatRecord(historicPlayer.won, historicPlayer.draw, historicPlayer.lost)}
-                </Text>
-                <Text style={styles.statLabel}>V-E-D</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Icon name="star" size={28} color="#FFC107" />
-                <Text style={styles.statValue}>{historicPlayer.mvp}</Text>
-                <Text style={styles.statLabel}>MVPs</Text>
-              </View>
+            <View style={styles.statItem}>
+              <Icon name="run" size={28} color="#9E9E9E" />
+              <Text style={styles.statValue}>{historicPlayer.matches}</Text>
+              <Text style={styles.statLabel}>Partidos</Text>
             </View>
-          </Card.Content>
-        </Card>
+          </View>
+        </View>
       )}
 
-      {/* ── Historic goalkeeper totals ── */}
       {hasGoalkeeperStats && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <View style={styles.cardHeader}>
-              <Icon name="hand-back-right" size={24} color="#9C27B0" />
-              <Text style={styles.cardTitle}>
-                {hasPlayerStats ? 'Histórico como Portero' : 'Histórico Total'}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Icon name="hand-back-right" size={20} color="#9C27B0" />
+            <Text style={styles.sectionTitle}>
+              {hasPlayerStats ? 'Histórico como Portero' : 'Histórico Total'}
+            </Text>
+          </View>
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Icon name="shield-check" size={28} color="#4CAF50" />
+              <Text style={styles.statValue}>{historicGoalkeeper.cleanSheets}</Text>
+              <Text style={styles.statLabel}>Vallas invictas</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Icon name="soccer" size={28} color="#F44336" />
+              <Text style={styles.statValue}>{historicGoalkeeper.goalsConceded}</Text>
+              <Text style={styles.statLabel}>Goles recibidos</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Icon name="tshirt-crew" size={28} color="#FF9800" />
+              <Text style={styles.statValue}>
+                {formatRecord(historicGoalkeeper.won, historicGoalkeeper.draw, historicGoalkeeper.lost)}
               </Text>
+              <Text style={styles.statLabel}>V-E-D</Text>
             </View>
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}>
-                <Icon name="shield-check" size={28} color="#4CAF50" />
-                <Text style={styles.statValue}>{historicGoalkeeper.cleanSheets}</Text>
-                <Text style={styles.statLabel}>Vallas invictas</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Icon name="soccer" size={28} color="#F44336" />
-                <Text style={styles.statValue}>{historicGoalkeeper.goalsConceded}</Text>
-                <Text style={styles.statLabel}>Goles recibidos</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Icon name="tshirt-crew" size={28} color="#FF9800" />
-                <Text style={styles.statValue}>
-                  {formatRecord(historicGoalkeeper.won, historicGoalkeeper.draw, historicGoalkeeper.lost)}
-                </Text>
-                <Text style={styles.statLabel}>V-E-D</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Icon name="star" size={28} color="#FFC107" />
-                <Text style={styles.statValue}>{historicGoalkeeper.mvp}</Text>
-                <Text style={styles.statLabel}>MVPs</Text>
-              </View>
+            <View style={styles.statItem}>
+              <Icon name="run" size={28} color="#9E9E9E" />
+              <Text style={styles.statValue}>{historicGoalkeeper.matches}</Text>
+              <Text style={styles.statLabel}>Partidos</Text>
             </View>
-          </Card.Content>
-        </Card>
+          </View>
+        </View>
       )}
 
-      {/* ── Per-season cards ── */}
+      {(hasPlayerStats || hasGoalkeeperStats) && <Divider style={styles.sectionDivider} />}
+
       {seasonCards.length > 0 && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <View style={styles.cardHeader}>
-              <Icon name="calendar-star" size={24} color={theme.colors.primary} />
-              <Text style={styles.cardTitle}>Por Temporada</Text>
-            </View>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Icon name="calendar-star" size={20} color={theme.colors.primary} />
+            <Text style={styles.sectionTitle}>Por Temporada</Text>
+          </View>
 
-            {seasonCards.map(card => {
-              const groupName = card.group?.name ?? 'Grupo desconocido';
-              const isGoalkeeper = card.type === 'goalkeeper';
+          {seasonCards.map(card => {
+            const groupName = card.group?.name ?? 'Grupo desconocido';
+            const isGoalkeeper = card.type === 'goalkeeper';
 
-              return (
-                <View key={card.id} style={styles.seasonCard}>
-                  <View style={styles.seasonHeader}>
-                    <View style={styles.seasonHeaderInfo}>
-                      <Text style={styles.seasonGroupName}>{groupName}</Text>
-                      <Text style={styles.seasonYear}>Temporada {card.season}</Text>
-                    </View>
+            return (
+              <View key={card.id} style={styles.seasonCard}>
+                <View style={styles.seasonHeader}>
+                  <View style={styles.seasonHeaderInfo}>
+                    <Text style={styles.seasonGroupName}>{groupName}</Text>
+                    <Text style={styles.seasonYear}>Temporada {card.season}</Text>
+                  </View>
+                  <View style={styles.chipsRow}>
                     <Chip
                       compact
                       style={[styles.typeChip, isGoalkeeper ? styles.goalkeeperChip : styles.playerChip]}
@@ -350,66 +345,76 @@ export default function ProfileScreen() {
                     >
                       {isGoalkeeper ? 'Portero' : 'Jugador'}
                     </Chip>
-                  </View>
-
-                  <View style={styles.statsGrid}>
-                    {isGoalkeeper && card.goalkeeperStats ? (
-                      <>
-                        <View style={styles.statItem}>
-                          <Icon name="shield-check" size={24} color="#4CAF50" />
-                          <Text style={styles.statValue}>{card.goalkeeperStats.cleanSheets}</Text>
-                          <Text style={styles.statLabel}>Vallas invictas</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <Icon name="soccer" size={24} color="#F44336" />
-                          <Text style={styles.statValue}>{card.goalkeeperStats.goalsConceded}</Text>
-                          <Text style={styles.statLabel}>Goles recibidos</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <Icon name="tshirt-crew" size={24} color="#FF9800" />
-                          <Text style={styles.statValue}>
-                            {formatRecord(card.goalkeeperStats.won, card.goalkeeperStats.draw, card.goalkeeperStats.lost)}
-                          </Text>
-                          <Text style={styles.statLabel}>V-E-D</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <Icon name="star" size={24} color="#FFC107" />
-                          <Text style={styles.statValue}>{card.goalkeeperStats.mvp}</Text>
-                          <Text style={styles.statLabel}>MVPs</Text>
-                        </View>
-                      </>
-                    ) : card.playerStats ? (
-                      <>
-                        <View style={styles.statItem}>
-                          <Icon name="soccer" size={24} color="#2196F3" />
-                          <Text style={styles.statValue}>{card.playerStats.goals}</Text>
-                          <Text style={styles.statLabel}>Goles</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <Icon name="shoe-sneaker" size={24} color="#4CAF50" />
-                          <Text style={styles.statValue}>{card.playerStats.assists}</Text>
-                          <Text style={styles.statLabel}>Asistencias</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <Icon name="tshirt-crew" size={24} color="#FF9800" />
-                          <Text style={styles.statValue}>
-                            {formatRecord(card.playerStats.won, card.playerStats.draw, card.playerStats.lost)}
-                          </Text>
-                          <Text style={styles.statLabel}>V-E-D</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                          <Icon name="star" size={24} color="#FFC107" />
-                          <Text style={styles.statValue}>{card.playerStats.mvp}</Text>
-                          <Text style={styles.statLabel}>MVPs</Text>
-                        </View>
-                      </>
-                    ) : null}
+                    <Chip
+                      compact
+                      style={[
+                        styles.typeChip,
+                        card.source === 'challenge' ? styles.challengeChip : styles.regularChip,
+                      ]}
+                      textStyle={styles.typeChipText}
+                    >
+                      {card.source === 'challenge' ? 'Challenge' : 'Normal'}
+                    </Chip>
                   </View>
                 </View>
-              );
-            })}
-          </Card.Content>
-        </Card>
+
+                <View style={styles.statsGrid}>
+                  {isGoalkeeper && card.goalkeeperStats ? (
+                    <>
+                      <View style={styles.statItem}>
+                        <Icon name="shield-check" size={24} color="#4CAF50" />
+                        <Text style={styles.statValue}>{card.goalkeeperStats.cleanSheets}</Text>
+                        <Text style={styles.statLabel}>Vallas invictas</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Icon name="soccer" size={24} color="#F44336" />
+                        <Text style={styles.statValue}>{card.goalkeeperStats.goalsConceded}</Text>
+                        <Text style={styles.statLabel}>Goles recibidos</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Icon name="tshirt-crew" size={24} color="#FF9800" />
+                        <Text style={styles.statValue}>
+                          {formatRecord(card.goalkeeperStats.won, card.goalkeeperStats.draw, card.goalkeeperStats.lost)}
+                        </Text>
+                        <Text style={styles.statLabel}>V-E-D</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Icon name="star" size={24} color="#FFC107" />
+                        <Text style={styles.statValue}>{card.goalkeeperStats.mvp}</Text>
+                        <Text style={styles.statLabel}>MVPs</Text>
+                      </View>
+                    </>
+                  ) : card.playerStats ? (
+                    <>
+                      <View style={styles.statItem}>
+                        <Icon name="soccer" size={24} color="#2196F3" />
+                        <Text style={styles.statValue}>{card.playerStats.goals}</Text>
+                        <Text style={styles.statLabel}>Goles</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Icon name="shoe-sneaker" size={24} color="#4CAF50" />
+                        <Text style={styles.statValue}>{card.playerStats.assists}</Text>
+                        <Text style={styles.statLabel}>Asistencias</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Icon name="tshirt-crew" size={24} color="#FF9800" />
+                        <Text style={styles.statValue}>
+                          {formatRecord(card.playerStats.won, card.playerStats.draw, card.playerStats.lost)}
+                        </Text>
+                        <Text style={styles.statLabel}>V-E-D</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Icon name="star" size={24} color="#FFC107" />
+                        <Text style={styles.statValue}>{card.playerStats.mvp}</Text>
+                        <Text style={styles.statLabel}>MVPs</Text>
+                      </View>
+                    </>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+        </View>
       )}
 
       {seasonCards.length === 0 && (
@@ -644,20 +649,21 @@ const styles = StyleSheet.create({
   copyIcon: {
     marginTop: 1,
   },
-  card: {
-    margin: 12,
-    marginTop: 8,
-    elevation: 2,
+  sectionDivider: {
+    marginVertical: 8,
   },
-  cardHeader: {
+  section: {
+    padding: 16,
+  },
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
   },
-  cardTitle: {
-    fontSize: 18,
+  sectionTitle: {
+    fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 12,
+    marginLeft: 8,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -717,11 +723,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginVertical: 0,
   },
+  chipsRow: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   playerChip: {
     backgroundColor: 'rgba(33, 150, 243, 0.15)',
   },
   goalkeeperChip: {
     backgroundColor: 'rgba(156, 39, 176, 0.15)',
+  },
+  regularChip: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+  },
+  challengeChip: {
+    backgroundColor: 'rgba(255, 152, 0, 0.18)',
   },
   emptyContainer: {
     alignItems: 'center',
