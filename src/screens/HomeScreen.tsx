@@ -6,6 +6,7 @@ import {
     Text,
     useTheme,
     IconButton,
+    Button,
     Avatar,
     List,
     Divider,
@@ -175,6 +176,20 @@ export default function HomeScreen() {
     );
 
     const actionCards: ActionCard[] = useMemo(() => {
+        const profileCard: ActionCard = {
+            id: 'profile',
+            title: 'Mi Perfil',
+            icon: 'account-circle',
+            color: theme.colors.onPrimary,
+            iconColor: theme.colors.primary,
+            size: 'small',
+            onPress: () => navigation.navigate('Profile'),
+        };
+
+        if (!activeGroup) {
+            return [profileCard];
+        }
+
         const cards: ActionCard[] = [
             {
                 id: 'players',
@@ -221,15 +236,7 @@ export default function HomeScreen() {
                     },
                 ]
                 : []),
-            {
-                id: 'profile',
-                title: 'Mi Perfil',
-                icon: 'account-circle',
-                color: theme.colors.onPrimary,
-                iconColor: theme.colors.primary,
-                size: 'small',
-                onPress: () => navigation.navigate('Profile'),
-            },
+            profileCard,
             ...(isOwner || isAdmin
                 ? [
                     {
@@ -413,13 +420,17 @@ export default function HomeScreen() {
                                         <Icon name="crown" size={28} color="#FFD700" />
                                     </View>
                                 )}
-                                <IconButton
-                                    icon="swap-horizontal"
-                                    size={24}
-                                    iconColor={theme.colors.primary}
+                                <Button
+                                    mode="text"
+                                    compact
+                                    // icon="swap-horizontal"
                                     onPress={() => groupSwitcherRef.current?.expand()}
-                                    style={styles.changeGroupButton}
-                                />
+                                    style={styles.changeGroupCta}
+                                    contentStyle={styles.changeGroupCtaContent}
+                                    labelStyle={styles.changeGroupCtaLabel}
+                                >
+                                    Cambiar grupo
+                                </Button>
                             </View>
                         </View>
                         {/* <View style={styles.groupMeta}> */}
@@ -444,34 +455,68 @@ export default function HomeScreen() {
                 </Card>
             )}
 
-            {/* Masonry Grid */}
-            <View style={styles.masonryContainer}>
-                {/* Left Column */}
-                <View style={styles.masonryColumn}>
-                    {actionCards
-                        .filter((_, index) => index % 2 === 0)
-                        .map(card => (
-                            <ActionCardItem
-                                key={card.id}
-                                card={card}
-                                theme={theme}
-                            />
-                        ))}
-                </View>
+            {!activeGroup && (
+                <Card style={styles.noGroupCard} elevation={3}>
+                    <Card.Content style={styles.noGroupContent}>
+                        <Icon name="account-group-outline" size={34} color={theme.colors.onSurfaceVariant} />
+                        <Text variant="titleMedium" style={styles.noGroupTitle}>
+                            No tienes un grupo activo
+                        </Text>
+                        <Text
+                            variant="bodyMedium"
+                            style={[styles.noGroupSubtitle, { color: theme.colors.onSurfaceVariant }]}
+                        >
+                            Selecciona un grupo para habilitar el menú completo.
+                        </Text>
+                        <Button
+                            mode="outlined"
+                            icon="swap-horizontal"
+                            compact
+                            onPress={() => groupSwitcherRef.current?.expand()}
+                            style={styles.activateGroupButton}
+                            contentStyle={styles.activateGroupButtonContent}
+                            labelStyle={styles.activateGroupButtonLabel}
+                        >
+                            Seleccionar grupo
+                        </Button>
+                    </Card.Content>
+                </Card>
+            )}
 
-                {/* Right Column */}
-                <View style={styles.masonryColumn}>
-                    {actionCards
-                        .filter((_, index) => index % 2 === 1)
-                        .map(card => (
-                            <ActionCardItem
-                                key={card.id}
-                                card={card}
-                                theme={theme}
-                            />
-                        ))}
+            {/* Masonry Grid */}
+            {activeGroup ? (
+                <View style={styles.masonryContainer}>
+                    {/* Left Column */}
+                    <View style={styles.masonryColumn}>
+                        {actionCards
+                            .filter((_, index) => index % 2 === 0)
+                            .map(card => (
+                                <ActionCardItem
+                                    key={card.id}
+                                    card={card}
+                                    theme={theme}
+                                />
+                            ))}
+                    </View>
+
+                    {/* Right Column */}
+                    <View style={styles.masonryColumn}>
+                        {actionCards
+                            .filter((_, index) => index % 2 === 1)
+                            .map(card => (
+                                <ActionCardItem
+                                    key={card.id}
+                                    card={card}
+                                    theme={theme}
+                                />
+                            ))}
+                    </View>
                 </View>
-            </View>
+            ) : (
+                <View style={styles.profileOnlyContainer}>
+                    <ActionCardItem card={actionCards[0]} theme={theme} />
+                </View>
+            )}
 
             {/* Player Profile Modal */}
             <Portal>
@@ -697,10 +742,20 @@ const styles = StyleSheet.create({
     groupActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: 8,
     },
-    changeGroupButton: {
-        margin: 0,
+    changeGroupCta: {
+        borderRadius: 16,
+        minHeight: 30,
+    },
+    changeGroupCtaContent: {
+        height: 30,
+        paddingHorizontal: 4,
+    },
+    changeGroupCtaLabel: {
+        fontWeight: '600',
+        fontSize: 12,
+        marginVertical: 0,
     },
     groupMeta: {
         flexDirection: 'row',
@@ -717,9 +772,42 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 12,
     },
+    profileOnlyContainer: {
+        marginTop: 4,
+    },
     masonryColumn: {
         flex: 1,
         gap: 12,
+    },
+    noGroupCard: {
+        marginBottom: 15,
+        borderRadius: 16,
+        backgroundColor: '#FFFFFF',
+    },
+    noGroupContent: {
+        alignItems: 'center',
+        paddingVertical: 16,
+        gap: 8,
+    },
+    noGroupTitle: {
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+    noGroupSubtitle: {
+        textAlign: 'center',
+    },
+    activateGroupButton: {
+        marginTop: 6,
+        borderRadius: 12,
+    },
+    activateGroupButtonContent: {
+        height: 34,
+        paddingHorizontal: 8,
+    },
+    activateGroupButtonLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        marginVertical: 0,
     },
     cardTouchable: {
         width: '100%',
