@@ -82,11 +82,14 @@ export const startAuthListener = createAsyncThunk<void, void>(
         return;
       }
 
+      // Hydrate selected group from local storage regardless of Firestore profile status.
+      // This avoids AppNavigator staying forever on SplashScreen when profile bootstrap fails.
+      dispatch(hydrateSelectedGroupId({ userId: user.uid }));
+
       try {
         const userDoc = await ensureFirestoreUserForAuthUser(user);
         dispatch(firestoreUserChanged(userDoc));
         dispatch(authStatusChanged('authenticated'));
-        dispatch(hydrateSelectedGroupId({ userId: user.uid }));
         // Fetch groups after hydrating the selected group ID
         const { fetchMyGroups } = await import('../groups/groupsSlice');
         dispatch(fetchMyGroups({ userId: user.uid }));

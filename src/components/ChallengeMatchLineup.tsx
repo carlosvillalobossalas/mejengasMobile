@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Avatar, Text, Surface, useTheme, MD3Theme } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
@@ -13,6 +13,7 @@ type ChallengeMatchLineupProps = {
   allPlayers: GroupMemberV2[];
   mvpGroupMemberId?: string | null;
   teamColor?: string;
+  onSlotPress?: (params: { slotIndex: number; groupMemberId: string | null }) => void;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
   allPlayers = [],
   mvpGroupMemberId = null,
   teamColor,
+  onSlotPress,
 }) => {
   const theme = useTheme();
   const color = teamColor ?? theme.colors.primary;
@@ -62,7 +64,11 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
   // Only starters on the field (including empty slots for scheduled matches)
   const starters = players.filter(p => !p.isSub);
 
-  const renderPlayer = (player: ChallengeMatchPlayer, playerIndex: number) => {
+  const renderPlayer = (
+    player: ChallengeMatchPlayer,
+    playerIndex: number,
+    slotIndex: number,
+  ) => {
     // Use indexOf so multiple null-groupMemberId slots in the same position get unique coords
     const playersInPosition = starters.filter(p => p.position === player.position);
     const indexInPosition = playersInPosition.indexOf(player);
@@ -74,8 +80,10 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
     // Empty slot: show "?" placeholder with muted styling
     if (!player.groupMemberId) {
       return (
-        <View
+        <TouchableOpacity
           key={key}
+          activeOpacity={0.8}
+          onPress={() => onSlotPress?.({ slotIndex, groupMemberId: null })}
           style={[styles(theme).playerContainer, { left: `${coords.x}%`, top: `${coords.y}%` }]}
         >
           <View style={styles(theme).avatarWrapper}>
@@ -88,7 +96,7 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
                 { borderColor: 'rgba(255,255,255,0.4)' },
               ]}
             >
-              <Text style={[styles(theme).positionText, { color: 'rgba(255,255,255,0.6)' }]}>
+              <Text style={[styles(theme).positionText]}>
                 {player.position}
               </Text>
             </View>
@@ -98,7 +106,7 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
               ?
             </Text>
           </Surface>
-        </View>
+        </TouchableOpacity>
       );
     }
 
@@ -111,8 +119,10 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
     const hasStats = player.goals > 0 || player.assists > 0 || player.ownGoals > 0;
 
     return (
-      <View
+      <TouchableOpacity
         key={key}
+        activeOpacity={0.8}
+        onPress={() => onSlotPress?.({ slotIndex, groupMemberId: player.groupMemberId })}
         style={[styles(theme).playerContainer, { left: `${coords.x}%`, top: `${coords.y}%` }]}
       >
         <View style={[styles(theme).avatarWrapper, isMvp && styles(theme).mvpAvatarWrapper]}>
@@ -178,7 +188,7 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
             )}
           </Surface>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -195,7 +205,10 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
           <View style={[styles(theme).smallArea, styles(theme).bottomSmallArea]} />
           <View style={styles(theme).fieldBorder} />
         </View>
-        {starters.map((player, i) => renderPlayer(player, i))}
+        {starters.map((player, i) => {
+          const slotIndex = players.findIndex(candidate => candidate === player);
+          return renderPlayer(player, i, slotIndex);
+        })}
       </View>
     </View>
   );

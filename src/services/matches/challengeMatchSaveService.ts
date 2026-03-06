@@ -21,6 +21,8 @@ export type ChallengeMatchToSave = {
   goalsTeam: number;
   opponentName: string;
   goalsOpponent: number;
+  createdByUserId?: string | null;
+  createdByGroupMemberId?: string | null;
 };
 
 export type ScheduledChallengePlayerToSave = {
@@ -34,6 +36,8 @@ export type ScheduledChallengeMatchToSave = {
   groupId: string;
   players: ScheduledChallengePlayerToSave[];
   opponentName: string;
+  createdByUserId?: string | null;
+  createdByGroupMemberId?: string | null;
 };
 
 type PlayerStats = {
@@ -107,6 +111,8 @@ function addChallengeSeasonStatsToBatch(
 export async function saveChallengeMatch(match: ChallengeMatchToSave): Promise<void> {
   const season = match.date.getFullYear();
   const { goalsTeam, goalsOpponent, groupId } = match;
+  const createdByUserId = match.createdByUserId ?? null;
+  const createdByGroupMemberId = match.createdByGroupMemberId ?? null;
 
   const teamWon = goalsTeam > goalsOpponent;
   const teamLost = goalsOpponent > goalsTeam;
@@ -121,6 +127,8 @@ export async function saveChallengeMatch(match: ChallengeMatchToSave): Promise<v
   batch.set(matchRef, {
     groupId,
     season,
+    createdByUserId,
+    createdByGroupMemberId,
     date: firestore.Timestamp.fromDate(match.date),
     registeredDate: firestore.FieldValue.serverTimestamp(),
     status: 'finished',
@@ -180,6 +188,8 @@ export async function saveScheduledChallengeMatch(
 ): Promise<void> {
   const { groupId } = match;
   const season = match.date.getFullYear();
+  const createdByUserId = match.createdByUserId ?? null;
+  const createdByGroupMemberId = match.createdByGroupMemberId ?? null;
 
   const batch = firestore().batch();
   const matchRef = firestore().collection(CHALLENGE_MATCHES_COLLECTION).doc();
@@ -188,6 +198,8 @@ export async function saveScheduledChallengeMatch(
   batch.set(matchRef, {
     groupId,
     season,
+    createdByUserId,
+    createdByGroupMemberId,
     date: matchDateTs,
     registeredDate: firestore.FieldValue.serverTimestamp(),
     status: 'scheduled',

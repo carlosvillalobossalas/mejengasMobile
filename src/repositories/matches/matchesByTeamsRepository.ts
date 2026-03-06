@@ -21,9 +21,12 @@ export type MatchByTeamsMvpVoting = {
 export type MatchByTeams = {
   id: string;
   groupId: string;
+  createdByUserId?: string | null;
+  createdByGroupMemberId?: string | null;
   season: number;
   /** ISO date string */
   date: string;
+  status?: 'scheduled' | 'finished' | 'cancelled';
   team1Id: string;
   team2Id: string;
   goalsTeam1: number;
@@ -82,8 +85,11 @@ const mapDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): MatchByTeams => {
   return {
     id: doc.id,
     groupId: String(d.groupId ?? ''),
+    createdByUserId: d.createdByUserId ? String(d.createdByUserId) : null,
+    createdByGroupMemberId: d.createdByGroupMemberId ? String(d.createdByGroupMemberId) : null,
     season: Number(d.season ?? new Date().getFullYear()),
     date: toIsoString(d.date),
+    status: (d.status as MatchByTeams['status']) ?? 'finished',
     team1Id: String(d.team1Id ?? ''),
     team2Id: String(d.team2Id ?? ''),
     goalsTeam1: Number(d.goalsTeam1 ?? 0),

@@ -317,6 +317,7 @@ export default function AddChallengeMatchScreen({ route }: Props) {
   const matchId = route?.params?.matchId ?? null;
   const isEditMode = !!matchId;
 
+  const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
   const { selectedGroupId, groups } = useAppSelector(state => state.groups);
   const selectedGroup = groups.find(group => group.id === selectedGroupId);
   const playersPerTeam = PLAYERS_BY_TYPE[selectedGroup?.type ?? 'futbol_7'] ?? 7;
@@ -510,6 +511,12 @@ export default function AddChallengeMatchScreen({ route }: Props) {
   }, [slots, opponentName, statusMode]);
 
   const canSave = selectedGroupId !== null && validationWarnings.length === 0;
+  const createdByUserId = firebaseUser?.uid ?? null;
+  const createdByGroupMemberId = useMemo(() => {
+    if (!firebaseUser?.uid) return null;
+    const currentMember = allMembers.find(member => member.userId === firebaseUser.uid);
+    return currentMember?.id ?? null;
+  }, [allMembers, firebaseUser?.uid]);
 
   const handleStatusChange = (value: boolean) => {
     if (isEditMode && initialMatchStatus === 'finished' && !value) {
@@ -646,6 +653,8 @@ export default function AddChallengeMatchScreen({ route }: Props) {
         await saveScheduledChallengeMatch({
           date: matchDate,
           groupId: selectedGroupId,
+          createdByUserId,
+          createdByGroupMemberId,
           players: slots.map(slot => ({
             groupMemberId: slot.groupMemberId,
             position: slot.position,
@@ -658,6 +667,8 @@ export default function AddChallengeMatchScreen({ route }: Props) {
         await saveChallengeMatch({
           date: matchDate,
           groupId: selectedGroupId,
+          createdByUserId,
+          createdByGroupMemberId,
           players: slots.map(slot => ({
             groupMemberId: slot.groupMemberId,
             position: slot.position,

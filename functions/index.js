@@ -15,6 +15,11 @@ const { deleteChallengeMatch } = require('./handlers/deleteChallengeMatch');
 const { calculateChallengeMvpWinners } = require('./handlers/calculateChallengeMvpWinners');
 const { remindChallengeMvpVoters } = require('./handlers/remindChallengeMvpVoters');
 const { migrateUserNotificationPreferences } = require('./handlers/migrateUserNotificationPreferences');
+const {
+	onMatchSignupUpdated,
+	onChallengeMatchSignupUpdated,
+	onMatchByTeamsSignupUpdated,
+} = require('./handlers/matchSignupNotificationsHandler');
 
 exports.notifyGroupOnNewMatch = notifyGroupOnNewMatch;
 exports.notifyUserOnInvite = notifyUserOnInvite;
@@ -36,3 +41,6 @@ exports.deleteChallengeMatch = deleteChallengeMatch;
 exports.calculateChallengeMvpWinners = calculateChallengeMvpWinners;
 exports.remindChallengeMvpVoters = remindChallengeMvpVoters;
 exports.migrateUserNotificationPreferences = migrateUserNotificationPreferences;
+exports.onMatchSignupUpdated = onMatchSignupUpdated;
+exports.onChallengeMatchSignupUpdated = onChallengeMatchSignupUpdated;
+exports.onMatchByTeamsSignupUpdated = onMatchByTeamsSignupUpdated;

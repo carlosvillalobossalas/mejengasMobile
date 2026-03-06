@@ -21,6 +21,8 @@ export type MatchPlayer = {
 export type Match = {
   id: string;
   groupId: string;
+  createdByUserId?: string | null;
+  createdByGroupMemberId?: string | null;
   season: number;
   date: string;
   goalsTeam1: number;
@@ -100,6 +102,8 @@ const mapMatchDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Match => {
   return {
     id: doc.id,
     groupId: String(data.groupId ?? ''),
+    createdByUserId: data.createdByUserId ? String(data.createdByUserId) : null,
+    createdByGroupMemberId: data.createdByGroupMemberId ? String(data.createdByGroupMemberId) : null,
     season: Number(data.season ?? 0),
     date: toIsoString(data.date) ?? new Date().toISOString(),
     goalsTeam1: Number(data.goalsTeam1 ?? 0),

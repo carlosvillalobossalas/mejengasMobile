@@ -1,0 +1,17 @@
+[debug] [2026-03-06T18:36:08.050Z] ----------------------------------------------------------------------
+[debug] [2026-03-06T18:36:08.053Z] Command:       /Users/carlosvillalobos/.nvm/versions/node/v20.20.0/bin/node /Users/carlosvillalobos/.nvm/versions/node/v20.20.0/bin/firebase deploy --only functions
+[debug] [2026-03-06T18:36:08.053Z] CLI Version:   15.5.1
+[debug] [2026-03-06T18:36:08.053Z] Platform:      darwin
+[debug] [2026-03-06T18:36:08.053Z] Node Version:  v20.20.0
+[debug] [2026-03-06T18:36:08.053Z] Time:          Fri Mar 06 2026 12:36:08 GMT-0600 (Central Standard Time)
+[debug] [2026-03-06T18:36:08.053Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-03-06T18:36:08.760Z] Object "" in "firebase.json" has unknown property: {"additionalProperty":"messaging"}
+[debug] [2026-03-06T18:36:08.762Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-06T18:36:08.762Z] > authorizing via signed-in user (carlosvillalobos247@gmail.com)
+[debug] [2026-03-06T18:36:08.762Z] [iam] checking project mejengas-a7794 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-03-06T18:36:08.763Z] Checked if tokens are valid: true, expires at: 1772824758662
+[debug] [2026-03-06T18:36:08.763Z] Checked if tokens are valid: true, expires at: 1772824758662
+[debug] [2026-03-06T18:36:08.763Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/mejengas-a7794:testIamPermissions [none]
+[debug] [2026-03-06T18:36:08.763Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/mejengas-a7794:testIamPermissions  x-goog-user-project=mejengas-a7794
+[debug] [2026-03-06T18:36:08.763Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/mejengas-a7794:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}

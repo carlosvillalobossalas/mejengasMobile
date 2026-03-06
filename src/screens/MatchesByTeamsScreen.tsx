@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { ScrollView, View, StyleSheet, ActivityIndicator } from 'react-native';
+import { ScrollView, View, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import {
   Text,
   Surface,
@@ -21,6 +21,7 @@ import { useMvpVoting } from '../hooks/useMvpVoting';
 import MatchByTeamsCard from '../components/MatchByTeamsCard';
 import MvpVotingModal from '../components/MvpVotingModal';
 import { castMvpVoteByTeams } from '../repositories/matches/matchesByTeamsRepository';
+import { tapScheduledSlotInMatchByTeams } from '../repositories/matches/matchSignupsRepository';
 
 // Icon component outside render to avoid React warnings
 const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF" />;
@@ -209,6 +210,25 @@ export default function MatchesByTeamsScreen() {
                 canVote={canVoteInMatch(match)}
                 hasVoted={!!(currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId])}
                 onVotePress={() => setSelectedVotingMatchId(match.id)}
+                currentUserGroupMemberId={currentUserGroupMemberId}
+                onSlotPress={async ({ team, slotIndex }) => {
+                  if (match.status !== 'scheduled' || !firebaseUser?.uid) return;
+
+                  try {
+                    await tapScheduledSlotInMatchByTeams({
+                      matchId: match.id,
+                      userId: firebaseUser.uid,
+                      team,
+                      slotIndex,
+                    });
+                  } catch (tapError) {
+                    const message =
+                      tapError instanceof Error
+                        ? tapError.message
+                        : 'No se pudo actualizar tu lugar en el partido.';
+                    Alert.alert('No fue posible actualizar', message);
+                  }
+                }}
               />
             </View>
           ))

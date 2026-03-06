@@ -17,6 +17,8 @@ export type MatchToSave = {
   team2Players: TeamPlayer[];
   team1Goals: number;
   team2Goals: number;
+  createdByUserId?: string | null;
+  createdByGroupMemberId?: string | null;
 };
 
 type PlayerStats = {
@@ -100,6 +102,8 @@ function addSeasonStatsToBatch(
 export async function saveMatch(match: MatchToSave): Promise<void> {
   const season = match.date.getFullYear();
   const { team1Goals, team2Goals, groupId } = match;
+  const createdByUserId = match.createdByUserId ?? null;
+  const createdByGroupMemberId = match.createdByGroupMemberId ?? null;
 
   const team1Won = team1Goals > team2Goals;
   const team2Won = team2Goals > team1Goals;
@@ -117,6 +121,8 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
   batch.set(matchRef, {
     groupId,
     season,
+    createdByUserId,
+    createdByGroupMemberId,
     date: firestore.Timestamp.fromDate(match.date),
     createdAt: firestore.FieldValue.serverTimestamp(),
     registeredDate: firestore.FieldValue.serverTimestamp(),
@@ -206,6 +212,8 @@ export type ScheduledMatchToSave = {
   groupId: string;
   team1Players: ScheduledPlayerToSave[];
   team2Players: ScheduledPlayerToSave[];
+  createdByUserId?: string | null;
+  createdByGroupMemberId?: string | null;
 };
 
 /**
@@ -222,6 +230,8 @@ export async function saveScheduledMatch(
 ): Promise<void> {
   const { groupId } = match;
   const season = match.date.getFullYear();
+  const createdByUserId = match.createdByUserId ?? null;
+  const createdByGroupMemberId = match.createdByGroupMemberId ?? null;
 
   const batch = firestore().batch();
   const matchRef = firestore().collection(MATCHES_COLLECTION).doc();
@@ -229,6 +239,8 @@ export async function saveScheduledMatch(
   batch.set(matchRef, {
     groupId,
     season,
+    createdByUserId,
+    createdByGroupMemberId,
     date: firestore.Timestamp.fromDate(match.date),
     createdAt: firestore.FieldValue.serverTimestamp(),
     registeredDate: firestore.FieldValue.serverTimestamp(),

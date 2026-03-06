@@ -70,14 +70,16 @@ export default function HomeScreen() {
     const dispatch = useAppDispatch();
 
     const { groups, selectedGroupId } = useAppSelector(state => state.groups);
+    const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
     const currentUser = useAppSelector(state => state.auth.firestoreUser);
+    const authUserId = firebaseUser?.uid ?? currentUser?.uid ?? null;
 
     const activeGroup = useMemo(
         () => groups.find(g => g.id === selectedGroupId),
         [groups, selectedGroupId],
     );
 
-    const isOwner = activeGroup?.ownerId === currentUser?.uid;
+    const isOwner = activeGroup?.ownerId === authUserId;
     const isAdmin = userRole === 'admin' || userRole === 'owner';
 
     // Reset description panel when switching groups
@@ -87,14 +89,14 @@ export default function HomeScreen() {
 
     // Subscribe to user role in real-time so permission changes reflect immediately
     useEffect(() => {
-        if (!selectedGroupId || !currentUser?.uid) {
+        if (!selectedGroupId || !authUserId) {
             setUserRole(null);
             return;
         }
 
         const unsubscribe = subscribeToUserRoleInGroup(
             selectedGroupId,
-            currentUser.uid,
+            authUserId,
             role => setUserRole(role),
             error => {
                 console.error('Error subscribing to user role:', error);
@@ -103,7 +105,7 @@ export default function HomeScreen() {
         );
 
         return () => unsubscribe();
-    }, [selectedGroupId, currentUser?.uid]);
+    }, [selectedGroupId, authUserId]);
 
     // Execute search when debounced query changes
     useEffect(() => {
@@ -162,10 +164,10 @@ export default function HomeScreen() {
     };
 
     const handleSwitchGroup = useCallback((groupId: string) => {
-        if (!currentUser?.uid) return;
-        dispatch(selectGroup({ userId: currentUser.uid, groupId }));
+        if (!authUserId) return;
+        dispatch(selectGroup({ userId: authUserId, groupId }));
         groupSwitcherRef.current?.close();
-    }, [currentUser?.uid, dispatch]);
+    }, [authUserId, dispatch]);
 
     const renderGroupBackdrop = useCallback(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -581,10 +583,10 @@ export default function HomeScreen() {
 
                 <GroupInfoModal
                     group={selectedGroupResult}
-                    currentUserId={currentUser?.uid ?? null}
-                    currentUserEmail={currentUser?.email ?? null}
-                    currentUserDisplayName={currentUser?.displayName ?? null}
-                    currentUserPhotoURL={currentUser?.photoURL as string | null ?? null}
+                    currentUserId={authUserId}
+                    currentUserEmail={currentUser?.email ?? firebaseUser?.email ?? null}
+                    currentUserDisplayName={currentUser?.displayName ?? firebaseUser?.displayName ?? null}
+                    currentUserPhotoURL={(currentUser?.photoURL as string | null) ?? firebaseUser?.photoURL ?? null}
                     bottomSheetRef={groupInfoModalRef}
                 />
             </Portal>

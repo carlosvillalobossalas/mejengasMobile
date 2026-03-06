@@ -29,8 +29,16 @@ import { subscribeToGroupMembersV2ByGroupId, getGroupMemberV2ByUserId, type Grou
 import MatchLineup from '../components/MatchLineup';
 import PlayersList from '../components/PlayersList';
 import MvpVotingModal from '../components/MvpVotingModal';
+import MatchPlayerSlotModal from '../components/MatchPlayerSlotModal';
 import { shareMatchOnWhatsApp } from '../services/matches/matchShareService';
 import { useMvpVoting } from '../hooks/useMvpVoting';
+import {
+  tapScheduledSlotInMatch,
+  moveScheduledSlotInMatch,
+  removeScheduledSlotInMatch,
+  replaceScheduledSlotInMatch,
+  switchScheduledSlotTeamInMatch,
+} from '../repositories/matches/matchSignupsRepository';
 import type { AppDrawerParamList } from '../navigation/types';
 
 // Icon component for year button - moved outside to avoid warnings
@@ -52,10 +60,17 @@ export default function MatchesScreen() {
   );
   // ID of the match the voting modal is open for — derived from live allMatches
   const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{
+    matchId: string;
+    team: 1 | 2;
+    slotIndex: number;
+    groupMemberId: string;
+  } | null>(null);
   // Whether the current user is admin or owner of the selected group
   const [isAdminOrOwner, setIsAdminOrOwner] = useState(false);
   const [deletingMatchId, setDeletingMatchId] = useState<string | null>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const slotModalRef = useRef<BottomSheet>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   // One ref per card — used to measure position in scroll content after collapse
   const cardRefs = useRef<Map<string, View | null>>(new Map());
@@ -74,6 +89,126 @@ export default function MatchesScreen() {
     const selectedGroup = groups.find(group => group.id === selectedGroupId);
     return selectedGroup?.ownerId === firebaseUser.uid;
   }, [groups, selectedGroupId, firebaseUser?.uid]);
+
+  const selectedSlotMatch = useMemo(
+    () => (selectedSlot ? allMatches.find(m => m.id === selectedSlot.matchId) ?? null : null),
+    [allMatches, selectedSlot],
+  );
+
+  const selectedSlotPlayer = useMemo(
+    () => (selectedSlot ? allPlayers.find(player => player.id === selectedSlot.groupMemberId) ?? null : null),
+    [allPlayers, selectedSlot],
+  );
+
+  const isMatchCreator = useMemo(() => {
+    if (!selectedSlotMatch || !firebaseUser?.uid) return false;
+    return selectedSlotMatch.createdByUserId === firebaseUser.uid;
+  }, [selectedSlotMatch, firebaseUser?.uid]);
+
+  const canManageSelectedSlot = Boolean(selectedSlotMatch?.status === 'scheduled' && (isAdminOrOwner || isMatchCreator));
+
+  const recentSlotPlayerStats = useMemo(() => {
+    if (!selectedSlot?.groupMemberId) return [];
+
+    const rows = allMatches
+      .slice()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .filter(match => match.status === 'finished')
+      .map(match => {
+        const player = [...match.players1, ...match.players2].find(p => p.groupMemberId === selectedSlot.groupMemberId);
+        if (!player) return null;
+
+        return {
+          id: `${match.id}_${player.position}`,
+          dateLabel: new Date(match.date).toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }),
+          position: player.position,
+          goals: Number(player.goals ?? 0),
+          assists: Number(player.assists ?? 0),
+          ownGoals: Number(player.ownGoals ?? 0),
+        };
+      })
+      .filter(Boolean) as Array<{
+      id: string;
+      dateLabel: string;
+      position: string;
+      goals: number;
+      assists: number;
+      ownGoals: number;
+    }>;
+
+    return rows.slice(0, 10);
+  }, [allMatches, selectedSlot]);
+
+  const selectedSlotMoveOptions = useMemo(() => {
+    if (!selectedSlotMatch || !selectedSlot) return [] as Array<{ id: string; label: string; onPress: () => void }>;
+
+    const sourceTeamPlayers = selectedSlot.team === 1 ? selectedSlotMatch.players1 : selectedSlotMatch.players2;
+    const targetTeamPlayers = selectedSlot.team === 1 ? selectedSlotMatch.players2 : selectedSlotMatch.players1;
+
+    const sameTeamEmpty = sourceTeamPlayers
+      .map((player, index) => ({ player, index }))
+      .filter(({ player, index }) => index !== selectedSlot.slotIndex && !player.groupMemberId);
+
+    const otherTeamEmpty = targetTeamPlayers
+      .map((player, index) => ({ player, index }))
+      .filter(({ player }) => !player.groupMemberId);
+
+    const sameTeamActions = sameTeamEmpty.map(({ player, index }) => ({
+      id: `same_${index}`,
+      label: `Mover a ${player.position} (Equipo ${selectedSlot.team})`,
+      onPress: async () => {
+        await moveScheduledSlotInMatch({
+          matchId: selectedSlot.matchId,
+          team: selectedSlot.team,
+          fromSlotIndex: selectedSlot.slotIndex,
+          toSlotIndex: index,
+        });
+      },
+    }));
+
+    const otherTeamActions = otherTeamEmpty.map(({ player, index }) => ({
+      id: `switch_${index}`,
+      label: `Cambiar a ${player.position} (Equipo ${selectedSlot.team === 1 ? 2 : 1})`,
+      onPress: async () => {
+        await switchScheduledSlotTeamInMatch({
+          matchId: selectedSlot.matchId,
+          fromTeam: selectedSlot.team,
+          fromSlotIndex: selectedSlot.slotIndex,
+          toSlotIndex: index,
+        });
+      },
+    }));
+
+    return [...sameTeamActions, ...otherTeamActions];
+  }, [selectedSlotMatch, selectedSlot]);
+
+  const replacementCandidates = useMemo(() => {
+    if (!selectedSlotMatch || !selectedSlot) return [];
+
+    const assigned = new Set(
+      [...selectedSlotMatch.players1, ...selectedSlotMatch.players2]
+        .map(p => p.groupMemberId)
+        .filter(Boolean),
+    );
+
+    return allPlayers
+      .filter(player => !assigned.has(player.id) || player.id === selectedSlot.groupMemberId)
+      .filter(player => player.id !== selectedSlot.groupMemberId)
+      .map(player => ({
+        groupMemberId: player.id,
+        displayName: player.displayName,
+        photoUrl: player.photoUrl,
+      }));
+  }, [allPlayers, selectedSlotMatch, selectedSlot]);
+
+  const closeSlotModal = useCallback(() => {
+    slotModalRef.current?.close();
+    setTimeout(() => setSelectedSlot(null), 200);
+  }, []);
 
   // Subscribe to group members in real-time so newly added players appear without manual refresh
   useEffect(() => {
@@ -459,6 +594,37 @@ export default function MatchesScreen() {
                   team2Players={match.players2}
                   allPlayers={allPlayers}
                   mvpGroupMemberId={match.mvpGroupMemberId}
+                  onSlotPress={async ({ team, slotIndex, groupMemberId }) => {
+                    if (!firebaseUser?.uid) return;
+
+                    if (groupMemberId) {
+                      setSelectedSlot({
+                        matchId: match.id,
+                        team,
+                        slotIndex,
+                        groupMemberId,
+                      });
+                      setTimeout(() => slotModalRef.current?.expand(), 80);
+                      return;
+                    }
+
+                    if (match.status !== 'scheduled') return;
+
+                    try {
+                      await tapScheduledSlotInMatch({
+                        matchId: match.id,
+                        userId: firebaseUser.uid,
+                        team,
+                        slotIndex,
+                      });
+                    } catch (tapError) {
+                      const message =
+                        tapError instanceof Error
+                          ? tapError.message
+                          : 'No se pudo actualizar tu lugar en el partido.';
+                      Alert.alert('No fue posible actualizar', message);
+                    }
+                  }}
                 />
                 <View style={styles(theme).spacing} />
                 <PlayersList
@@ -610,6 +776,67 @@ export default function MatchesScreen() {
         }}
         onClearError={clearVoteError}
       />
+
+      <Portal>
+        <MatchPlayerSlotModal
+          bottomSheetRef={slotModalRef}
+          playerName={selectedSlotPlayer?.displayName ?? 'Jugador'}
+          playerPhotoUrl={selectedSlotPlayer?.photoUrl ?? null}
+          recentStats={recentSlotPlayerStats}
+          canManage={canManageSelectedSlot}
+          quickActions={
+            canManageSelectedSlot && selectedSlot
+              ? [
+                  {
+                    id: 'remove',
+                    label: 'Remover jugador',
+                    icon: 'account-remove-outline',
+                    onPress: async () => {
+                      try {
+                        await removeScheduledSlotInMatch({
+                          matchId: selectedSlot.matchId,
+                          team: selectedSlot.team,
+                          slotIndex: selectedSlot.slotIndex,
+                        });
+                        closeSlotModal();
+                      } catch (e) {
+                        Alert.alert('No fue posible actualizar', e instanceof Error ? e.message : 'Error inesperado.');
+                      }
+                    },
+                  },
+                  ...selectedSlotMoveOptions.map(option => ({
+                    id: option.id,
+                    label: option.label,
+                    icon: option.id.startsWith('switch_') ? 'swap-horizontal' : 'arrow-expand',
+                    onPress: async () => {
+                      try {
+                        await option.onPress();
+                        closeSlotModal();
+                      } catch (e) {
+                        Alert.alert('No fue posible actualizar', e instanceof Error ? e.message : 'Error inesperado.');
+                      }
+                    },
+                  })),
+                ]
+              : []
+          }
+          replacementCandidates={canManageSelectedSlot ? replacementCandidates : []}
+          onReplace={async replacementGroupMemberId => {
+            if (!selectedSlot) return;
+            try {
+              await replaceScheduledSlotInMatch({
+                matchId: selectedSlot.matchId,
+                team: selectedSlot.team,
+                slotIndex: selectedSlot.slotIndex,
+                replacementGroupMemberId,
+              });
+              closeSlotModal();
+            } catch (e) {
+              Alert.alert('No fue posible actualizar', e instanceof Error ? e.message : 'Error inesperado.');
+            }
+          }}
+        />
+      </Portal>
     </View>
   );
 }

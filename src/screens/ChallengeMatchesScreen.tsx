@@ -24,9 +24,16 @@ import { useChallengeMatches } from '../hooks/useChallengeMatches';
 import { useChallengeMatchMvpVoting } from '../hooks/useChallengeMatchMvpVoting';
 import ChallengeMvpVotingModal from '../components/ChallengeMvpVotingModal';
 import ChallengeMatchLineup from '../components/ChallengeMatchLineup';
+import MatchPlayerSlotModal from '../components/MatchPlayerSlotModal';
 import { shareChallengeMatchOnWhatsApp } from '../services/matches/challengeMatchShareService';
 import type { ChallengeMatch, ChallengeMatchPlayer } from '../repositories/matches/matchesByChallengeRepository';
 import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
+import {
+  tapScheduledSlotInChallengeMatch,
+  moveScheduledSlotInChallengeMatch,
+  removeScheduledSlotInChallengeMatch,
+  replaceScheduledSlotInChallengeMatch,
+} from '../repositories/matches/matchSignupsRepository';
 import type { AppDrawerParamList } from '../navigation/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -109,8 +116,14 @@ export default function ChallengeMatchesScreen() {
 
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{
+    matchId: string;
+    slotIndex: number;
+    groupMemberId: string;
+  } | null>(null);
   const [deletingMatchId, setDeletingMatchId] = useState<string | null>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const slotModalRef = useRef<BottomSheet>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const cardRefs = useRef<Map<string, View | null>>(new Map());
 
@@ -140,15 +153,117 @@ export default function ChallengeMatchesScreen() {
     clearVoteError,
   } = useChallengeMatchMvpVoting(selectedGroupId, firebaseUser?.uid ?? null);
 
+  const selectedSlotMatch = useMemo(
+    () => (selectedSlot ? matches.find(m => m.id === selectedSlot.matchId) ?? null : null),
+    [matches, selectedSlot],
+  );
+
+  const selectedSlotPlayer = useMemo(
+    () => (selectedSlot ? groupMembers.find(member => member.id === selectedSlot.groupMemberId) ?? null : null),
+    [groupMembers, selectedSlot],
+  );
+
+  const currentMemberRole = useMemo(() => {
+    if (!firebaseUser?.uid) return null;
+    return groupMembers.find(member => member.userId === firebaseUser.uid)?.role ?? null;
+  }, [groupMembers, firebaseUser?.uid]);
+
   const selectedVotingMatch = useMemo(
     () => (selectedVotingMatchId ? matches.find(m => m.id === selectedVotingMatchId) ?? null : null),
     [selectedVotingMatchId, matches],
   );
 
   const isAdmin = useMemo(() => {
-    if (!currentUser?.uid || !selectedGroupId || !activeGroup) return false;
-    return activeGroup.ownerId === currentUser.uid;
-  }, [currentUser?.uid, selectedGroupId, activeGroup]);
+    if (!selectedGroupId || !activeGroup || !firebaseUser?.uid) return false;
+    if (activeGroup.ownerId === firebaseUser.uid) return true;
+    return currentMemberRole === 'admin' || currentMemberRole === 'owner';
+  }, [selectedGroupId, activeGroup, firebaseUser?.uid, currentMemberRole]);
+
+  const isMatchCreator = useMemo(() => {
+    if (!selectedSlotMatch || !firebaseUser?.uid) return false;
+    return selectedSlotMatch.createdByUserId === firebaseUser.uid;
+  }, [selectedSlotMatch, firebaseUser?.uid]);
+
+  const canManageSelectedSlot = Boolean(selectedSlotMatch?.status === 'scheduled' && (isAdmin || isMatchCreator));
+
+  const recentSlotPlayerStats = useMemo(() => {
+    if (!selectedSlot?.groupMemberId) return [];
+
+    const rows = matches
+      .slice()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .filter(match => match.status === 'finished')
+      .map(match => {
+        const player = match.players.find(p => p.groupMemberId === selectedSlot.groupMemberId);
+        if (!player) return null;
+
+        return {
+          id: `${match.id}_${player.position}`,
+          dateLabel: new Date(match.date).toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          }),
+          position: player.position,
+          goals: Number(player.goals ?? 0),
+          assists: Number(player.assists ?? 0),
+          ownGoals: Number(player.ownGoals ?? 0),
+        };
+      })
+      .filter(Boolean) as Array<{
+      id: string;
+      dateLabel: string;
+      position: string;
+      goals: number;
+      assists: number;
+      ownGoals: number;
+    }>;
+
+    return rows.slice(0, 10);
+  }, [matches, selectedSlot]);
+
+  const selectedSlotMoveOptions = useMemo(() => {
+    if (!selectedSlotMatch || !selectedSlot) return [] as Array<{ id: string; label: string; onPress: () => void }>;
+
+    return selectedSlotMatch.players
+      .map((player, index) => ({ player, index }))
+      .filter(({ player, index }) => index !== selectedSlot.slotIndex && !player.groupMemberId)
+      .map(({ player, index }) => ({
+        id: `move_${index}`,
+        label: `Mover a ${player.position}`,
+        onPress: async () => {
+          await moveScheduledSlotInChallengeMatch({
+            matchId: selectedSlot.matchId,
+            fromSlotIndex: selectedSlot.slotIndex,
+            toSlotIndex: index,
+          });
+        },
+      }));
+  }, [selectedSlotMatch, selectedSlot]);
+
+  const replacementCandidates = useMemo(() => {
+    if (!selectedSlotMatch || !selectedSlot) return [];
+
+    const assigned = new Set(
+      selectedSlotMatch.players
+        .map(p => p.groupMemberId)
+        .filter(Boolean),
+    );
+
+    return groupMembers
+      .filter(member => !assigned.has(member.id) || member.id === selectedSlot.groupMemberId)
+      .filter(member => member.id !== selectedSlot.groupMemberId)
+      .map(member => ({
+        groupMemberId: member.id,
+        displayName: member.displayName,
+        photoUrl: member.photoUrl,
+      }));
+  }, [groupMembers, selectedSlotMatch, selectedSlot]);
+
+  const closeSlotModal = useCallback(() => {
+    slotModalRef.current?.close();
+    setTimeout(() => setSelectedSlot(null), 200);
+  }, []);
 
   const deleteChallengeMatch = useCallback(async (matchId: string) => {
     if (deletingMatchId) return;
@@ -465,6 +580,35 @@ export default function ChallengeMatchesScreen() {
                       allPlayers={groupMembers}
                       mvpGroupMemberId={match.mvpGroupMemberId}
                       teamColor={theme.colors.primary}
+                      onSlotPress={async ({ slotIndex, groupMemberId }) => {
+                        if (!firebaseUser?.uid) return;
+
+                        if (groupMemberId) {
+                          setSelectedSlot({
+                            matchId: match.id,
+                            slotIndex,
+                            groupMemberId,
+                          });
+                          setTimeout(() => slotModalRef.current?.expand(), 80);
+                          return;
+                        }
+
+                        if (match.status !== 'scheduled') return;
+
+                        try {
+                          await tapScheduledSlotInChallengeMatch({
+                            matchId: match.id,
+                            userId: firebaseUser.uid,
+                            slotIndex,
+                          });
+                        } catch (tapError) {
+                          const message =
+                            tapError instanceof Error
+                              ? tapError.message
+                              : 'No se pudo actualizar tu lugar en el partido.';
+                          Alert.alert('No fue posible actualizar', message);
+                        }
+                      }}
                     />
                     <View style={styles(theme).spacing} />
                   </>
@@ -651,6 +795,65 @@ export default function ChallengeMatchesScreen() {
         onDismiss={() => { setSelectedVotingMatchId(null); clearVoteError(); }}
         onClearError={clearVoteError}
       />
+
+      <Portal>
+        <MatchPlayerSlotModal
+          bottomSheetRef={slotModalRef}
+          playerName={selectedSlotPlayer?.displayName ?? 'Jugador'}
+          playerPhotoUrl={selectedSlotPlayer?.photoUrl ?? null}
+          recentStats={recentSlotPlayerStats}
+          canManage={canManageSelectedSlot}
+          quickActions={
+            canManageSelectedSlot && selectedSlot
+              ? [
+                  {
+                    id: 'remove',
+                    label: 'Remover jugador',
+                    icon: 'account-remove-outline',
+                    onPress: async () => {
+                      try {
+                        await removeScheduledSlotInChallengeMatch({
+                          matchId: selectedSlot.matchId,
+                          slotIndex: selectedSlot.slotIndex,
+                        });
+                        closeSlotModal();
+                      } catch (e) {
+                        Alert.alert('No fue posible actualizar', e instanceof Error ? e.message : 'Error inesperado.');
+                      }
+                    },
+                  },
+                  ...selectedSlotMoveOptions.map(option => ({
+                    id: option.id,
+                    label: option.label,
+                    icon: 'arrow-expand',
+                    onPress: async () => {
+                      try {
+                        await option.onPress();
+                        closeSlotModal();
+                      } catch (e) {
+                        Alert.alert('No fue posible actualizar', e instanceof Error ? e.message : 'Error inesperado.');
+                      }
+                    },
+                  })),
+                ]
+              : []
+          }
+          replacementCandidates={canManageSelectedSlot ? replacementCandidates : []}
+          onReplace={async replacementGroupMemberId => {
+            if (!selectedSlot) return;
+            try {
+              await replaceScheduledSlotInChallengeMatch({
+                matchId: selectedSlot.matchId,
+                slotIndex: selectedSlot.slotIndex,
+                replacementGroupMemberId,
+              });
+              closeSlotModal();
+            } catch (e) {
+              Alert.alert('No fue posible actualizar', e instanceof Error ? e.message : 'Error inesperado.');
+            }
+          }}
+        />
+      </Portal>
 
     </View>
   );

@@ -39,15 +39,17 @@ export default function AppNavigator() {
   const theme = useTheme();
   const dispatch = useAppDispatch();
   const { selectedGroupId, isHydrated, groups } = useAppSelector(state => state.groups);
+  const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
   const currentUser = useAppSelector(state => state.auth.firestoreUser);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const authUserId = firebaseUser?.uid ?? currentUser?.uid ?? null;
 
   const activeGroup = useMemo(
     () => groups.find(g => g.id === selectedGroupId),
     [groups, selectedGroupId],
   );
 
-  const isOwner = activeGroup?.ownerId === currentUser?.uid;
+  const isOwner = activeGroup?.ownerId === authUserId;
   const isAdmin = userRole === 'admin' || userRole === 'owner' || isOwner;
 
   // Navigate to the correct screen when a notification is tapped
@@ -80,29 +82,28 @@ export default function AppNavigator() {
   // Subscribe to user groups in real-time so the group switcher updates immediately
   // (e.g. when a join request is accepted)
   useEffect(() => {
-    if (!currentUser?.uid) {
-      dispatch(setGroups([]));
+    if (!authUserId) {
       return;
     }
 
     const unsubscribe = subscribeToGroupsForUser(
-      currentUser.uid,
+      authUserId,
       groups => dispatch(setGroups(groups)),
     );
 
     return () => unsubscribe();
-  }, [currentUser?.uid, dispatch]);
+  }, [authUserId, dispatch]);
 
   // Subscribe to user role in real-time so drawer items update immediately
   useEffect(() => {
-    if (!selectedGroupId || !currentUser?.uid) {
+    if (!selectedGroupId || !authUserId) {
       setUserRole(null);
       return;
     }
 
     const unsubscribe = subscribeToUserRoleInGroup(
       selectedGroupId,
-      currentUser.uid,
+      authUserId,
       role => setUserRole(role),
       error => {
         console.error('Error subscribing to user role:', error);
@@ -111,7 +112,7 @@ export default function AppNavigator() {
     );
 
     return () => unsubscribe();
-  }, [selectedGroupId, currentUser?.uid]);
+  }, [selectedGroupId, authUserId]);
 
   // Wait until we've loaded the selectedGroupId from storage
   if (!isHydrated) {

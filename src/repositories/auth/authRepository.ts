@@ -28,10 +28,57 @@ function toMillis(
   return value.toMillis();
 }
 
+function isTimestampLike(
+  value: unknown,
+): value is FirebaseFirestoreTypes.Timestamp | { _seconds: number; _nanoseconds: number } {
+  if (!value || typeof value !== 'object') return false;
+
+  const maybeTimestamp = value as {
+    toMillis?: () => number;
+    _seconds?: number;
+    _nanoseconds?: number;
+  };
+
+  if (typeof maybeTimestamp.toMillis === 'function') {
+    return true;
+  }
+
+  return (
+    typeof maybeTimestamp._seconds === 'number' &&
+    typeof maybeTimestamp._nanoseconds === 'number'
+  );
+}
+
+function normalizeFirestoreValue(value: unknown): unknown {
+  if (isTimestampLike(value)) {
+    if (typeof (value as { toMillis?: () => number }).toMillis === 'function') {
+      return (value as FirebaseFirestoreTypes.Timestamp).toMillis();
+    }
+
+    const raw = value as { _seconds: number; _nanoseconds: number };
+    return raw._seconds * 1000 + Math.floor(raw._nanoseconds / 1_000_000);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => normalizeFirestoreValue(item));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
+        key,
+        normalizeFirestoreValue(nestedValue),
+      ]),
+    );
+  }
+
+  return value;
+}
+
 function mapUserDoc(
   snap: FirebaseFirestoreTypes.DocumentSnapshot,
 ): FirestoreUser {
-  const data = (snap.data() ?? {}) as Record<string, unknown>;
+  const data = normalizeFirestoreValue(snap.data() ?? {}) as Record<string, unknown>;
 
   return {
     // Spread raw data first so we can override non-serializable fields below.

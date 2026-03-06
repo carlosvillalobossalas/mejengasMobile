@@ -47,6 +47,7 @@ const POSITION_ORDER: Record<MatchPosition, number> = { POR: 0, DEF: 1, MED: 2, 
 
 export function useAddMatchTeams() {
   const { selectedGroupId, groups } = useAppSelector(state => state.groups);
+  const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
   const selectedGroup = groups.find(g => g.id === selectedGroupId);
   const requiredPlayersPerTeam =
     REQUIRED_PLAYERS_BY_TYPE[selectedGroup?.type ?? ''] ?? 5;
@@ -304,6 +305,10 @@ export function useAddMatchTeams() {
     setDate(new Date());
   }, []);
 
+  const createdByUserId = firebaseUser?.uid ?? null;
+  const createdByGroupMemberId =
+    groupMembers.find(member => member.userId === firebaseUser?.uid)?.id ?? null;
+
   // Saves to matchesByTeams and atomically updates seasonStats + seasonStatsByTeams
   const handleSave = useCallback(async () => {
     if (!selectedGroupId || !selectedTeam1Id || !selectedTeam2Id) return;
@@ -314,6 +319,8 @@ export function useAddMatchTeams() {
       await saveMatchByTeams({
         groupId: selectedGroupId,
         date,
+        createdByUserId,
+        createdByGroupMemberId,
         team1Id: selectedTeam1Id,
         team2Id: selectedTeam2Id,
         goalsTeam1,
@@ -351,6 +358,8 @@ export function useAddMatchTeams() {
     team2Players,
     goalsTeam1,
     goalsTeam2,
+    createdByUserId,
+    createdByGroupMemberId,
     resetForm,
   ]);
 

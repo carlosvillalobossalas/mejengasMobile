@@ -32,6 +32,7 @@ import {
   type ScheduledPosition,
   type ScheduledSlot,
 } from '../hooks/useAddScheduledMatch';
+import { useAppSelector } from '../app/hooks';
 import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import { getMatchById } from '../repositories/matches/matchesRepository';
 import { saveMatch, saveScheduledMatch } from '../services/matches/matchSaveService';
@@ -297,6 +298,7 @@ const createEmptySlot = (position: ScheduledPosition): ScheduledSlot => ({
 export default function AddMatchScreen({ route }: Props) {
   const theme = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
+  const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
   const matchId = route?.params?.matchId ?? null;
   const isEditMode = !!matchId;
 
@@ -488,6 +490,12 @@ export default function AddMatchScreen({ route }: Props) {
   }, [statusMode, team1Slots, team2Slots]);
 
   const canSave = selectedGroupId !== null && validationWarnings.length === 0;
+  const createdByUserId = firebaseUser?.uid ?? null;
+  const createdByGroupMemberId = useMemo(() => {
+    if (!firebaseUser?.uid) return null;
+    const currentMember = allMembers.find(member => member.userId === firebaseUser.uid);
+    return currentMember?.id ?? null;
+  }, [allMembers, firebaseUser?.uid]);
 
   const handleStatChange = (
     team: 1 | 2,
@@ -583,6 +591,8 @@ export default function AddMatchScreen({ route }: Props) {
         await saveScheduledMatch({
           date: matchDate,
           groupId: selectedGroupId,
+          createdByUserId,
+          createdByGroupMemberId,
           team1Players: team1Slots.map(slot => ({
             groupMemberId: slot.groupMemberId,
             position: slot.position,
@@ -600,6 +610,8 @@ export default function AddMatchScreen({ route }: Props) {
         await saveMatch({
           date: matchDate,
           groupId: selectedGroupId,
+          createdByUserId,
+          createdByGroupMemberId,
           team1Goals,
           team2Goals,
           team1Players: team1Slots.map(slot => ({

@@ -29,6 +29,11 @@ type MatchLineupProps = {
     /** Optional team colors used as avatar background */
     team1Color?: string;
     team2Color?: string;
+    onSlotPress?: (params: {
+        team: 1 | 2;
+        slotIndex: number;
+        groupMemberId: string | null;
+    }) => void;
 };
 
 const getShortName = (displayName: string): string => {
@@ -93,6 +98,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     team2Name,
     team1Color,
     team2Color,
+    onSlotPress,
 }) => {
     const theme = useTheme();
     const [activeTeam, setActiveTeam] = useState(selectedTeam);
@@ -103,12 +109,17 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     };
 
     // Exclude substitutes — they don't occupy a field position
-    const currentPlayers = (activeTeam === 0 ? team1Players : team2Players).filter(p => !p.isSub);
+    const currentPlayersWithIndex = (activeTeam === 0 ? team1Players : team2Players)
+        .map((player, index) => ({ player, index }))
+        .filter(entry => !entry.player.isSub);
     const activeTeamColor = activeTeam === 0 ? team1Color : team2Color;
+    const activeTeamNumber: 1 | 2 = activeTeam === 0 ? 1 : 2;
 
-    const renderPlayer = (player: LineupPlayer, playerIndex: number) => {
+    const renderPlayer = (player: LineupPlayer, playerIndex: number, slotIndex: number) => {
         // Group players by position to calculate indices (supports multiple empty slots)
-        const playersInPosition = currentPlayers.filter(p => p && p.position === player.position);
+        const playersInPosition = currentPlayersWithIndex
+            .map(entry => entry.player)
+            .filter(p => p && p.position === player.position);
         const indexInPosition = playersInPosition.indexOf(player);
 
         const coords = getPositionCoordinates(player.position, indexInPosition, playersInPosition.length);
@@ -117,8 +128,10 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
 
         if (!player.groupMemberId) {
             return (
-                <View
+                <TouchableOpacity
                     key={key}
+                    activeOpacity={0.8}
+                    onPress={() => onSlotPress?.({ team: activeTeamNumber, slotIndex, groupMemberId: null })}
                     style={[
                         styles(theme).playerContainer,
                         {
@@ -137,7 +150,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                                 { borderColor: 'rgba(255,255,255,0.4)' },
                             ]}
                         >
-                            <Text style={[styles(theme).positionText, { color: 'rgba(255,255,255,0.6)' }]}> 
+                            <Text style={[styles(theme).positionText]}> 
                                 {player.position}
                             </Text>
                         </View>
@@ -148,7 +161,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                             ?
                         </Text>
                     </Surface>
-                </View>
+                </TouchableOpacity>
             );
         }
 
@@ -159,8 +172,16 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
         const isMVP = player.groupMemberId !== null && mvpGroupMemberId === player.groupMemberId;
 
         return (
-            <View
+            <TouchableOpacity
                 key={key}
+                activeOpacity={0.8}
+                onPress={() =>
+                    onSlotPress?.({
+                        team: activeTeamNumber,
+                        slotIndex,
+                        groupMemberId: player.groupMemberId,
+                    })
+                }
                 style={[
                     styles(theme).playerContainer,
                     {
@@ -252,7 +273,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                         )}
                     </Surface>
                 )}
-            </View>
+            </TouchableOpacity>
         );
     };
 
@@ -325,7 +346,9 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                 </View>
 
                 {/* Players */}
-                {currentPlayers.map((player, index) => renderPlayer(player, index))}
+                {currentPlayersWithIndex.map(({ player, index }, playerIndex) =>
+                    renderPlayer(player, playerIndex, index),
+                )}
             </View>
         </View>
     );

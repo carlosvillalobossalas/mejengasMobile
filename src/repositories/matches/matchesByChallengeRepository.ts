@@ -23,6 +23,8 @@ export type ChallengeMatchMvpVoting = {
 export type ChallengeMatch = {
   id: string;
   groupId: string;
+  createdByUserId?: string | null;
+  createdByGroupMemberId?: string | null;
   season: number;
   /** ISO date string */
   date: string;
@@ -89,6 +91,8 @@ const mapDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): ChallengeMatch =>
   return {
     id: doc.id,
     groupId: String(d.groupId ?? ''),
+    createdByUserId: d.createdByUserId ? String(d.createdByUserId) : null,
+    createdByGroupMemberId: d.createdByGroupMemberId ? String(d.createdByGroupMemberId) : null,
     season: Number(d.season ?? new Date().getFullYear()),
     date: toIsoString(d.date),
     status: (d.status as ChallengeMatch['status']) ?? 'finished',

@@ -24,6 +24,8 @@ export type MatchByTeamsToSave = {
   goalsTeam2: number;
   players1: MatchTeamPlayerToSave[];
   players2: MatchTeamPlayerToSave[];
+  createdByUserId?: string | null;
+  createdByGroupMemberId?: string | null;
 };
 
 // ─── Internal stat shapes ─────────────────────────────────────────────────────
@@ -138,6 +140,8 @@ function addSeasonStatsByTeamsToBatch(
 export async function saveMatchByTeams(match: MatchByTeamsToSave): Promise<void> {
   const season = match.date.getFullYear();
   const { groupId, team1Id, team2Id, goalsTeam1, goalsTeam2 } = match;
+  const createdByUserId = match.createdByUserId ?? null;
+  const createdByGroupMemberId = match.createdByGroupMemberId ?? null;
 
   const team1Won = goalsTeam1 > goalsTeam2;
   const team2Won = goalsTeam2 > goalsTeam1;
@@ -224,6 +228,8 @@ export async function saveMatchByTeams(match: MatchByTeamsToSave): Promise<void>
   batch.set(matchRef, {
     groupId,
     season,
+    createdByUserId,
+    createdByGroupMemberId,
     team1Id,
     team2Id,
     date: firestore.Timestamp.fromDate(match.date),
@@ -300,6 +306,8 @@ export type ScheduledMatchByTeamsToSave = {
   team2Id: string;
   players1: Array<{ groupMemberId: string; position: 'POR' | 'DEF' | 'MED' | 'DEL' | null }>;
   players2: Array<{ groupMemberId: string; position: 'POR' | 'DEF' | 'MED' | 'DEL' | null }>;
+  createdByUserId?: string | null;
+  createdByGroupMemberId?: string | null;
 };
 
 /**
@@ -311,6 +319,8 @@ export async function saveScheduledMatchByTeams(
 ): Promise<void> {
   const { groupId, team1Id, team2Id } = match;
   const season = match.date.getFullYear();
+  const createdByUserId = match.createdByUserId ?? null;
+  const createdByGroupMemberId = match.createdByGroupMemberId ?? null;
 
   const batch = firestore().batch();
   const matchRef = firestore().collection(MATCHES_BY_TEAMS_COLLECTION).doc();
@@ -318,6 +328,8 @@ export async function saveScheduledMatchByTeams(
   batch.set(matchRef, {
     groupId,
     season,
+    createdByUserId,
+    createdByGroupMemberId,
     team1Id,
     team2Id,
     date: firestore.Timestamp.fromDate(match.date),

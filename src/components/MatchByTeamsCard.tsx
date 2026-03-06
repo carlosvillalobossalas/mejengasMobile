@@ -32,6 +32,12 @@ type Props = {
     hasVoted?: boolean;
     /** Called when the user taps the vote button */
     onVotePress?: () => void;
+    currentUserGroupMemberId?: string | null;
+    onSlotPress?: (params: {
+        team: 1 | 2;
+        slotIndex: number;
+        groupMemberId: string | null;
+    }) => void;
 };
 
 const formatDate = (dateString: string): string => {
@@ -60,6 +66,8 @@ export default function MatchByTeamsCard({
     canVote = false,
     hasVoted = false,
     onVotePress,
+    currentUserGroupMemberId,
+    onSlotPress,
 }: Props) {
     const theme = useTheme();
     const t1Color = team1?.color ?? theme.colors.primary;
@@ -216,6 +224,10 @@ export default function MatchByTeamsCard({
                             team2Name={team2?.name}
                             team1Color={team1?.color}
                             team2Color={team2?.color}
+                            onSlotPress={({ team, slotIndex, groupMemberId }) => {
+                                if (groupMemberId && groupMemberId !== currentUserGroupMemberId) return;
+                                onSlotPress?.({ team, slotIndex, groupMemberId });
+                            }}
                         />
                         <View style={styles(theme).spacing} />
                         <MatchByTeamsPlayersList
