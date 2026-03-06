@@ -19,6 +19,8 @@ export type ChallengeMatchToSave = {
   groupId: string;
   players: ChallengeTeamPlayer[];
   goalsTeam: number;
+  teamColor?: string;
+  opponentColor?: string;
   opponentName: string;
   goalsOpponent: number;
   createdByUserId?: string | null;
@@ -35,6 +37,8 @@ export type ScheduledChallengeMatchToSave = {
   date: Date;
   groupId: string;
   players: ScheduledChallengePlayerToSave[];
+  teamColor?: string;
+  opponentColor?: string;
   opponentName: string;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
@@ -143,6 +147,8 @@ export async function saveChallengeMatch(match: ChallengeMatchToSave): Promise<v
         isSub: p.isSub,
       })),
     goalsTeam,
+    teamColor: match.teamColor ?? null,
+    opponentColor: match.opponentColor ?? null,
     opponentName: match.opponentName.trim(),
     goalsOpponent,
     mvpGroupMemberId: null,
@@ -212,6 +218,8 @@ export async function saveScheduledChallengeMatch(
       isSub: p.isSub ?? false,
     })),
     goalsTeam: 0,
+    teamColor: match.teamColor ?? null,
+    opponentColor: match.opponentColor ?? null,
     opponentName: match.opponentName.trim(),
     goalsOpponent: 0,
     mvpGroupMemberId: null,

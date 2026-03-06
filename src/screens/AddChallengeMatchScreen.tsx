@@ -88,6 +88,28 @@ const PLAYERS_BY_TYPE: Record<string, number> = {
   futbol_11: 11,
 };
 
+const TEAM_COLOR_OPTIONS = [
+  '#000000',
+  '#FFFFFF',
+  '#1E3A8A',
+  '#2563EB',
+  '#0F766E',
+  '#059669',
+  '#166534',
+  '#F59E0B',
+  '#EA580C',
+  '#B91C1C',
+  '#7C3AED',
+  '#4B5563',
+];
+
+const getDifferentColor = (primaryColor: string, fallbackColor: string): string => {
+  if (fallbackColor.toLowerCase() !== primaryColor.toLowerCase()) {
+    return fallbackColor;
+  }
+  return TEAM_COLOR_OPTIONS.find(color => color.toLowerCase() !== primaryColor.toLowerCase()) ?? '#111111';
+};
+
 const parseGoals = (value: string) => Number.parseInt(value || '0', 10) || 0;
 
 const normalizeStatInput = (value: string) => {
@@ -329,6 +351,8 @@ export default function AddChallengeMatchScreen({ route }: Props) {
 
   const [matchDate, setMatchDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [teamColor, setTeamColor] = useState(selectedGroup?.defaultTeam1Color ?? '#000000');
+  const [opponentColor, setOpponentColor] = useState(selectedGroup?.defaultTeam2Color ?? '#FFFFFF');
   const [opponentName, setOpponentName] = useState('');
   const [goalsOpponent, setGoalsOpponent] = useState('0');
 
@@ -342,6 +366,18 @@ export default function AddChallengeMatchScreen({ route }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+
+  useEffect(() => {
+    if (!selectedGroup || isEditMode) return;
+    const defaultTeam = selectedGroup.defaultTeam1Color ?? '#000000';
+    const defaultOpponent = selectedGroup.defaultTeam2Color ?? '#FFFFFF';
+    setTeamColor(defaultTeam);
+    setOpponentColor(getDifferentColor(defaultTeam, defaultOpponent));
+  }, [selectedGroup, isEditMode]);
+
+  useEffect(() => {
+    setOpponentColor(prev => getDifferentColor(teamColor, prev));
+  }, [teamColor]);
 
   useEffect(() => {
     const baseFormation: Position[] =
@@ -447,6 +483,10 @@ export default function AddChallengeMatchScreen({ route }: Props) {
         setInitialMatchStatus(loadedStatus);
         setStatusMode(loadedStatus);
         setMatchDate(new Date(match.date));
+        const loadedTeamColor = match.teamColor ?? selectedGroup?.defaultTeam1Color ?? '#000000';
+        const loadedOpponentColor = match.opponentColor ?? selectedGroup?.defaultTeam2Color ?? '#FFFFFF';
+        setTeamColor(loadedTeamColor);
+        setOpponentColor(getDifferentColor(loadedTeamColor, loadedOpponentColor));
         setOpponentName(match.opponentName ?? '');
         setGoalsOpponent(String(match.goalsOpponent ?? 0));
       } catch (error) {
@@ -459,7 +499,7 @@ export default function AddChallengeMatchScreen({ route }: Props) {
     };
 
     loadMatchForEdit();
-  }, [isEditMode, matchId, selectedGroupId, playersPerTeam]);
+  }, [isEditMode, matchId, selectedGroupId, playersPerTeam, selectedGroup]);
 
   const assignedIds = useMemo(() => {
     const ids = new Set<string>();
@@ -610,6 +650,8 @@ export default function AddChallengeMatchScreen({ route }: Props) {
                   isSub: slot.isSub,
                 })),
                 goalsTeam: teamGoals,
+                teamColor,
+                opponentColor,
                 opponentName: opponentName.trim(),
                 goalsOpponent: parseGoals(goalsOpponent),
                 date: matchDate.toISOString(),
@@ -660,6 +702,8 @@ export default function AddChallengeMatchScreen({ route }: Props) {
             position: slot.position,
             isSub: slot.isSub,
           })),
+          teamColor,
+          opponentColor,
           opponentName: opponentName.trim(),
         });
         setSnackbarMessage('Partido programado guardado');
@@ -678,6 +722,8 @@ export default function AddChallengeMatchScreen({ route }: Props) {
             isSub: slot.isSub,
           })),
           goalsTeam: teamGoals,
+          teamColor,
+          opponentColor,
           opponentName: opponentName.trim(),
           goalsOpponent: parseGoals(goalsOpponent),
         });
@@ -792,6 +838,46 @@ export default function AddChallengeMatchScreen({ route }: Props) {
             </Text>
           </View>
           <Icon name="pencil-outline" size={20} color={theme.colors.primary} />
+        </Card.Content>
+      </Card>
+
+      <Card style={styles(theme).card}>
+        <Card.Content style={styles(theme).colorsCardContent}>
+          <Text variant="labelSmall" style={styles(theme).dateLabel}>
+            Color de camiseta para este partido
+          </Text>
+
+          <Text variant="labelLarge" style={styles(theme).colorLabel}>Mi equipo</Text>
+          <View style={styles(theme).colorGrid}>
+            {TEAM_COLOR_OPTIONS.map(color => (
+              <TouchableOpacity
+                key={`challenge-color-${color}`}
+                activeOpacity={0.75}
+                onPress={() => setTeamColor(color)}
+                style={[
+                  styles(theme).colorOption,
+                  { backgroundColor: color },
+                  teamColor === color && styles(theme).selectedColorOption,
+                  color === '#FFFFFF' && styles(theme).whiteColorBorder,
+                ]}
+              />
+            ))}
+          </View>
+
+          <View style={styles(theme).colorPreviewRow}>
+            <Text variant="bodySmall" style={styles(theme).statusSwitchText}>
+              Rival (auto)
+            </Text>
+            <View
+              style={[
+                styles(theme).colorPreviewDot,
+                {
+                  backgroundColor: opponentColor,
+                  borderColor: opponentColor === '#FFFFFF' ? '#CFCFCF' : 'transparent',
+                },
+              ]}
+            />
+          </View>
         </Card.Content>
       </Card>
 
@@ -1018,6 +1104,43 @@ const styles = (theme: MD3Theme) =>
     dateInfo: {
       flex: 1,
       gap: 2,
+    },
+    colorsCardContent: {
+      gap: 8,
+    },
+    colorLabel: {
+      marginTop: 4,
+      fontWeight: '600',
+    },
+    colorGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginBottom: 4,
+    },
+    colorOption: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+    },
+    selectedColorOption: {
+      borderWidth: 3,
+      borderColor: '#111111',
+    },
+    whiteColorBorder: {
+      borderWidth: 1,
+      borderColor: '#CFCFCF',
+    },
+    colorPreviewRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    colorPreviewDot: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 1,
     },
     dateLabel: {
       color: theme.colors.onSurfaceVariant,

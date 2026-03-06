@@ -29,6 +29,8 @@ type MatchLineupProps = {
     /** Optional team colors used as avatar background */
     team1Color?: string;
     team2Color?: string;
+    /** Optional match ISO date used in Details tab */
+    matchDate?: string;
     onSlotPress?: (params: {
         team: 1 | 2;
         slotIndex: number;
@@ -98,22 +100,41 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     team2Name,
     team1Color,
     team2Color,
+    matchDate,
     onSlotPress,
 }) => {
     const theme = useTheme();
-    const [activeTeam, setActiveTeam] = useState(selectedTeam);
+    const [activeTab, setActiveTab] = useState<0 | 1 | 'details'>(selectedTeam === 1 ? 1 : 0);
+    const resolvedTeam1Color = team1Color ?? '#000000';
+    const resolvedTeam2Color = team2Color ?? '#FFFFFF';
 
     const handleTeamChange = (team: number) => {
-        setActiveTeam(team);
+        setActiveTab(team === 1 ? 1 : 0);
         onTeamChange?.(team);
     };
 
+    const formatDetailDate = (date: string): string => (
+        new Date(date).toLocaleDateString('es-ES', {
+            weekday: 'long',
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+        })
+    );
+
+    const formatDetailTime = (date: string): string => (
+        new Date(date).toLocaleTimeString('es-ES', {
+            hour: '2-digit',
+            minute: '2-digit',
+        })
+    );
+
     // Exclude substitutes — they don't occupy a field position
-    const currentPlayersWithIndex = (activeTeam === 0 ? team1Players : team2Players)
+    const currentPlayersWithIndex = ((activeTab === 1 ? team2Players : team1Players))
         .map((player, index) => ({ player, index }))
         .filter(entry => !entry.player.isSub);
-    const activeTeamColor = activeTeam === 0 ? team1Color : team2Color;
-    const activeTeamNumber: 1 | 2 = activeTeam === 0 ? 1 : 2;
+    const activeTeamColor = activeTab === 1 ? resolvedTeam2Color : resolvedTeam1Color;
+    const activeTeamNumber: 1 | 2 = activeTab === 1 ? 2 : 1;
 
     const renderPlayer = (player: LineupPlayer, playerIndex: number, slotIndex: number) => {
         // Group players by position to calculate indices (supports multiple empty slots)
@@ -150,7 +171,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                                 { borderColor: 'rgba(255,255,255,0.4)' },
                             ]}
                         >
-                            <Text style={[styles(theme).positionText]}> 
+                            <Text style={styles(theme).positionText}>
                                 {player.position}
                             </Text>
                         </View>
@@ -210,8 +231,8 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                                 styles(theme).avatar,
                                 isMVP && styles(theme).mvpAvatar,
                                 {
-                                    backgroundColor: activeTeamColor
-                                        ?? (player.position === 'POR' ? theme.colors.secondary : theme.colors.primary),
+                                    backgroundColor:
+                                        player.position === 'POR' ? theme.colors.secondary : theme.colors.primary,
                                 },
                             ]}
                         />
@@ -228,7 +249,9 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                     <View
                         style={[
                             styles(theme).positionChip,
-                            { borderColor: player.position === 'POR' ? theme.colors.secondary : theme.colors.primary },
+                            {
+                                borderColor: player.position === 'POR' ? theme.colors.secondary : theme.colors.primary,
+                            },
                         ]}
                     >
                         <Text style={styles(theme).positionText}>
@@ -289,16 +312,30 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                     <Surface
                         style={[
                             styles(theme).tab,
-                            activeTeam === 0 && styles(theme).activeTab,
+                            activeTab === 0 && styles(theme).activeTab,
                         ]}
-                        elevation={activeTeam === 0 ? 2 : 0}
+                        elevation={activeTab === 0 ? 2 : 0}
                     >
+                        <View style={styles(theme).tabContent}>
+                            <View
+                                style={[
+                                    styles(theme).tabColorDot,
+                                    {
+                                        backgroundColor: resolvedTeam1Color,
+                                        borderColor:
+                                            resolvedTeam1Color.toLowerCase() === '#ffffff'
+                                                ? theme.colors.outline
+                                                : 'transparent',
+                                    },
+                                ]}
+                            />
                         <Text
                             variant="labelLarge"
-                            style={[styles(theme).tabText, activeTeam === 0 && styles(theme).activeTabText]}
+                            style={[styles(theme).tabText, activeTab === 0 && styles(theme).activeTabText]}
                         >
                             {team1Name ?? 'Equipo 1'}
                         </Text>
+                        </View>
                     </Surface>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -309,47 +346,139 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                     <Surface
                         style={[
                             styles(theme).tab,
-                            activeTeam === 1 && styles(theme).activeTab,
+                            activeTab === 1 && styles(theme).activeTab,
                         ]}
-                        elevation={activeTeam === 1 ? 2 : 0}
+                        elevation={activeTab === 1 ? 2 : 0}
+                    >
+                        <View style={styles(theme).tabContent}>
+                            <View
+                                style={[
+                                    styles(theme).tabColorDot,
+                                    {
+                                        backgroundColor: resolvedTeam2Color,
+                                        borderColor:
+                                            resolvedTeam2Color.toLowerCase() === '#ffffff'
+                                                ? theme.colors.outline
+                                                : 'transparent',
+                                    },
+                                ]}
+                            />
+                        <Text
+                            variant="labelLarge"
+                            style={[styles(theme).tabText, activeTab === 1 && styles(theme).activeTabText]}
+                        >
+                            {team2Name ?? 'Equipo 2'}
+                        </Text>
+                        </View>
+                    </Surface>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles(theme).tabTouchable}
+                    onPress={() => setActiveTab('details')}
+                    activeOpacity={0.7}
+                >
+                    <Surface
+                        style={[
+                            styles(theme).tab,
+                            activeTab === 'details' && styles(theme).activeTab,
+                        ]}
+                        elevation={activeTab === 'details' ? 2 : 0}
                     >
                         <Text
                             variant="labelLarge"
-                            style={[styles(theme).tabText, activeTeam === 1 && styles(theme).activeTabText]}
+                            style={[styles(theme).tabText, activeTab === 'details' && styles(theme).activeTabText]}
                         >
-                            {team2Name ?? 'Equipo 2'}
+                            Detalles
                         </Text>
                     </Surface>
                 </TouchableOpacity>
             </View>
 
-            {/* Football Field */}
-            <View style={styles(theme).field}>
-                {/* Field Lines */}
-                <View style={styles(theme).fieldLines}>
-                    {/* Center Line */}
-                    <View style={styles(theme).centerLine} />
-
-                    {/* Center Circle */}
-                    <View style={styles(theme).centerCircle} />
-
-                    {/* Top Area */}
-                    <View style={[styles(theme).area, styles(theme).topArea]} />
-                    <View style={[styles(theme).smallArea, styles(theme).topSmallArea]} />
-
-                    {/* Bottom Area */}
-                    <View style={[styles(theme).area, styles(theme).bottomArea]} />
-                    <View style={[styles(theme).smallArea, styles(theme).bottomSmallArea]} />
-
-                    {/* Field Border */}
-                    <View style={styles(theme).fieldBorder} />
+            {activeTab === 'details' ? (
+                <View style={styles(theme).detailsContainer}>
+                    <View style={styles(theme).detailRow}>
+                        <Icon name="calendar" size={16} color={theme.colors.primary} />
+                        <Text variant="bodyMedium" style={styles(theme).detailText}>
+                            {matchDate ? formatDetailDate(matchDate) : 'Fecha pendiente'}
+                        </Text>
+                    </View>
+                    <View style={styles(theme).detailRow}>
+                        <Icon name="clock-outline" size={16} color={theme.colors.primary} />
+                        <Text variant="bodyMedium" style={styles(theme).detailText}>
+                            {matchDate ? formatDetailTime(matchDate) : '--:--'}
+                        </Text>
+                    </View>
+                    <View style={styles(theme).kitRow}>
+                        <Text variant="labelMedium" style={styles(theme).kitTitle}>
+                            Color recomendado
+                        </Text>
+                        <View style={styles(theme).kitItem}>
+                            <View
+                                style={[
+                                    styles(theme).kitColor,
+                                    {
+                                        backgroundColor: resolvedTeam1Color,
+                                        borderColor:
+                                            resolvedTeam1Color.toLowerCase() === '#ffffff'
+                                                ? theme.colors.outline
+                                                : 'transparent',
+                                    },
+                                ]}
+                            />
+                            <Text variant="bodySmall" style={styles(theme).kitLabel}>
+                                {team1Name ?? 'Equipo 1'}
+                            </Text>
+                        </View>
+                        <View style={styles(theme).kitItem}>
+                            <View
+                                style={[
+                                    styles(theme).kitColor,
+                                    {
+                                        backgroundColor: resolvedTeam2Color,
+                                        borderColor:
+                                            resolvedTeam2Color.toLowerCase() === '#ffffff'
+                                                ? theme.colors.outline
+                                                : 'transparent',
+                                    },
+                                ]}
+                            />
+                            <Text variant="bodySmall" style={styles(theme).kitLabel}>
+                                {team2Name ?? 'Equipo 2'}
+                            </Text>
+                        </View>
+                    </View>
                 </View>
+            ) : (
+                <View style={styles(theme).field}>
+                    <View style={styles(theme).fieldKitBadge}>
+                        <Text variant="labelSmall" style={styles(theme).fieldKitLabel}>
+                            Camiseta
+                        </Text>
+                        <View
+                            style={[
+                                styles(theme).fieldKitColor,
+                                {
+                                    backgroundColor: activeTeamColor,
+                                    borderColor: '#FFFFFF',
+                                },
+                            ]}
+                        />
+                    </View>
+                    <View style={styles(theme).fieldLines}>
+                        <View style={styles(theme).centerLine} />
+                        <View style={styles(theme).centerCircle} />
+                        <View style={[styles(theme).area, styles(theme).topArea]} />
+                        <View style={[styles(theme).smallArea, styles(theme).topSmallArea]} />
+                        <View style={[styles(theme).area, styles(theme).bottomArea]} />
+                        <View style={[styles(theme).smallArea, styles(theme).bottomSmallArea]} />
+                        <View style={styles(theme).fieldBorder} />
+                    </View>
 
-                {/* Players */}
-                {currentPlayersWithIndex.map(({ player, index }, playerIndex) =>
-                    renderPlayer(player, playerIndex, index),
-                )}
-            </View>
+                    {currentPlayersWithIndex.map(({ player, index }, playerIndex) =>
+                        renderPlayer(player, playerIndex, index),
+                    )}
+                </View>
+            )}
         </View>
     );
 };
@@ -374,6 +503,17 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: theme.colors.surface,
     },
+    tabContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    tabColorDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        borderWidth: 1,
+    },
     activeTab: {
         backgroundColor: theme.colors.primary,
     },
@@ -384,11 +524,69 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     activeTabText: {
         color: '#FFF',
     },
+    detailsContainer: {
+        paddingHorizontal: 12,
+        paddingVertical: 14,
+        backgroundColor: theme.colors.surface,
+        gap: 10,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    detailText: {
+        color: theme.colors.onSurface,
+        textTransform: 'capitalize',
+    },
+    kitRow: {
+        gap: 8,
+    },
+    kitTitle: {
+        color: theme.colors.onSurfaceVariant,
+    },
+    kitItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    kitColor: {
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        borderWidth: 1,
+    },
+    kitLabel: {
+        color: theme.colors.onSurface,
+    },
     field: {
         position: 'relative',
         width: '100%',
         aspectRatio: 10 / 16.5,
         backgroundColor: '#4CAF50',
+    },
+    fieldKitBadge: {
+        position: 'absolute',
+        bottom: 8,
+        left: 8,
+        zIndex: 4,
+        backgroundColor: 'rgba(0,0,0,0.30)',
+        borderRadius: 10,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    fieldKitLabel: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+    },
+    fieldKitColor: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        borderWidth: 1,
     },
     fieldLines: {
         position: 'absolute',

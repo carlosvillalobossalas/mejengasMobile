@@ -84,11 +84,15 @@ export default function MatchesScreen() {
     clearVoteError,
   } = useMvpVoting(selectedGroupId, firebaseUser?.uid ?? null);
 
+  const selectedGroup = useMemo(
+    () => groups.find(group => group.id === selectedGroupId),
+    [groups, selectedGroupId],
+  );
+
   const isOwner = useMemo(() => {
     if (!selectedGroupId || !firebaseUser?.uid) return false;
-    const selectedGroup = groups.find(group => group.id === selectedGroupId);
     return selectedGroup?.ownerId === firebaseUser.uid;
-  }, [groups, selectedGroupId, firebaseUser?.uid]);
+  }, [selectedGroup, selectedGroupId, firebaseUser?.uid]);
 
   const selectedSlotMatch = useMemo(
     () => (selectedSlot ? allMatches.find(m => m.id === selectedSlot.matchId) ?? null : null),
@@ -594,6 +598,9 @@ export default function MatchesScreen() {
                   team2Players={match.players2}
                   allPlayers={allPlayers}
                   mvpGroupMemberId={match.mvpGroupMemberId}
+                  team1Color={match.team1Color ?? selectedGroup?.defaultTeam1Color}
+                  team2Color={match.team2Color ?? selectedGroup?.defaultTeam2Color}
+                  matchDate={match.date}
                   onSlotPress={async ({ team, slotIndex, groupMemberId }) => {
                     if (!firebaseUser?.uid) return;
 

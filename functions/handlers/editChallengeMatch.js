@@ -6,6 +6,13 @@ const { chunk } = require('../utils/helpers');
 const COLLECTION = 'matchesByChallenge';
 const STATS_COLLECTION = 'challengeSeasonStats';
 
+const normalizeHexColor = value => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(trimmed)) return null;
+  return trimmed.toUpperCase();
+};
+
 /**
  * Applies (or reverts) a challenge match's statistical impact on
  * challengeSeasonStats documents within the given transaction.
@@ -101,7 +108,16 @@ exports.editChallengeMatch = onCall(async request => {
     throw new HttpsError('invalid-argument', 'updatedMatchData es requerido.');
   }
 
-  const { players, goalsTeam, goalsOpponent, opponentName, date, markAsFinished = false } = updatedMatchData;
+  const {
+    players,
+    goalsTeam,
+    goalsOpponent,
+    opponentName,
+    date,
+    teamColor,
+    opponentColor,
+    markAsFinished = false,
+  } = updatedMatchData;
 
   if (!Array.isArray(players)) {
     throw new HttpsError('invalid-argument', 'players debe ser un arreglo.');
@@ -196,6 +212,8 @@ exports.editChallengeMatch = onCall(async request => {
       players,
       goalsTeam,
       goalsOpponent,
+      teamColor: normalizeHexColor(teamColor),
+      opponentColor: normalizeHexColor(opponentColor),
       opponentName: String(opponentName ?? ''),
       date: admin.firestore.Timestamp.fromDate(parsedDate),
       editedAt: FieldValue.serverTimestamp(),

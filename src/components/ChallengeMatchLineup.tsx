@@ -13,6 +13,10 @@ type ChallengeMatchLineupProps = {
   allPlayers: GroupMemberV2[];
   mvpGroupMemberId?: string | null;
   teamColor?: string;
+  secondaryTeamColor?: string;
+  teamName?: string;
+  secondaryTeamName?: string;
+  matchDate?: string;
   onSlotPress?: (params: { slotIndex: number; groupMemberId: string | null }) => void;
 };
 
@@ -56,10 +60,32 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
   allPlayers = [],
   mvpGroupMemberId = null,
   teamColor,
+  secondaryTeamColor,
+  teamName,
+  secondaryTeamName,
+  matchDate,
   onSlotPress,
 }) => {
   const theme = useTheme();
   const color = teamColor ?? theme.colors.primary;
+  const altColor = secondaryTeamColor ?? '#FFFFFF';
+  const [activeTab, setActiveTab] = React.useState<'lineup' | 'details'>('lineup');
+
+  const formatDetailDate = (date: string): string => (
+    new Date(date).toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    })
+  );
+
+  const formatDetailTime = (date: string): string => (
+    new Date(date).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  );
 
   // Only starters on the field (including empty slots for scheduled matches)
   const starters = players.filter(p => !p.isSub);
@@ -135,7 +161,7 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
               labelStyle={styles(theme).avatarLabel}
               style={[
                 styles(theme).avatar,
-                { backgroundColor: player.position === 'POR' ? theme.colors.secondary : color },
+                { backgroundColor: player.position === 'POR' ? theme.colors.secondary : theme.colors.primary },
               ]}
             />
           )}
@@ -147,7 +173,7 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
           <View
             style={[
               styles(theme).positionChip,
-              { borderColor: player.position === 'POR' ? theme.colors.secondary : color },
+              { borderColor: player.position === 'POR' ? theme.colors.secondary : theme.colors.primary },
             ]}
           >
             <Text style={styles(theme).positionText}>{player.position}</Text>
@@ -164,8 +190,8 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
           <Surface style={styles(theme).statsSurface} elevation={1}>
             {player.goals > 0 && (
               <View style={styles(theme).statItem}>
-                <Icon name="soccer" size={12} color={color} />
-                <Text variant="labelSmall" style={[styles(theme).statText, { color }]}>
+                <Icon name="soccer" size={12} color={theme.colors.primary} />
+                <Text variant="labelSmall" style={styles(theme).statText}>
                   {player.goals}
                 </Text>
               </View>
@@ -194,22 +220,128 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
 
   return (
     <View style={styles(theme).container}>
-      {/* Football Field */}
-      <View style={styles(theme).field}>
-        <View style={styles(theme).fieldLines}>
-          <View style={styles(theme).centerLine} />
-          <View style={styles(theme).centerCircle} />
-          <View style={[styles(theme).area, styles(theme).topArea]} />
-          <View style={[styles(theme).smallArea, styles(theme).topSmallArea]} />
-          <View style={[styles(theme).area, styles(theme).bottomArea]} />
-          <View style={[styles(theme).smallArea, styles(theme).bottomSmallArea]} />
-          <View style={styles(theme).fieldBorder} />
-        </View>
-        {starters.map((player, i) => {
-          const slotIndex = players.findIndex(candidate => candidate === player);
-          return renderPlayer(player, i, slotIndex);
-        })}
+      <View style={styles(theme).tabsContainer}>
+        <TouchableOpacity
+          style={styles(theme).tabTouchable}
+          onPress={() => setActiveTab('lineup')}
+          activeOpacity={0.7}
+        >
+          <Surface
+            style={[
+              styles(theme).tab,
+              activeTab === 'lineup' && styles(theme).activeTab,
+            ]}
+            elevation={activeTab === 'lineup' ? 2 : 0}
+          >
+            <Text
+              variant="labelLarge"
+              style={[styles(theme).tabText, activeTab === 'lineup' && styles(theme).activeTabText]}
+            >
+              Alineación
+            </Text>
+          </Surface>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles(theme).tabTouchable}
+          onPress={() => setActiveTab('details')}
+          activeOpacity={0.7}
+        >
+          <Surface
+            style={[
+              styles(theme).tab,
+              activeTab === 'details' && styles(theme).activeTab,
+            ]}
+            elevation={activeTab === 'details' ? 2 : 0}
+          >
+            <Text
+              variant="labelLarge"
+              style={[styles(theme).tabText, activeTab === 'details' && styles(theme).activeTabText]}
+            >
+              Detalles
+            </Text>
+          </Surface>
+        </TouchableOpacity>
       </View>
+
+      {activeTab === 'details' ? (
+        <View style={styles(theme).detailsContainer}>
+          <View style={styles(theme).detailRow}>
+            <Icon name="calendar" size={16} color={theme.colors.primary} />
+            <Text variant="bodyMedium" style={styles(theme).detailText}>
+              {matchDate ? formatDetailDate(matchDate) : 'Fecha pendiente'}
+            </Text>
+          </View>
+          <View style={styles(theme).detailRow}>
+            <Icon name="clock-outline" size={16} color={theme.colors.primary} />
+            <Text variant="bodyMedium" style={styles(theme).detailText}>
+              {matchDate ? formatDetailTime(matchDate) : '--:--'}
+            </Text>
+          </View>
+          <View style={styles(theme).kitRow}>
+            <Text variant="labelMedium" style={styles(theme).kitTitle}>
+              Color recomendado
+            </Text>
+            <View style={styles(theme).kitItem}>
+              <View
+                style={[
+                  styles(theme).kitColor,
+                  {
+                    backgroundColor: color,
+                    borderColor: color.toLowerCase() === '#ffffff' ? theme.colors.outline : 'transparent',
+                  },
+                ]}
+              />
+              <Text variant="bodySmall" style={styles(theme).kitLabel}>
+                {teamName ?? 'Equipo'}
+              </Text>
+            </View>
+            <View style={styles(theme).kitItem}>
+              <View
+                style={[
+                  styles(theme).kitColor,
+                  {
+                    backgroundColor: altColor,
+                    borderColor: altColor.toLowerCase() === '#ffffff' ? theme.colors.outline : 'transparent',
+                  },
+                ]}
+              />
+              <Text variant="bodySmall" style={styles(theme).kitLabel}>
+                {secondaryTeamName ?? 'Alterno'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : (
+        <View style={styles(theme).field}>
+          <View style={styles(theme).fieldKitBadge}>
+            <Text variant="labelSmall" style={styles(theme).fieldKitLabel}>
+              Camiseta
+            </Text>
+            <View
+              style={[
+                styles(theme).fieldKitColor,
+                {
+                  backgroundColor: color,
+                  borderColor: '#FFFFFF',
+                },
+              ]}
+            />
+          </View>
+          <View style={styles(theme).fieldLines}>
+            <View style={styles(theme).centerLine} />
+            <View style={styles(theme).centerCircle} />
+            <View style={[styles(theme).area, styles(theme).topArea]} />
+            <View style={[styles(theme).smallArea, styles(theme).topSmallArea]} />
+            <View style={[styles(theme).area, styles(theme).bottomArea]} />
+            <View style={[styles(theme).smallArea, styles(theme).bottomSmallArea]} />
+            <View style={styles(theme).fieldBorder} />
+          </View>
+          {starters.map((player, i) => {
+            const slotIndex = players.findIndex(candidate => candidate === player);
+            return renderPlayer(player, i, slotIndex);
+          })}
+        </View>
+      )}
     </View>
   );
 };
@@ -224,11 +356,92 @@ const styles = (theme: MD3Theme) =>
       borderRadius: 8,
       overflow: 'hidden',
     },
+    tabsContainer: {
+      flexDirection: 'row',
+      backgroundColor: theme.colors.surface,
+    },
+    tabTouchable: {
+      flex: 1,
+    },
+    tab: {
+      paddingVertical: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surface,
+    },
+    activeTab: {
+      backgroundColor: theme.colors.primary,
+    },
+    tabText: {
+      fontWeight: 'bold',
+      color: theme.colors.onSurfaceVariant,
+    },
+    activeTabText: {
+      color: '#FFF',
+    },
+    detailsContainer: {
+      paddingHorizontal: 12,
+      paddingVertical: 14,
+      backgroundColor: theme.colors.surface,
+      gap: 10,
+    },
+    detailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    detailText: {
+      color: theme.colors.onSurface,
+      textTransform: 'capitalize',
+    },
+    kitRow: {
+      gap: 8,
+    },
+    kitTitle: {
+      color: theme.colors.onSurfaceVariant,
+    },
+    kitItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    kitColor: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 1,
+    },
+    kitLabel: {
+      color: theme.colors.onSurface,
+    },
     field: {
       position: 'relative',
       width: '100%',
       aspectRatio: 10 / 16.5,
       backgroundColor: '#4CAF50',
+    },
+    fieldKitBadge: {
+      position: 'absolute',
+      bottom: 8,
+      left: 8,
+      zIndex: 4,
+      backgroundColor: 'rgba(0,0,0,0.30)',
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    fieldKitLabel: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+    },
+    fieldKitColor: {
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      borderWidth: 1,
     },
     fieldLines: {
       position: 'absolute',
@@ -393,6 +606,7 @@ const styles = (theme: MD3Theme) =>
     },
     statText: {
       fontWeight: 'bold',
+      color: theme.colors.primary,
       fontSize: 10,
     },
     statTextBlue: {

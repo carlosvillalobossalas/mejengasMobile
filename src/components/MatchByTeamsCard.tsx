@@ -224,6 +224,7 @@ export default function MatchByTeamsCard({
                             team2Name={team2?.name}
                             team1Color={team1?.color}
                             team2Color={team2?.color}
+                            matchDate={match.date}
                             onSlotPress={({ team, slotIndex, groupMemberId }) => {
                                 if (groupMemberId && groupMemberId !== currentUserGroupMemberId) return;
                                 onSlotPress?.({ team, slotIndex, groupMemberId });

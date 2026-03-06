@@ -55,6 +55,21 @@ const DEFAULT_FORMATION: Record<number, ScheduledPosition[]> = {
   11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
 };
 
+const TEAM_COLOR_OPTIONS = [
+  '#000000',
+  '#FFFFFF',
+  '#1E3A8A',
+  '#2563EB',
+  '#0F766E',
+  '#059669',
+  '#166534',
+  '#F59E0B',
+  '#EA580C',
+  '#B91C1C',
+  '#7C3AED',
+  '#4B5563',
+];
+
 type MatchStatusMode = 'scheduled' | 'finished';
 type SlotMenuState = { team: 1 | 2; index: number } | null;
 
@@ -299,6 +314,7 @@ export default function AddMatchScreen({ route }: Props) {
   const theme = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
   const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
+  const groups = useAppSelector(state => state.groups.groups);
   const matchId = route?.params?.matchId ?? null;
   const isEditMode = !!matchId;
 
@@ -337,6 +353,20 @@ export default function AddMatchScreen({ route }: Props) {
     setTeamSlots,
     filledCount,
   } = useAddScheduledMatch();
+
+  const selectedGroup = useMemo(
+    () => groups.find(group => group.id === selectedGroupId),
+    [groups, selectedGroupId],
+  );
+
+  const [team1Color, setTeam1Color] = useState(selectedGroup?.defaultTeam1Color ?? '#000000');
+  const [team2Color, setTeam2Color] = useState(selectedGroup?.defaultTeam2Color ?? '#FFFFFF');
+
+  useEffect(() => {
+    if (!selectedGroup || isEditMode) return;
+    setTeam1Color(selectedGroup.defaultTeam1Color ?? '#000000');
+    setTeam2Color(selectedGroup.defaultTeam2Color ?? '#FFFFFF');
+  }, [selectedGroup, isEditMode]);
 
   useEffect(() => {
     const loadMatchForEdit = async () => {
@@ -416,6 +446,8 @@ export default function AddMatchScreen({ route }: Props) {
         setInitialMatchStatus(loadedStatus);
         setStatusMode(loadedStatus);
         setMatchDate(new Date(match.date));
+        setTeam1Color(match.team1Color ?? selectedGroup?.defaultTeam1Color ?? '#000000');
+        setTeam2Color(match.team2Color ?? selectedGroup?.defaultTeam2Color ?? '#FFFFFF');
       } catch (error) {
         console.error('AddMatch(edit): error loading match', error);
         setSnackbarMessage('Error al cargar el partido');
@@ -426,7 +458,7 @@ export default function AddMatchScreen({ route }: Props) {
     };
 
     loadMatchForEdit();
-  }, [isEditMode, matchId, selectedGroupId, playersPerTeam]);
+  }, [isEditMode, matchId, selectedGroupId, playersPerTeam, selectedGroup]);
 
   const activeTeamNum: 1 | 2 = activeTeam === '1' ? 1 : 2;
   const activeSlots = activeTeam === '1' ? team1Slots : team2Slots;
@@ -554,6 +586,8 @@ export default function AddMatchScreen({ route }: Props) {
                 })),
                 goalsTeam1: team1Goals,
                 goalsTeam2: team2Goals,
+                team1Color,
+                team2Color,
                 date: matchDate.toISOString(),
                 markAsFinished,
               },
@@ -603,6 +637,8 @@ export default function AddMatchScreen({ route }: Props) {
             position: slot.position,
             isSub: slot.isSub,
           })),
+          team1Color,
+          team2Color,
         });
 
         setSnackbarMessage('Partido programado guardado');
@@ -614,6 +650,8 @@ export default function AddMatchScreen({ route }: Props) {
           createdByGroupMemberId,
           team1Goals,
           team2Goals,
+          team1Color,
+          team2Color,
           team1Players: team1Slots.map(slot => ({
             groupMemberId: slot.groupMemberId,
             position: slot.position ?? 'DEF',
@@ -748,6 +786,48 @@ export default function AddMatchScreen({ route }: Props) {
             </Text>
           </View>
           <Icon name="pencil-outline" size={20} color={theme.colors.primary} />
+        </Card.Content>
+      </Card>
+
+      <Card style={styles(theme).card}>
+        <Card.Content style={styles(theme).colorsCardContent}>
+          <Text variant="labelSmall" style={styles(theme).dateLabel}>
+            Colores de camiseta para este partido
+          </Text>
+
+          <Text variant="labelLarge" style={styles(theme).colorLabel}>Equipo 1</Text>
+          <View style={styles(theme).colorGrid}>
+            {TEAM_COLOR_OPTIONS.map(color => (
+              <TouchableOpacity
+                key={`team1-color-${color}`}
+                activeOpacity={0.75}
+                onPress={() => setTeam1Color(color)}
+                style={[
+                  styles(theme).colorOption,
+                  { backgroundColor: color },
+                  team1Color === color && styles(theme).selectedColorOption,
+                  color === '#FFFFFF' && styles(theme).whiteColorBorder,
+                ]}
+              />
+            ))}
+          </View>
+
+          <Text variant="labelLarge" style={styles(theme).colorLabel}>Equipo 2</Text>
+          <View style={styles(theme).colorGrid}>
+            {TEAM_COLOR_OPTIONS.map(color => (
+              <TouchableOpacity
+                key={`team2-color-${color}`}
+                activeOpacity={0.75}
+                onPress={() => setTeam2Color(color)}
+                style={[
+                  styles(theme).colorOption,
+                  { backgroundColor: color },
+                  team2Color === color && styles(theme).selectedColorOption,
+                  color === '#FFFFFF' && styles(theme).whiteColorBorder,
+                ]}
+              />
+            ))}
+          </View>
         </Card.Content>
       </Card>
 
@@ -953,6 +1033,32 @@ const styles = (theme: MD3Theme) =>
     dateInfo: {
       flex: 1,
       gap: 2,
+    },
+    colorsCardContent: {
+      gap: 8,
+    },
+    colorLabel: {
+      marginTop: 4,
+      fontWeight: '600',
+    },
+    colorGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginBottom: 4,
+    },
+    colorOption: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+    },
+    selectedColorOption: {
+      borderWidth: 3,
+      borderColor: '#111111',
+    },
+    whiteColorBorder: {
+      borderWidth: 1,
+      borderColor: '#CFCFCF',
     },
     dateLabel: {
       color: theme.colors.onSurfaceVariant,

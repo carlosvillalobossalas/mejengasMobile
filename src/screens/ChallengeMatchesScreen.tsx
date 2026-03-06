@@ -455,6 +455,12 @@ export default function ChallengeMatchesScreen() {
     const hasVoted = !!(currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId]);
     const opponentLabel = match.opponentName.trim() || 'Rival';
     const isScheduled = match.status === 'scheduled';
+    const teamColor = match.teamColor ?? activeGroup?.defaultTeam1Color ?? theme.colors.primary;
+    const baseOpponentColor = match.opponentColor ?? activeGroup?.defaultTeam2Color ?? '#FFFFFF';
+    const opponentColor =
+      baseOpponentColor.toLowerCase() === teamColor.toLowerCase()
+        ? '#111111'
+        : baseOpponentColor;
 
     const sortedPlayers = [...match.players].sort(
       (a, b) => POSITION_ORDER[a.position] - POSITION_ORDER[b.position],
@@ -579,7 +585,11 @@ export default function ChallengeMatchesScreen() {
                       players={match.players}
                       allPlayers={groupMembers}
                       mvpGroupMemberId={match.mvpGroupMemberId}
-                      teamColor={theme.colors.primary}
+                      teamColor={teamColor}
+                      secondaryTeamColor={opponentColor}
+                      teamName={groupName}
+                      secondaryTeamName="Rival"
+                      matchDate={match.date}
                       onSlotPress={async ({ slotIndex, groupMemberId }) => {
                         if (!firebaseUser?.uid) return;
 

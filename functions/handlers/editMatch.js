@@ -5,6 +5,13 @@ const { chunk } = require('../utils/helpers');
 
 const VALID_POSITIONS = new Set(['POR', 'DEF', 'MED', 'DEL']);
 
+const normalizeHexColor = value => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(trimmed)) return null;
+  return trimmed.toUpperCase();
+};
+
 const normalizePlayers = players =>
   (players ?? []).map(player => {
     const rawGroupMemberId = typeof player?.groupMemberId === 'string'
@@ -121,7 +128,16 @@ exports.editMatch = onCall(async request => {
     throw new HttpsError('invalid-argument', 'updatedMatchData es requerido.');
   }
 
-  const { players1, players2, goalsTeam1, goalsTeam2, date, markAsFinished = false } = updatedMatchData;
+  const {
+    players1,
+    players2,
+    goalsTeam1,
+    goalsTeam2,
+    date,
+    team1Color,
+    team2Color,
+    markAsFinished = false,
+  } = updatedMatchData;
 
   if (!Array.isArray(players1) || !Array.isArray(players2)) {
     throw new HttpsError('invalid-argument', 'players1 y players2 deben ser arreglos.');
@@ -242,6 +258,8 @@ exports.editMatch = onCall(async request => {
       players2: normalizedPlayers2,
       goalsTeam1,
       goalsTeam2,
+      team1Color: normalizeHexColor(team1Color),
+      team2Color: normalizeHexColor(team2Color),
       date: admin.firestore.Timestamp.fromDate(parsedDate),
       editedAt: FieldValue.serverTimestamp(),
       editedBy: uid,

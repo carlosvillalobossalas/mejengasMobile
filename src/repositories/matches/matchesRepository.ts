@@ -27,6 +27,8 @@ export type Match = {
   date: string;
   goalsTeam1: number;
   goalsTeam2: number;
+  team1Color?: string | null;
+  team2Color?: string | null;
   players1: MatchPlayer[];
   players2: MatchPlayer[];
   mvpGroupMemberId?: string | null;
@@ -108,6 +110,8 @@ const mapMatchDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Match => {
     date: toIsoString(data.date) ?? new Date().toISOString(),
     goalsTeam1: Number(data.goalsTeam1 ?? 0),
     goalsTeam2: Number(data.goalsTeam2 ?? 0),
+    team1Color: data.team1Color ? String(data.team1Color) : null,
+    team2Color: data.team2Color ? String(data.team2Color) : null,
     players1: mapPlayerArray(data.players1),
     players2: mapPlayerArray(data.players2),
     mvpGroupMemberId: data.mvpGroupMemberId ? String(data.mvpGroupMemberId) : null,

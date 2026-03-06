@@ -33,6 +33,8 @@ export type ChallengeMatch = {
   // Group's team
   players: ChallengeMatchPlayer[];
   goalsTeam: number;
+  teamColor?: string | null;
+  opponentColor?: string | null;
 
   // Opponent — no lineup, just a name and goals
   opponentName: string;
@@ -98,6 +100,8 @@ const mapDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): ChallengeMatch =>
     status: (d.status as ChallengeMatch['status']) ?? 'finished',
     players: mapPlayerArray(d.players),
     goalsTeam: Number(d.goalsTeam ?? 0),
+    teamColor: d.teamColor ? String(d.teamColor) : null,
+    opponentColor: d.opponentColor ? String(d.opponentColor) : null,
     opponentName: String(d.opponentName ?? ''),
     goalsOpponent: Number(d.goalsOpponent ?? 0),
     mvpGroupMemberId: d.mvpGroupMemberId ? String(d.mvpGroupMemberId) : null,

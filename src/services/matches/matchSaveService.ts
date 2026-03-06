@@ -17,6 +17,8 @@ export type MatchToSave = {
   team2Players: TeamPlayer[];
   team1Goals: number;
   team2Goals: number;
+  team1Color?: string;
+  team2Color?: string;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
 };
@@ -128,6 +130,8 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
     registeredDate: firestore.FieldValue.serverTimestamp(),
     goalsTeam1: team1Goals,
     goalsTeam2: team2Goals,
+    team1Color: match.team1Color ?? null,
+    team2Color: match.team2Color ?? null,
     mvpGroupMemberId: null,
     players1: match.team1Players.map(p => ({
       groupMemberId: p.groupMemberId,
@@ -212,6 +216,8 @@ export type ScheduledMatchToSave = {
   groupId: string;
   team1Players: ScheduledPlayerToSave[];
   team2Players: ScheduledPlayerToSave[];
+  team1Color?: string;
+  team2Color?: string;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
 };
@@ -246,6 +252,8 @@ export async function saveScheduledMatch(
     registeredDate: firestore.FieldValue.serverTimestamp(),
     goalsTeam1: 0,
     goalsTeam2: 0,
+    team1Color: match.team1Color ?? null,
+    team2Color: match.team2Color ?? null,
     mvpGroupMemberId: null,
     status: 'scheduled',
     players1: match.team1Players.map(p => ({
