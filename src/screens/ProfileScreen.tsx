@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
     width: '48%',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFF',
     borderRadius: 8,
     marginBottom: 12,
   },
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
     color: '#757575',
   },
   seasonCard: {
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#FFF',
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
