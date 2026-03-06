@@ -345,16 +345,6 @@ export default function ProfileScreen() {
                     >
                       {isGoalkeeper ? 'Portero' : 'Jugador'}
                     </Chip>
-                    <Chip
-                      compact
-                      style={[
-                        styles.typeChip,
-                        card.source === 'challenge' ? styles.challengeChip : styles.regularChip,
-                      ]}
-                      textStyle={styles.typeChipText}
-                    >
-                      {card.source === 'challenge' ? 'Challenge' : 'Normal'}
-                    </Chip>
                   </View>
                 </View>
 
