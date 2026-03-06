@@ -14,6 +14,8 @@ export type Group = {
    *  is tracked, opponents are identified by name only. Mutually exclusive with
    *  hasFixedTeams — isChallengeMode implies no fixed teams. */
   isChallengeMode: boolean;
+  defaultTeam1Color: string;
+  defaultTeam2Color: string;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -34,6 +36,8 @@ export type { GroupMember };
 const GROUPS_COLLECTION = 'groups';
 const GROUP_MEMBERS_COLLECTION = 'groupMembers';
 const GROUP_MEMBERS_V2_COLLECTION = 'groupMembers_v2';
+const DEFAULT_TEAM_1_COLOR = '#000000';
+const DEFAULT_TEAM_2_COLOR = '#FFFFFF';
 
 const toIsoString = (value: unknown): string | null => {
   if (!value) {
@@ -67,6 +71,8 @@ const mapGroupDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Group => {
     visibility: String(data.visibility ?? ''),
     hasFixedTeams: Boolean(data.hasFixedTeams ?? false),
     isChallengeMode: Boolean(data.isChallengeMode ?? false),
+    defaultTeam1Color: String(data.defaultTeam1Color ?? DEFAULT_TEAM_1_COLOR),
+    defaultTeam2Color: String(data.defaultTeam2Color ?? DEFAULT_TEAM_2_COLOR),
   };
 };
 
@@ -470,6 +476,8 @@ export async function createGroup(
     // isChallengeMode is mutually exclusive with hasFixedTeams
     hasFixedTeams: isChallengeMode ? false : hasFixedTeams,
     isChallengeMode,
+    defaultTeam1Color: DEFAULT_TEAM_1_COLOR,
+    defaultTeam2Color: DEFAULT_TEAM_2_COLOR,
     visibility: 'public',
     createdAt: firestore.FieldValue.serverTimestamp(),
     updatedAt: firestore.FieldValue.serverTimestamp(),

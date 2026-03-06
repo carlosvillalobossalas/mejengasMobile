@@ -12,7 +12,7 @@ type AdminOption = {
   id: string;
   title: string;
   description: string;
-  icon: 'soccer' | 'account-plus' | 'link-variant' | 'account-group' | 'account-clock';
+  icon: 'soccer' | 'account-plus' | 'link-variant' | 'account-group' | 'account-clock' | 'cog-outline';
   color: string;
   onPress: () => void;
 };
@@ -62,6 +62,14 @@ export default function AdminScreen() {
       icon: 'account-clock',
       color: theme.colors.primary,
       onPress: () => navigation.navigate('JoinRequests'),
+    },
+    {
+      id: 'group-settings',
+      title: 'Configuración del grupo',
+      description: 'Editar nombre y colores por defecto para camisetas del partido',
+      icon: 'cog-outline',
+      color: theme.colors.secondary,
+      onPress: () => navigation.navigate('GroupSettings'),
     },
   ];
 

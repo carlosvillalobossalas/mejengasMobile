@@ -15,6 +15,7 @@ const { deleteChallengeMatch } = require('./handlers/deleteChallengeMatch');
 const { calculateChallengeMvpWinners } = require('./handlers/calculateChallengeMvpWinners');
 const { remindChallengeMvpVoters } = require('./handlers/remindChallengeMvpVoters');
 const { migrateUserNotificationPreferences } = require('./handlers/migrateUserNotificationPreferences');
+const { migrateGroupDefaultKitColors } = require('./handlers/migrateGroupDefaultKitColors');
 const {
 	onMatchSignupUpdated,
 	onChallengeMatchSignupUpdated,
@@ -41,6 +42,7 @@ exports.deleteChallengeMatch = deleteChallengeMatch;
 exports.calculateChallengeMvpWinners = calculateChallengeMvpWinners;
 exports.remindChallengeMvpVoters = remindChallengeMvpVoters;
 exports.migrateUserNotificationPreferences = migrateUserNotificationPreferences;
+exports.migrateGroupDefaultKitColors = migrateGroupDefaultKitColors;
 exports.onMatchSignupUpdated = onMatchSignupUpdated;
 exports.onChallengeMatchSignupUpdated = onChallengeMatchSignupUpdated;
 exports.onMatchByTeamsSignupUpdated = onMatchByTeamsSignupUpdated;

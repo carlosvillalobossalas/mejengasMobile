@@ -18,6 +18,7 @@ import AddMatchTeamsScreen from '../screens/AddMatchTeamsScreen';
 import MatchesByTeamsScreen from '../screens/MatchesByTeamsScreen';
 import AddPlayerScreen from '../screens/AddPlayerScreen';
 import ManageMembersScreen from '../screens/ManageMembersScreen';
+import GroupSettingsScreen from '../screens/GroupSettingsScreen';
 import ManageTeamsScreen from '../screens/ManageTeamsScreen';
 import TeamStandingsScreen from '../screens/TeamStandingsScreen';
 import TeamFormScreen from '../screens/TeamFormScreen';
@@ -295,6 +296,22 @@ export default function AppNavigator() {
         component={ManageMembersScreen}
         options={({ navigation }) => ({
           title: 'Gestionar Miembros',
+          drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+          headerLeft: () => (
+            <IconButton
+              icon="chevron-left"
+              iconColor={theme.colors.secondary}
+              size={26}
+              onPress={() => navigation.navigate('Admin')}
+            />
+          ),
+        })}
+      />
+      <Drawer.Screen
+        name="GroupSettings"
+        component={GroupSettingsScreen}
+        options={({ navigation }) => ({
+          title: 'Configuración del Grupo',
           drawerItemStyle: isAdmin ? undefined : { display: 'none' },
           headerLeft: () => (
             <IconButton

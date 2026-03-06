@@ -25,6 +25,7 @@ export type AppDrawerParamList = {
   AddPlayer: undefined;
   LinkPlayers: undefined;
   ManageMembers: undefined;
+  GroupSettings: undefined;
   ManageTeams: undefined;
   TeamStandings: undefined;
   TeamForm: { teamId?: string };
