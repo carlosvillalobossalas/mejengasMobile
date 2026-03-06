@@ -19,6 +19,18 @@ const INVITES_COLLECTION = 'invites';
 const GROUP_MEMBERS_V2_COLLECTION = 'groupMembers_v2';
 const USERS_COLLECTION = 'users';
 
+const looksLikeEmail = (value: string): boolean => /.+@.+\..+/.test(value.trim());
+
+const getValidDisplayName = (...candidates: Array<string | null | undefined>): string | null => {
+  for (const candidate of candidates) {
+    const trimmed = candidate?.trim();
+    if (!trimmed) continue;
+    if (looksLikeEmail(trimmed)) continue;
+    return trimmed;
+  }
+  return null;
+};
+
 const toIsoString = (value: unknown): string | null => {
   if (!value) return null;
   if (typeof value === 'string') return value;
@@ -182,8 +194,10 @@ export async function acceptJoinRequest(params: {
   // a stale/missing displayName (e.g. Apple Sign-In hidden-email fallback).
   const userDoc = await firestore().collection(USERS_COLLECTION).doc(userId).get();
   const userData = (userDoc.data() ?? {}) as Record<string, unknown>;
-  const userDisplayName =
-    (userData.displayName as string | undefined)?.trim() || params.userDisplayName;
+  const resolvedDisplayName = getValidDisplayName(
+    userData.displayName as string | undefined,
+    params.userDisplayName,
+  );
   const userPhotoURL =
     (userData.photoURL as string | undefined) ?? params.userPhotoURL ?? null;
 
@@ -205,20 +219,26 @@ export async function acceptJoinRequest(params: {
       const member = (memberSnap.data() ?? {}) as Record<string, unknown>;
       if (member.userId) throw new Error('Este jugador ya tiene una cuenta vinculada.');
 
+      const currentMemberName = String(member.displayName ?? '').trim();
+      const finalDisplayName =
+        resolvedDisplayName ??
+        (looksLikeEmail(currentMemberName) ? '' : currentMemberName);
+
       tx.update(memberRef, {
         userId,
         isGuest: false,
-        displayName: userDisplayName,
+        ...(finalDisplayName ? { displayName: finalDisplayName } : {}),
         ...(userPhotoURL && { photoUrl: userPhotoURL }),
         updatedAt: firestore.FieldValue.serverTimestamp(),
       });
     } else {
       // Create a new groupMember_v2 already linked to the user
       const newMemberRef = firestore().collection(GROUP_MEMBERS_V2_COLLECTION).doc();
+      const finalDisplayName = resolvedDisplayName ?? 'Jugador';
       tx.set(newMemberRef, {
         groupId,
         userId,
-        displayName: userDisplayName,
+        displayName: finalDisplayName,
         photoUrl: userPhotoURL ?? null,
         isGuest: false,
         role: 'member',

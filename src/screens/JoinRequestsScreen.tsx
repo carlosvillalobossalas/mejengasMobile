@@ -40,7 +40,7 @@ import {
 export default function JoinRequestsScreen() {
     const theme = useTheme();
     const insets = useSafeAreaInsets();
-    const { selectedGroupId } = useAppSelector(state => state.groups);
+    const { selectedGroupId, groups } = useAppSelector(state => state.groups);
     const [requests, setRequests] = useState<JoinRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -50,6 +50,8 @@ export default function JoinRequestsScreen() {
     const [guestMembers, setGuestMembers] = useState<GroupMemberV2[]>([]);
     const [isLoadingGuests, setIsLoadingGuests] = useState(false);
     const [isProcessing, setIsProcessing] = useState<string | null>(null); // requestId being processed
+
+    const activeGroup = groups.find(group => group.id === selectedGroupId);
 
     useEffect(() => {
         if (!selectedGroupId) return;
@@ -194,6 +196,11 @@ export default function JoinRequestsScreen() {
     return (
         <View style={styles(theme).container}>
             <Surface style={styles(theme).header} elevation={2}>
+                {activeGroup?.name ? (
+                    <Text variant="titleSmall" style={styles(theme).headerGroupName}>
+                        {activeGroup.name}
+                    </Text>
+                ) : null}
                 <Text variant="bodySmall" style={styles(theme).headerCount}>
                     {requests.length === 0
                         ? 'Sin solicitudes pendientes'
@@ -364,6 +371,12 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+            gap: 2,
+        },
+        headerGroupName: {
+            color: '#FFFFFF',
+            fontWeight: '700',
+            textAlign: 'center',
         gap: 12,
         padding: 10,
     },
