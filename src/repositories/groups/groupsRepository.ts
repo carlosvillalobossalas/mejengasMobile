@@ -1,4 +1,5 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import { ensureGroupNotificationDefaults } from '../users/notificationPreferencesRepository';
 
 export type Group = {
   id: string;
@@ -489,6 +490,8 @@ export async function createGroup(
     createdAt: firestore.FieldValue.serverTimestamp(),
     updatedAt: firestore.FieldValue.serverTimestamp(),
   });
+
+  await ensureGroupNotificationDefaults(ownerId, docRef.id);
 
   return docRef.id;
 }

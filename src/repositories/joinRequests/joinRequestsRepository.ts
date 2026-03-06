@@ -1,4 +1,5 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import { ensureGroupNotificationDefaults } from '../users/notificationPreferencesRepository';
 
 export type JoinRequestStatus = 'pending' | 'accepted' | 'rejected';
 
@@ -252,6 +253,8 @@ export async function acceptJoinRequest(params: {
       updatedAt: firestore.FieldValue.serverTimestamp(),
     });
   });
+
+  await ensureGroupNotificationDefaults(userId, groupId);
 }
 
 /**

@@ -13,6 +13,7 @@ const {
   chunk,
   collectUserTokens,
 } = require('../utils/helpers');
+const { isNotificationEnabled } = require('../utils/notificationPreferences');
 
 const MATCH_REMINDERS_COLLECTION = 'matchReminders';
 const MATCHES_COLLECTION = 'matches';
@@ -143,7 +144,9 @@ const sendPersonalizedReminders = async (db, matchId, groupId, matchDateObj, gro
   if (playerUserIds.length > 0) {
     const userDocs = await Promise.all(playerUserIds.map(id => usersRef.doc(id).get()));
     const tokens = uniqueNonEmpty(
-      userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+      userDocs
+        .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'matchReminders'))
+        .flatMap(doc => collectUserTokens(doc.data() ?? {})),
     );
     if (tokens.length > 0) {
       const payload = {
@@ -167,7 +170,9 @@ const sendPersonalizedReminders = async (db, matchId, groupId, matchDateObj, gro
   if (nonPlayerUserIds.length > 0) {
     const userDocs = await Promise.all(nonPlayerUserIds.map(id => usersRef.doc(id).get()));
     const tokens = uniqueNonEmpty(
-      userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+      userDocs
+        .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'matchReminders'))
+        .flatMap(doc => collectUserTokens(doc.data() ?? {})),
     );
     if (tokens.length > 0) {
       const payload = {
@@ -336,7 +341,9 @@ exports.onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event => {
     const usersRef = db.collection(USERS_COLLECTION);
     const userDocs = await Promise.all(userIds.map(id => usersRef.doc(id).get()));
     const tokens = uniqueNonEmpty(
-      userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+      userDocs
+        .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'matchUpdates'))
+        .flatMap(doc => collectUserTokens(doc.data() ?? {})),
     );
     if (tokens.length === 0) return;
 
@@ -479,7 +486,9 @@ exports.onMatchByTeamsUpdated = onDocumentUpdated('matchesByTeams/{matchId}', as
     const usersRef = db.collection(USERS_COLLECTION);
     const userDocs = await Promise.all(userIds.map(id => usersRef.doc(id).get()));
     const tokens = uniqueNonEmpty(
-      userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+      userDocs
+        .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'matchUpdates'))
+        .flatMap(doc => collectUserTokens(doc.data() ?? {})),
     );
     if (tokens.length === 0) return;
 
@@ -627,7 +636,9 @@ exports.onChallengeMatchUpdated = onDocumentUpdated('matchesByChallenge/{matchId
     const usersRef = db.collection(USERS_COLLECTION);
     const userDocs = await Promise.all(userIds.map(id => usersRef.doc(id).get()));
     const tokens = uniqueNonEmpty(
-      userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+      userDocs
+        .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'matchUpdates'))
+        .flatMap(doc => collectUserTokens(doc.data() ?? {})),
     );
     if (tokens.length === 0) return;
 

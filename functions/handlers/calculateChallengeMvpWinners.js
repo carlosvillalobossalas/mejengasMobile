@@ -9,6 +9,7 @@ const {
   chunk,
   collectUserTokens,
 } = require('../utils/helpers');
+const { isNotificationEnabled } = require('../utils/notificationPreferences');
 
 const COLLECTION = 'matchesByChallenge';
 const STATS_COLLECTION = 'challengeSeasonStats';
@@ -37,7 +38,9 @@ const notifyGroupOnChallengeMvpResult = async (groupId, matchId, winnerName, gro
     userIds.map(id => db.collection(USERS_COLLECTION).doc(id).get()),
   );
   const tokens = uniqueNonEmpty(
-    userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+    userDocs
+      .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'mvpResults'))
+      .flatMap(doc => collectUserTokens(doc.data() ?? {})),
   );
   if (tokens.length === 0) return;
 

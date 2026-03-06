@@ -9,6 +9,7 @@ const {
   chunk,
   collectUserTokens,
 } = require('../utils/helpers');
+const { isNotificationEnabled } = require('../utils/notificationPreferences');
 
 const GROUP_MEMBERS_V2_COLLECTION = 'groupMembers_v2';
 
@@ -74,7 +75,9 @@ exports.notifyAdminsOnJoinRequest = onDocumentCreated(
       .get();
 
     const tokens = uniqueNonEmpty(
-      userSnaps.docs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+      userSnaps.docs
+        .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'joinRequests'))
+        .flatMap(doc => collectUserTokens(doc.data() ?? {})),
     );
 
     if (tokens.length === 0) {

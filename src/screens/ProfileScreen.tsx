@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -11,7 +11,6 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import auth from '@react-native-firebase/auth';
 import {
   Text,
-  Card,
   Avatar,
   useTheme,
   Surface,
@@ -22,8 +21,11 @@ import {
   Dialog,
   Snackbar,
   Chip,
+  IconButton,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useNavigation } from '@react-navigation/native';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { fetchProfileData } from '../features/profile/profileSlice';
@@ -32,12 +34,16 @@ import { updateUserDisplayName } from '../repositories/users/usersRepository';
 import { updatePlayerNameByUserId } from '../repositories/players/playerSeasonStatsRepository';
 import { updateDisplayNameByUserId } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import { useProfilePhoto } from '../hooks/useProfilePhoto';
+import NotificationSettingsDialog from '../components/NotificationSettingsDialog';
+import type { AppDrawerParamList } from '../navigation/types';
 
 export default function ProfileScreen() {
   const theme = useTheme();
   const dispatch = useAppDispatch();
+  const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
 
   const { firestoreUser } = useAppSelector(state => state.auth);
+  const { groups } = useAppSelector(state => state.groups);
   const { data: profileData, isLoading, error } = useAppSelector(state => state.profile);
 
   const [showEditNameDialog, setShowEditNameDialog] = useState(false);
@@ -48,9 +54,23 @@ export default function ProfileScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authProvider, setAuthProvider] = useState<'password' | 'google' | 'apple'>('password');
+  const [showNotificationDialog, setShowNotificationDialog] = useState(false);
 
   const { isUploading, pickAndUpload } = useProfilePhoto();
   const [showCopied, setShowCopied] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <IconButton
+          icon="cog-outline"
+          iconColor={theme.colors.secondary}
+          size={22}
+          onPress={() => setShowNotificationDialog(true)}
+        />
+      ),
+    });
+  }, [navigation, theme.colors.secondary]);
 
   const handleCopyEmail = (email: string) => {
     Clipboard.setString(email);
@@ -461,7 +481,13 @@ export default function ProfileScreen() {
           </Dialog.Actions>
         </Dialog>
 
-        {/* Delete Account Confirmation Dialog */}
+        <NotificationSettingsDialog
+          visible={showNotificationDialog}
+          userId={firestoreUser?.uid ?? null}
+          groups={groups}
+          onDismiss={() => setShowNotificationDialog(false)}
+        />
+
         <Dialog
           visible={showDeleteDialog}
           onDismiss={() => {

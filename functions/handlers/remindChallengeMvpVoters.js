@@ -9,6 +9,7 @@ const {
   chunk,
   collectUserTokens,
 } = require('../utils/helpers');
+const { isNotificationEnabled } = require('../utils/notificationPreferences');
 
 const COLLECTION = 'matchesByChallenge';
 const FIRESTORE_IN_LIMIT = 10;
@@ -88,7 +89,9 @@ exports.remindChallengeMvpVoters = onSchedule('every 12 hours', async () => {
         userIds.map(id => db.collection(USERS_COLLECTION).doc(id).get()),
       );
       const tokens = uniqueNonEmpty(
-        userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+        userDocs
+          .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'mvpReminders'))
+          .flatMap(doc => collectUserTokens(doc.data() ?? {})),
       );
       if (tokens.length === 0) {
         logger.info('remindChallengeMvpVoters: no FCM tokens for non-voters', { matchId });

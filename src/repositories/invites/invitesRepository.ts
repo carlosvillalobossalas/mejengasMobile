@@ -1,4 +1,5 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import { ensureGroupNotificationDefaults } from '../users/notificationPreferencesRepository';
 
 export type Invite = {
   id: string;
@@ -169,6 +170,7 @@ export async function acceptInvite(
   currentUserEmail: string,
 ): Promise<void> {
   const inviteRef = firestore().collection(INVITES_COLLECTION).doc(inviteId);
+  let joinedGroupId = '';
 
   await firestore().runTransaction(async tx => {
     // 1. Read and validate invite
@@ -198,6 +200,7 @@ export async function acceptInvite(
     }
 
     const groupId = String(member.groupId ?? '');
+    joinedGroupId = groupId;
 
     // 3. Read user profile to sync displayName and photoUrl
     const userRef = firestore().collection('users').doc(currentUserId);
@@ -233,6 +236,10 @@ export async function acceptInvite(
       updatedAt: firestore.FieldValue.serverTimestamp(),
     });
   });
+
+  if (joinedGroupId) {
+    await ensureGroupNotificationDefaults(currentUserId, joinedGroupId);
+  }
 }
 
 /**

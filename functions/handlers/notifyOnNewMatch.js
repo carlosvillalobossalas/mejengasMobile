@@ -12,6 +12,7 @@ const {
   resolveMemberUserId,
   collectUserTokens,
 } = require('../utils/helpers');
+const { isNotificationEnabled } = require('../utils/notificationPreferences');
 
 const notifyGroupMembers = async (matchId, groupId, matchData) => {
   const db = admin.firestore();
@@ -49,8 +50,12 @@ const notifyGroupMembers = async (matchId, groupId, matchData) => {
   const usersRef = db.collection(USERS_COLLECTION);
   const userDocs = await Promise.all(userIds.map(id => usersRef.doc(id).get()));
 
+  const eligibleUserDocs = userDocs.filter(doc =>
+    isNotificationEnabled(doc.data() ?? {}, groupId, 'newMatches'),
+  );
+
   const tokens = uniqueNonEmpty(
-    userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+    eligibleUserDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
   );
 
   if (tokens.length === 0) {

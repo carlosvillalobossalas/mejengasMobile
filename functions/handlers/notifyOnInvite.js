@@ -8,6 +8,7 @@ const {
   chunk,
   collectUserTokens,
 } = require('../utils/helpers');
+const { isNotificationEnabled } = require('../utils/notificationPreferences');
 
 exports.notifyUserOnInvite = onDocumentCreated('invites/{inviteId}', async event => {
   const inviteId = event.params.inviteId;
@@ -39,8 +40,12 @@ exports.notifyUserOnInvite = onDocumentCreated('invites/{inviteId}', async event
     return;
   }
 
+  const groupId = String(data.groupId ?? '').trim();
+
   const tokens = uniqueNonEmpty(
-    usersSnap.docs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+    usersSnap.docs
+      .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'invites'))
+      .flatMap(doc => collectUserTokens(doc.data() ?? {})),
   );
 
   if (tokens.length === 0) {

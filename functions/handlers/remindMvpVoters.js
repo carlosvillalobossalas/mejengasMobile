@@ -9,6 +9,7 @@ const {
   chunk,
   collectUserTokens,
 } = require('../utils/helpers');
+const { isNotificationEnabled } = require('../utils/notificationPreferences');
 
 const FIRESTORE_IN_LIMIT = 10;
 
@@ -90,7 +91,9 @@ exports.remindMvpVoters = onSchedule('every 12 hours', async () => {
       );
 
       const tokens = uniqueNonEmpty(
-        userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+        userDocs
+          .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'mvpReminders'))
+          .flatMap(doc => collectUserTokens(doc.data() ?? {})),
       );
 
       if (tokens.length === 0) {

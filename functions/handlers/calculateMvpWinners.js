@@ -9,6 +9,7 @@ const {
   chunk,
   collectUserTokens,
 } = require('../utils/helpers');
+const { isNotificationEnabled } = require('../utils/notificationPreferences');
 
 /**
  * Notify all linked users in a group that the MVP for a match was calculated.
@@ -46,7 +47,9 @@ const notifyGroupOnMvpResult = async (groupId, matchId, winnerName, groupName) =
   const userDocs = await Promise.all(userIds.map(id => usersRef.doc(id).get()));
 
   const tokens = uniqueNonEmpty(
-    userDocs.flatMap(doc => collectUserTokens(doc.data() ?? {})),
+    userDocs
+      .filter(doc => isNotificationEnabled(doc.data() ?? {}, groupId, 'mvpResults'))
+      .flatMap(doc => collectUserTokens(doc.data() ?? {})),
   );
 
   if (tokens.length === 0) {

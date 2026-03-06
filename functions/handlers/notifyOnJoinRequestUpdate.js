@@ -9,6 +9,7 @@ const {
   chunk,
   collectUserTokens,
 } = require('../utils/helpers');
+const { isNotificationEnabled } = require('../utils/notificationPreferences');
 
 /**
  * Triggered when a joinRequest document is updated.
@@ -58,7 +59,17 @@ exports.notifyUserOnJoinRequestUpdate = onDocumentUpdated(
       return;
     }
 
-    const tokens = uniqueNonEmpty(collectUserTokens(userSnap.data() ?? {}));
+    const userData = userSnap.data() ?? {};
+    if (!isNotificationEnabled(userData, groupId, 'joinRequestUpdates')) {
+      logger.info('notifyUserOnJoinRequestUpdate: notifications disabled for user', {
+        requestId,
+        userId,
+        groupId,
+      });
+      return;
+    }
+
+    const tokens = uniqueNonEmpty(collectUserTokens(userData));
 
     if (tokens.length === 0) {
       logger.info('notifyUserOnJoinRequestUpdate: no FCM tokens for user', { requestId, userId });

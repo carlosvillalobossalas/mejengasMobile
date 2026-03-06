@@ -6,6 +6,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 
 import { googleWebClientId } from '../../config/auth';
+import { makeNotificationPreferencesForNewUser } from '../users/notificationPreferencesRepository';
 
 export type FirestoreUser = {
   id: string;
@@ -66,14 +67,16 @@ export async function ensureFirestoreUserForAuthUser(
 
   if (!existing.exists) {
     // Only create new user with auth data if document doesn't exist
+    const now = firestore.FieldValue.serverTimestamp();
     await ref.set(
       {
         uid: user.uid,
         email: user.email ?? null,
         displayName: user.displayName ?? null,
         photoURL: user.photoURL ?? null,
-        createdAt: firestore.FieldValue.serverTimestamp(),
-        updatedAt: firestore.FieldValue.serverTimestamp(),
+        notificationPreferences: makeNotificationPreferencesForNewUser(now),
+        createdAt: now,
+        updatedAt: now,
       },
       { merge: true },
     );
