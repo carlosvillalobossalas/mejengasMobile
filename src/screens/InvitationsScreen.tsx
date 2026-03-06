@@ -28,11 +28,14 @@ import {
 export default function InvitationsScreen() {
   const theme = useTheme();
   const { firestoreUser } = useAppSelector(state => state.auth);
+  const { selectedGroupId, groups } = useAppSelector(state => state.groups);
 
   const [invites, setInvites] = useState<InviteWithGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingInviteId, setProcessingInviteId] = useState<string | null>(null);
+
+  const activeGroup = groups.find(group => group.id === selectedGroupId);
 
   useEffect(() => {
     if (!firestoreUser?.email) {
@@ -180,6 +183,9 @@ export default function InvitationsScreen() {
       <View style={styles(theme).header}>
         <Icon name="email-multiple" size={32} color={theme.colors.primary} />
         <Text style={styles(theme).headerTitle}>Invitaciones Pendientes</Text>
+        {activeGroup?.name ? (
+          <Text style={styles(theme).headerGroupName}>{activeGroup.name}</Text>
+        ) : null}
         <Text style={styles(theme).headerSubtitle}>
           Tienes {invites.length} {invites.length === 1 ? 'invitación' : 'invitaciones'}
         </Text>
@@ -286,6 +292,11 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     color: theme.colors.onSurfaceVariant,
+    marginTop: 4,
+  },
+  headerGroupName: {
+    fontSize: 15,
+    fontWeight: '600',
     marginTop: 4,
   },
   inviteCard: {
