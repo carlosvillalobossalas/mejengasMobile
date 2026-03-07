@@ -3,7 +3,6 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import {
   Avatar,
   Divider,
-  List,
   Text,
   useTheme,
   Button,
@@ -11,6 +10,7 @@ import {
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type RecentPlayerMatchStat = {
   id: string;
@@ -64,6 +64,7 @@ export default function MatchPlayerSlotModal({
   onReplace,
 }: Props) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <BottomSheet
@@ -71,11 +72,16 @@ export default function MatchPlayerSlotModal({
       index={-1}
       snapPoints={['80%']}
       enablePanDownToClose
+      topInset={insets.top}
+      android_keyboardInputMode="adjustResize"
       backdropComponent={props => (
         <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
       )}
     >
-      <BottomSheetScrollView style={styles(theme).container}>
+      <BottomSheetScrollView
+        style={styles(theme).container}
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 + insets.bottom }}
+      >
         <View style={styles(theme).header}>
           {playerPhotoUrl ? (
             <Avatar.Image size={58} source={{ uri: playerPhotoUrl }} />
