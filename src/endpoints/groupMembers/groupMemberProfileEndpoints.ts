@@ -287,8 +287,16 @@ export async function getGroupMemberProfileData(
  */
 export async function getUserProfileData(userId: string): Promise<UserProfileData | null> {
   // 1. Fetch the User document
-  const user = await getUserById(userId);
-  if (!user) return null;
+  const storedUser = await getUserById(userId);
+  const user: User = storedUser ?? {
+    id: userId,
+    uid: userId,
+    email: null,
+    displayName: null,
+    photoURL: null,
+    createdAt: null,
+    updatedAt: null,
+  };
 
   // 2. Find all groupMembers_v2 linked to this user
   const membersSnap = await firestore()

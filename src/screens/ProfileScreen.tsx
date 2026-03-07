@@ -42,7 +42,7 @@ export default function ProfileScreen() {
   const dispatch = useAppDispatch();
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
 
-  const { firestoreUser } = useAppSelector(state => state.auth);
+  const { firestoreUser, firebaseUser } = useAppSelector(state => state.auth);
   const { groups } = useAppSelector(state => state.groups);
   const { data: profileData, isLoading, error } = useAppSelector(state => state.profile);
 
@@ -55,6 +55,8 @@ export default function ProfileScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [authProvider, setAuthProvider] = useState<'password' | 'google' | 'apple'>('password');
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
+
+  const authUserId = firestoreUser?.uid ?? firebaseUser?.uid ?? null;
 
   const { isUploading, pickAndUpload } = useProfilePhoto();
   const [showCopied, setShowCopied] = useState(false);
@@ -77,11 +79,16 @@ export default function ProfileScreen() {
     setShowCopied(true);
   };
 
+  const handleRetryProfileLoad = async () => {
+    if (!authUserId) return;
+    await dispatch(fetchProfileData({ userId: authUserId }));
+  };
+
   useEffect(() => {
-    if (firestoreUser?.uid) {
-      dispatch(fetchProfileData({ userId: firestoreUser.uid }));
+    if (authUserId) {
+      dispatch(fetchProfileData({ userId: authUserId }));
     }
-  }, [dispatch, firestoreUser?.uid]);
+  }, [dispatch, authUserId]);
 
   const handleEditName = () => {
     setNewName(profileData?.user?.displayName ?? '');
@@ -89,20 +96,20 @@ export default function ProfileScreen() {
   };
 
   const handleSaveName = async () => {
-    if (!firestoreUser?.uid || !newName.trim()) {
+    if (!authUserId || !newName.trim()) {
       return;
     }
 
     setIsUpdating(true);
     try {
       await Promise.all([
-        updateUserDisplayName(firestoreUser.uid, newName.trim()),
-        updatePlayerNameByUserId(firestoreUser.uid, newName.trim()),
-        updateDisplayNameByUserId(firestoreUser.uid, newName.trim()),
+        updateUserDisplayName(authUserId, newName.trim()),
+        updatePlayerNameByUserId(authUserId, newName.trim()),
+        updateDisplayNameByUserId(authUserId, newName.trim()),
       ]);
 
       // Refresh profile data
-      await dispatch(fetchProfileData({ userId: firestoreUser.uid }));
+      await dispatch(fetchProfileData({ userId: authUserId }));
 
       setShowEditNameDialog(false);
     } catch (error) {
@@ -184,7 +191,7 @@ export default function ProfileScreen() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !profileData && !firebaseUser && !firestoreUser) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -193,24 +200,60 @@ export default function ProfileScreen() {
     );
   }
 
-  if (error) {
+  if (!authUserId) {
     return (
       <View style={styles.centerContainer}>
         <Icon name="alert-circle" size={48} color={theme.colors.error} />
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>No hay usuario autenticado</Text>
       </View>
     );
   }
 
-  if (!profileData) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>No se encontró información del usuario</Text>
-      </View>
-    );
-  }
+  const user = profileData?.user ?? {
+    id: authUserId,
+    uid: authUserId,
+    email: firestoreUser?.email ?? firebaseUser?.email ?? null,
+    displayName:
+      firestoreUser?.displayName
+      ?? firebaseUser?.displayName
+      ?? auth().currentUser?.displayName
+      ?? null,
+    photoURL:
+      firestoreUser?.photoURL
+      ?? firebaseUser?.photoURL
+      ?? auth().currentUser?.photoURL
+      ?? null,
+    createdAt: null,
+    updatedAt: null,
+  };
 
-  const { user, historicPlayer, historicGoalkeeper, hasPlayerStats, hasGoalkeeperStats, seasonCards } = profileData;
+  const historicPlayer = profileData?.historicPlayer ?? {
+    matches: 0,
+    goals: 0,
+    assists: 0,
+    ownGoals: 0,
+    won: 0,
+    draw: 0,
+    lost: 0,
+    mvp: 0,
+  };
+
+  const historicGoalkeeper = profileData?.historicGoalkeeper ?? {
+    matches: 0,
+    goalsConceded: 0,
+    cleanSheets: 0,
+    goals: 0,
+    assists: 0,
+    ownGoals: 0,
+    won: 0,
+    draw: 0,
+    lost: 0,
+    mvp: 0,
+  };
+
+  const hasPlayerStats = profileData?.hasPlayerStats ?? false;
+  const hasGoalkeeperStats = profileData?.hasGoalkeeperStats ?? false;
+  const seasonCards = profileData?.seasonCards ?? [];
 
   const getInitials = (name: string | null) => {
     if (!name) return '?';
@@ -232,11 +275,11 @@ export default function ProfileScreen() {
       <Surface style={styles.profileSection}>
         <TouchableOpacity
           style={styles.avatarContainer}
-          onPress={() => firestoreUser?.uid && pickAndUpload(firestoreUser.uid)}
+          onPress={() => authUserId && pickAndUpload(authUserId)}
           disabled={isUploading}
         >
-          {firestoreUser?.photoURL ? (
-            <Avatar.Image size={100} source={{ uri: firestoreUser.photoURL }} />
+          {user.photoURL ? (
+            <Avatar.Image size={100} source={{ uri: user.photoURL }} />
           ) : (
             <Avatar.Text size={100} label={getInitials(user.displayName)} />
           )}
@@ -264,6 +307,21 @@ export default function ProfileScreen() {
             <Text style={styles.userEmail}>{user.email}</Text>
             <Icon name="content-copy" size={14} color="#9E9E9E" style={styles.copyIcon} />
           </TouchableOpacity>
+        )}
+        {!!error && (
+          <View style={styles.profileWarningContainer}>
+            <Text style={styles.profileWarningText}>
+              No se pudo cargar todo el perfil. Mostrando datos básicos.
+            </Text>
+            <Button
+              mode="outlined"
+              onPress={handleRetryProfileLoad}
+              compact
+              style={styles.retryButton}
+            >
+              Reintentar
+            </Button>
+          </View>
         )}
       </Surface>
 
@@ -483,7 +541,7 @@ export default function ProfileScreen() {
 
         <NotificationSettingsDialog
           visible={showNotificationDialog}
-          userId={firestoreUser?.uid ?? null}
+          userId={authUserId}
           groups={groups}
           onDismiss={() => setShowNotificationDialog(false)}
         />
@@ -655,6 +713,19 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: '#757575',
+  },
+  profileWarningText: {
+    fontSize: 12,
+    color: '#D84315',
+    textAlign: 'center',
+  },
+  profileWarningContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+    gap: 8,
+  },
+  retryButton: {
+    borderRadius: 8,
   },
   emailRow: {
     flexDirection: 'row',
