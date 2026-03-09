@@ -57,6 +57,9 @@ export function useChallengeMatchMvpVoting(
       if (!currentUserGroupMemberId) {
         throw new Error('No se encontró tu perfil de jugador en este grupo');
       }
+      if (votedGroupMemberId === currentUserGroupMemberId) {
+        throw new Error('No puedes votar por ti mismo');
+      }
       setIsVoting(true);
       setVoteError(null);
       try {

@@ -86,10 +86,16 @@ export default function MvpVotingModal({
       typeof p.groupMemberId === 'string' && p.groupMemberId.trim().length > 0;
 
     return {
-      team1: match.players1.filter(withAssignedPlayer).map(resolve),
-      team2: match.players2.filter(withAssignedPlayer).map(resolve),
+      team1: match.players1
+        .filter(withAssignedPlayer)
+        .filter(p => p.groupMemberId !== currentUserGroupMemberId)
+        .map(resolve),
+      team2: match.players2
+        .filter(withAssignedPlayer)
+        .filter(p => p.groupMemberId !== currentUserGroupMemberId)
+        .map(resolve),
     };
-  }, [match, allPlayers]);
+  }, [match, allPlayers, currentUserGroupMemberId]);
 
   const timeRemainingText = useMemo(() => {
     if (!match?.mvpVoting?.closesAt) return '';

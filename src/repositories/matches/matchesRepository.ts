@@ -194,6 +194,10 @@ export async function castMvpVote(
   voterGroupMemberId: string,
   votedGroupMemberId: string,
 ): Promise<void> {
+  if (voterGroupMemberId === votedGroupMemberId) {
+    throw new Error('No puedes votar por ti mismo');
+  }
+
   const matchRef = firestore().collection(MATCHES_COLLECTION).doc(matchId);
 
   const doc = await matchRef.get();

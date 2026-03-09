@@ -152,6 +152,10 @@ export async function castMvpVoteByChallengeMatch(
   voterGroupMemberId: string,
   votedGroupMemberId: string,
 ): Promise<void> {
+  if (voterGroupMemberId === votedGroupMemberId) {
+    throw new Error('No puedes votar por ti mismo');
+  }
+
   const matchRef = firestore().collection(COLLECTION).doc(matchId);
   const doc = await matchRef.get();
   if (!doc.exists) throw new Error(`Partido "${matchId}" no existe`);

@@ -58,6 +58,7 @@ export default function ChallengeMvpVotingModal({
     if (!match) return [];
     return match.players
       .filter((p): p is (typeof p) & { groupMemberId: string } => p.groupMemberId !== null)
+      .filter(p => p.groupMemberId !== currentUserGroupMemberId)
       .map(p => {
         const member = allPlayers.find(m => m.id === p.groupMemberId);
         return {
@@ -68,7 +69,7 @@ export default function ChallengeMvpVotingModal({
           isSub: p.isSub,
         };
       });
-  }, [match, allPlayers]);
+  }, [match, allPlayers, currentUserGroupMemberId]);
 
   const timeRemainingText = useMemo(() => {
     if (!match?.mvpVoting?.closesAt) return '';
