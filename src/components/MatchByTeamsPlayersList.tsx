@@ -79,7 +79,7 @@ function PlayerRow({ player, groupMembers, mvpGroupMemberId, accentColor }: Play
           )}
           {player.ownGoals > 0 && (
             <View style={styles.statChip}>
-              <Icon name="soccer" size={13} color="#D32F2F" />
+              <Icon name="close-circle-outline" size={13} color="#D32F2F" />
               <Text style={styles.statValueRed}>{player.ownGoals}</Text>
             </View>
           )}

@@ -288,7 +288,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                         )}
                         {player.ownGoals > 0 && (
                             <View style={styles(theme).statItem}>
-                                <Icon name="soccer" size={12} color={theme.colors.error} />
+                                <Icon name="close-circle-outline" size={12} color={theme.colors.error} />
                                 <Text variant="labelSmall" style={styles(theme).statTextRed}>
                                     {player.ownGoals}
                                 </Text>

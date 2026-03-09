@@ -102,7 +102,7 @@ const PlayersList: React.FC<PlayersListProps> = ({
           )}
           {player.ownGoals > 0 && (
             <View style={styles(theme).statBadge}>
-              <Icon name="soccer" size={14} color={theme.colors.error} />
+              <Icon name="close-circle-outline" size={14} color={theme.colors.error} />
               <Text variant="labelSmall" style={styles(theme).statValueRed}>
                 {player.ownGoals}
               </Text>
