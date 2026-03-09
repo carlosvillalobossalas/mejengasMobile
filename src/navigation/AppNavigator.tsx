@@ -25,6 +25,7 @@ import TeamFormScreen from '../screens/TeamFormScreen';
 import ChallengeMatchesScreen from '../screens/ChallengeMatchesScreen';
 import AddChallengeMatchScreen from '../screens/AddChallengeMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
+import AppDrawerContent from './AppDrawerContent';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
 import {
   subscribeToUserRoleInGroup,
@@ -125,6 +126,14 @@ export default function AppNavigator() {
   return (
     <Drawer.Navigator
       initialRouteName={initialRoute}
+      drawerContent={props => (
+        <AppDrawerContent
+          {...props}
+          activeGroup={activeGroup}
+          isAdmin={isAdmin}
+          onLogout={handleLogout}
+        />
+      )}
       screenOptions={({ navigation }) => ({
         drawerActiveTintColor: theme.colors.primary,
         drawerInactiveTintColor: theme.colors.onSurfaceVariant,
