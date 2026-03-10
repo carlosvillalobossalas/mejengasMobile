@@ -630,7 +630,7 @@ export default function MyMatchesScreen() {
             <FAB
                 icon="plus"
                 color="white"
-                style={[styles(theme).fab, { bottom: insets.bottom + 16, backgroundColor: theme.colors.secondary }]}
+                style={[styles(theme).fab, { bottom: insets.bottom + 16, backgroundColor: theme.colors.primary }]}
                 onPress={() => {
                     setAddDialogStep('type');
                     setAddDialogType(null);
