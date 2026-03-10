@@ -61,7 +61,7 @@ export default function HomeStatsScreen() {
           </View>
           <Button
             mode="contained"
-            buttonColor={theme.colors.secondary}
+            buttonColor={theme.colors.primary}
             textColor={theme.colors.onSecondary}
             onPress={() => navigation.navigate('MyMatches')}
           >
@@ -78,7 +78,7 @@ export default function HomeStatsScreen() {
           </View>
           <Button
             mode="contained"
-            buttonColor={theme.colors.secondary}
+            buttonColor={theme.colors.primary}
             textColor={theme.colors.onSecondary}
             onPress={() => handleOpenTable('PlayersTable')}
           >
@@ -95,7 +95,7 @@ export default function HomeStatsScreen() {
           </View>
           <Button
             mode="contained"
-            buttonColor={theme.colors.secondary}
+            buttonColor={theme.colors.primary}
             textColor={theme.colors.onSecondary}
             onPress={() => handleOpenTable('GoalkeepersTable')}
           >

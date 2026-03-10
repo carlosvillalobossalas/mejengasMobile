@@ -726,7 +726,7 @@ export default function HomeFeedScreen() {
       {(isOwner || isAdmin) && activeGroup && (
         <Button
           mode="contained"
-          buttonColor={theme.colors.secondary}
+          buttonColor={theme.colors.primary}
           textColor={theme.colors.onSecondary}
           style={styles.adminCta}
           icon="cog"

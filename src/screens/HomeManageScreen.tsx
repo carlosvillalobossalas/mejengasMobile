@@ -34,21 +34,21 @@ export default function HomeManageScreen() {
       <Card style={styles.card}>
         <Card.Content style={styles.cardContent}>
           <View style={styles.row}><Icon name="account-circle" size={22} color={theme.colors.primary} /><Text variant="titleMedium">Mi Perfil</Text></View>
-          <Button mode="contained" buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={() => navigation.navigate('Profile')}>Abrir perfil</Button>
+          <Button mode="contained" buttonColor={theme.colors.primary} textColor={theme.colors.onSecondary} onPress={() => navigation.navigate('Profile')}>Abrir perfil</Button>
         </Card.Content>
       </Card>
 
       <Card style={styles.card}>
         <Card.Content style={styles.cardContent}>
           <View style={styles.row}><Icon name="email-multiple" size={22} color={theme.colors.primary} /><Text variant="titleMedium">Invitaciones</Text></View>
-          <Button mode="contained" buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={() => navigation.navigate('Invitations')}>Ver invitaciones</Button>
+          <Button mode="contained" buttonColor={theme.colors.primary} textColor={theme.colors.onSecondary} onPress={() => navigation.navigate('Invitations')}>Ver invitaciones</Button>
         </Card.Content>
       </Card>
 
       <Card style={styles.card}>
         <Card.Content style={styles.cardContent}>
           <View style={styles.row}><Icon name="account-group" size={22} color={theme.colors.primary} /><Text variant="titleMedium">Grupos</Text></View>
-          <Button mode="contained" buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={() => navigation.navigate('Groups')}>Gestionar grupos</Button>
+          <Button mode="contained" buttonColor={theme.colors.primary} textColor={theme.colors.onSecondary} onPress={() => navigation.navigate('Groups')}>Gestionar grupos</Button>
         </Card.Content>
       </Card>
 
@@ -60,7 +60,7 @@ export default function HomeManageScreen() {
           </View>
           <Button
             mode="contained"
-            buttonColor={theme.colors.secondary}
+            buttonColor={theme.colors.primary}
             textColor={theme.colors.onSecondary}
             onPress={openApplications}
           >
@@ -73,7 +73,7 @@ export default function HomeManageScreen() {
         <Card style={styles.card}>
           <Card.Content style={styles.cardContent}>
             <View style={styles.row}><Icon name="cog" size={22} color={theme.colors.primary} /><Text variant="titleMedium">Administrar Grupo</Text></View>
-            <Button mode="contained" buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={() => navigation.navigate('Admin')}>Abrir administración</Button>
+            <Button mode="contained" buttonColor={theme.colors.primary} textColor={theme.colors.onSecondary} onPress={() => navigation.navigate('Admin')}>Abrir administración</Button>
           </Card.Content>
         </Card>
       )}

@@ -265,7 +265,7 @@ export default function HomeExploreScreen() {
             </Text>
             <Button
               mode="contained"
-              buttonColor={theme.colors.secondary}
+              buttonColor={theme.colors.primary}
               textColor={theme.colors.onSecondary}
               onPress={() => navigation.navigate('Groups')}
             >
