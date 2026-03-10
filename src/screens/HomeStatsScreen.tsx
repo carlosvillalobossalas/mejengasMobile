@@ -113,7 +113,7 @@ export default function HomeStatsScreen() {
             </View>
             <Button
               mode="contained"
-              buttonColor={theme.colors.secondary}
+              buttonColor={theme.colors.primary}
               textColor={theme.colors.onSecondary}
               onPress={() => handleOpenTable('TeamStandings')}
             >
