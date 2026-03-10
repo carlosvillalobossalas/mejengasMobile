@@ -209,8 +209,9 @@ export default function MyMatchesScreen() {
         const rows: UnifiedMatchItem[] = [];
 
         groups.forEach(group => {
-            const memberId = memberIdsByGroup[group.id];
-            if (!memberId) return;
+            // memberId may be null if the user has no slot assigned yet — we still show all matches,
+            // isParticipant will be false in that case
+            const memberId = memberIdsByGroup[group.id] ?? null;
 
             const classicRows = (classicByGroup[group.id] ?? [])
                 .map(match => ({
@@ -225,7 +226,7 @@ export default function MyMatchesScreen() {
                     rightLabel: 'Equipo 2',
                     leftScore: Number(match.goalsTeam1 ?? 0),
                     rightScore: Number(match.goalsTeam2 ?? 0),
-                    isParticipant: [...match.players1, ...match.players2].some(p => p.groupMemberId === memberId),
+                    isParticipant: memberId !== null && [...match.players1, ...match.players2].some(p => p.groupMemberId === memberId),
                 }));
 
             const teamsRows = (teamsMatchesByGroup[group.id] ?? [])
@@ -246,7 +247,7 @@ export default function MyMatchesScreen() {
                         rightLabel: team2?.name ?? 'Equipo 2',
                         leftScore: Number(match.goalsTeam1 ?? 0),
                         rightScore: Number(match.goalsTeam2 ?? 0),
-                        isParticipant: [...match.players1, ...match.players2].some(p => p.groupMemberId === memberId),
+                        isParticipant: memberId !== null && [...match.players1, ...match.players2].some(p => p.groupMemberId === memberId),
                     };
                 });
 
@@ -263,7 +264,7 @@ export default function MyMatchesScreen() {
                     rightLabel: match.opponentName.trim() || 'Rival',
                     leftScore: Number(match.goalsTeam ?? 0),
                     rightScore: Number(match.goalsOpponent ?? 0),
-                    isParticipant: match.players.some(p => p.groupMemberId === memberId),
+                    isParticipant: memberId !== null && match.players.some(p => p.groupMemberId === memberId),
                 }));
 
             rows.push(...classicRows, ...teamsRows, ...challengeRows);
