@@ -8,7 +8,6 @@ import HomeScreen from '../screens/HomeScreen';
 import GroupsScreen from '../screens/GroupsScreen';
 import PlayersTableScreen from '../screens/PlayersTableScreen';
 import GoalkeepersTableScreen from '../screens/GoalkeepersTableScreen';
-import MatchesScreen from '../screens/MatchesScreen';
 import MyMatchesScreen from '../screens/MyMatchesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InvitationsScreen from '../screens/InvitationsScreen';
@@ -17,14 +16,13 @@ import AdminScreen from '../screens/AdminScreen';
 import JoinRequestsScreen from '../screens/JoinRequestsScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
 import AddMatchTeamsScreen from '../screens/AddMatchTeamsScreen';
-import MatchesByTeamsScreen from '../screens/MatchesByTeamsScreen';
 import AddPlayerScreen from '../screens/AddPlayerScreen';
 import ManageMembersScreen from '../screens/ManageMembersScreen';
 import GroupSettingsScreen from '../screens/GroupSettingsScreen';
 import ManageTeamsScreen from '../screens/ManageTeamsScreen';
 import TeamStandingsScreen from '../screens/TeamStandingsScreen';
 import TeamFormScreen from '../screens/TeamFormScreen';
-import ChallengeMatchesScreen from '../screens/ChallengeMatchesScreen';
+
 import AddChallengeMatchScreen from '../screens/AddChallengeMatchScreen';
 import SplashScreen from '../screens/SplashScreen';
 import AppDrawerContent from './AppDrawerContent';
@@ -201,30 +199,6 @@ export default function AppNavigator() {
         options={{
           title: 'Partidos',
           drawerItemStyle: selectedGroupId ? undefined : { display: 'none' },
-        }}
-      />
-      <Drawer.Screen
-        name="Matches"
-        component={MatchesScreen}
-        options={{
-          title: 'Partidos',
-          drawerItemStyle: { display: 'none' },
-        }}
-      />
-      <Drawer.Screen
-        name="MatchesByTeams"
-        component={MatchesByTeamsScreen}
-        options={{
-          title: 'Partidos',
-          drawerItemStyle: { display: 'none' },
-        }}
-      />
-      <Drawer.Screen
-        name="ChallengeMatches"
-        component={ChallengeMatchesScreen}
-        options={{
-          title: 'Partidos',
-          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen

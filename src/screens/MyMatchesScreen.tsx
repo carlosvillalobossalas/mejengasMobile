@@ -8,6 +8,7 @@ import auth from '@react-native-firebase/auth';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import {
     Button,
+    Chip,
     Divider,
     FAB,
     Portal,
@@ -640,68 +641,103 @@ export default function MyMatchesScreen() {
                 <BottomSheet
                     ref={filtersSheetRef}
                     index={-1}
-                    snapPoints={['75%']}
+                    snapPoints={['60%']}
                     enablePanDownToClose
                     topInset={insets.top}
                     backdropComponent={renderBackdrop}
                 >
-                    <BottomSheetScrollView contentContainerStyle={styles(theme).sheetContent}>
+                    <View style={styles(theme).filterSheetContainer}>
                         <Text variant="titleMedium" style={styles(theme).sheetTitle}>Filtros</Text>
+                        <BottomSheetScrollView contentContainerStyle={styles(theme).filterScrollContent}>
+                            <Text variant="labelMedium" style={styles(theme).sectionTitle}>Temporada</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles(theme).chipRow}>
+                                {yearOptions.map(option => (
+                                    <Chip
+                                        key={option.value.toString()}
+                                        selected={selectedYear === option.value}
+                                        onPress={() => setSelectedYear(option.value)}
+                                        mode="outlined"
+                                        style={styles(theme).filterChip}
+                                    >
+                                        {option.label}
+                                    </Chip>
+                                ))}
+                            </ScrollView>
 
-                        <Text variant="labelMedium" style={styles(theme).sectionTitle}>Temporada</Text>
-                        {yearOptions.map(option => (
-                            <Button
-                                key={option.value.toString()}
-                                mode={selectedYear === option.value ? 'contained' : 'text'}
-                                onPress={() => setSelectedYear(option.value)}
-                                style={styles(theme).optionButton}
-                                contentStyle={styles(theme).optionButtonContent}
-                            >
-                                {option.label}
+                            <Text variant="labelMedium" style={styles(theme).sectionTitle}>Grupo</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles(theme).chipRow}>
+                                <Chip
+                                    selected={selectedGroupFilter === 'all'}
+                                    onPress={() => setSelectedGroupFilter('all')}
+                                    mode="outlined"
+                                    style={styles(theme).filterChip}
+                                >
+                                    Todos
+                                </Chip>
+                                {groups.map(group => (
+                                    <Chip
+                                        key={group.id}
+                                        selected={selectedGroupFilter === group.id}
+                                        onPress={() => setSelectedGroupFilter(group.id)}
+                                        mode="outlined"
+                                        style={styles(theme).filterChip}
+                                    >
+                                        {group.name}
+                                    </Chip>
+                                ))}
+                            </ScrollView>
+
+                            <Text variant="labelMedium" style={styles(theme).sectionTitle}>Tipo</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles(theme).chipRow}>
+                                {([['all', 'Todos'], ['matches', 'Libre'], ['matchesByTeams', 'Por equipos'], ['matchesByChallenge', 'Retos']] as const).map(([val, label]) => (
+                                    <Chip
+                                        key={val}
+                                        selected={selectedTypeFilter === val}
+                                        onPress={() => setSelectedTypeFilter(val as MatchTypeFilter)}
+                                        mode="outlined"
+                                        style={styles(theme).filterChip}
+                                    >
+                                        {label}
+                                    </Chip>
+                                ))}
+                            </ScrollView>
+
+                            <Text variant="labelMedium" style={styles(theme).sectionTitle}>Estado</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles(theme).chipRow}>
+                                {([['all', 'Todos'], ['scheduled', 'Por jugar'], ['finished', 'Finalizado'], ['cancelled', 'Cancelado']] as const).map(([val, label]) => (
+                                    <Chip
+                                        key={val}
+                                        selected={selectedStatusFilter === val}
+                                        onPress={() => setSelectedStatusFilter(val as MatchStatusFilter)}
+                                        mode="outlined"
+                                        style={styles(theme).filterChip}
+                                    >
+                                        {label}
+                                    </Chip>
+                                ))}
+                            </ScrollView>
+
+                            <Text variant="labelMedium" style={styles(theme).sectionTitle}>Participación</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles(theme).chipRow}>
+                                {([['all', 'Todos los partidos'], ['mine', 'Solo los que jugué']] as const).map(([val, label]) => (
+                                    <Chip
+                                        key={val}
+                                        selected={selectedParticipationFilter === val}
+                                        onPress={() => setSelectedParticipationFilter(val as MatchParticipationFilter)}
+                                        mode="outlined"
+                                        style={styles(theme).filterChip}
+                                    >
+                                        {label}
+                                    </Chip>
+                                ))}
+                            </ScrollView>
+                        </BottomSheetScrollView>
+                        {/* <View style={styles(theme).applyButtonContainer}>
+                            <Button mode="contained" onPress={() => filtersSheetRef.current?.close()} style={styles(theme).applyButton}>
+                                Aplicar
                             </Button>
-                        ))}
-
-                        <Text variant="labelMedium" style={styles(theme).sectionTitle}>Grupo</Text>
-                        <Button
-                            mode={selectedGroupFilter === 'all' ? 'contained' : 'text'}
-                            onPress={() => setSelectedGroupFilter('all')}
-                            style={styles(theme).optionButton}
-                            contentStyle={styles(theme).optionButtonContent}
-                        >
-                            Todos mis grupos
-                        </Button>
-                        {groups.map(group => (
-                            <Button
-                                key={group.id}
-                                mode={selectedGroupFilter === group.id ? 'contained' : 'text'}
-                                onPress={() => setSelectedGroupFilter(group.id)}
-                                style={styles(theme).optionButton}
-                                contentStyle={styles(theme).optionButtonContent}
-                            >
-                                {group.name}
-                            </Button>
-                        ))}
-
-                        <Text variant="labelMedium" style={styles(theme).sectionTitle}>Tipo</Text>
-                        <Button mode={selectedTypeFilter === 'all' ? 'contained' : 'text'} onPress={() => setSelectedTypeFilter('all')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Todos</Button>
-                        <Button mode={selectedTypeFilter === 'matches' ? 'contained' : 'text'} onPress={() => setSelectedTypeFilter('matches')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Clásico</Button>
-                        <Button mode={selectedTypeFilter === 'matchesByTeams' ? 'contained' : 'text'} onPress={() => setSelectedTypeFilter('matchesByTeams')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Por equipos</Button>
-                        <Button mode={selectedTypeFilter === 'matchesByChallenge' ? 'contained' : 'text'} onPress={() => setSelectedTypeFilter('matchesByChallenge')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Reto</Button>
-
-                        <Text variant="labelMedium" style={styles(theme).sectionTitle}>Estado</Text>
-                        <Button mode={selectedStatusFilter === 'all' ? 'contained' : 'text'} onPress={() => setSelectedStatusFilter('all')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Todos</Button>
-                        <Button mode={selectedStatusFilter === 'scheduled' ? 'contained' : 'text'} onPress={() => setSelectedStatusFilter('scheduled')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Por jugar</Button>
-                        <Button mode={selectedStatusFilter === 'finished' ? 'contained' : 'text'} onPress={() => setSelectedStatusFilter('finished')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Finalizado</Button>
-                        <Button mode={selectedStatusFilter === 'cancelled' ? 'contained' : 'text'} onPress={() => setSelectedStatusFilter('cancelled')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Cancelado</Button>
-
-                        <Text variant="labelMedium" style={styles(theme).sectionTitle}>Participación</Text>
-                        <Button mode={selectedParticipationFilter === 'all' ? 'contained' : 'text'} onPress={() => setSelectedParticipationFilter('all')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Todos los partidos</Button>
-                        <Button mode={selectedParticipationFilter === 'mine' ? 'contained' : 'text'} onPress={() => setSelectedParticipationFilter('mine')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Solo los que jugué</Button>
-
-                        <Button mode="contained" onPress={() => filtersSheetRef.current?.close()} style={styles(theme).applyButton}>
-                            Aplicar
-                        </Button>
-                    </BottomSheetScrollView>
+                        </View> */}
+                    </View>
                 </BottomSheet>
             </Portal>
 
@@ -1011,27 +1047,36 @@ const styles = (theme: MD3Theme) =>
             fontWeight: '700',
             marginBottom: 4,
         },
-        sheetContent: {
+        filterSheetContainer: {
+            flex: 1,
             paddingHorizontal: 16,
-            paddingTop: 8,
-            paddingBottom: 24,
+            paddingTop: 4,
+        },
+        filterScrollContent: {
+            paddingBottom: 8,
         },
         sheetTitle: {
             textAlign: 'center',
-            marginBottom: 16,
+            marginBottom: 8,
             fontWeight: 'bold',
         },
         sectionTitle: {
-            marginTop: 8,
-            marginBottom: 6,
+            marginTop: 10,
+            marginBottom: 8,
             fontWeight: '700',
             color: theme.colors.onSurfaceVariant,
         },
-        optionButton: {
-            marginVertical: 4,
+        chipRow: {
+            flexDirection: 'row',
+            gap: 8,
+            paddingRight: 8,
         },
-        optionButtonContent: {
-            paddingVertical: 8,
+        filterChip: {
+            // chip handles its own sizing
+        },
+        applyButtonContainer: {
+            paddingTop: 10,
+            paddingBottom: 30,
         },
         expandedActions: {
             flexDirection: 'row',

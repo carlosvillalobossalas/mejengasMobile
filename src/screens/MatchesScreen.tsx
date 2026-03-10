@@ -10,6 +10,7 @@ import {
 import {
   Text,
   Card,
+  Chip,
   Divider,
   Surface,
   useTheme,
@@ -817,7 +818,7 @@ export default function MatchesScreen() {
         <BottomSheet
           ref={filtersSheetRef}
           index={-1}
-          snapPoints={['65%']}
+          snapPoints={['40%']}
           enablePanDownToClose
           backdropComponent={renderBackdrop}
         >
@@ -825,41 +826,49 @@ export default function MatchesScreen() {
             <Text variant="titleMedium" style={styles(theme).bottomSheetTitle}>
               Filtros
             </Text>
-            <Text variant="labelMedium" style={styles(theme).sheetSectionTitle}>
-              Temporada
-            </Text>
-            {yearOptions.map(item => (
+            <ScrollView style={styles(theme).filterScroll} contentContainerStyle={styles(theme).filterScrollContent} showsVerticalScrollIndicator={false}>
+              <Text variant="labelMedium" style={styles(theme).sheetSectionTitle}>
+                Temporada
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles(theme).chipRow}>
+                {yearOptions.map(item => (
+                  <Chip
+                    key={item.value.toString()}
+                    selected={selectedYear === item.value}
+                    onPress={() => handleSelectYear(item.value)}
+                    mode="outlined"
+                    style={styles(theme).filterChip}
+                  >
+                    {item.label}
+                  </Chip>
+                ))}
+              </ScrollView>
+              <Text variant="labelMedium" style={styles(theme).sheetSectionTitle}>
+                Grupo
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles(theme).chipRow}>
+                {groupFilterOptions.map(item => (
+                  <Chip
+                    key={item.value}
+                    selected={selectedGroupFilter === item.value}
+                    onPress={() => setSelectedGroupFilter(item.value)}
+                    mode="outlined"
+                    style={styles(theme).filterChip}
+                  >
+                    {item.label}
+                  </Chip>
+                ))}
+              </ScrollView>
+            </ScrollView>
+            <View style={styles(theme).applyButtonContainer}>
               <Button
-                key={item.value.toString()}
-                mode={selectedYear === item.value ? 'contained' : 'text'}
-                onPress={() => handleSelectYear(item.value)}
-                style={styles(theme).yearOptionButton}
-                contentStyle={styles(theme).yearOptionContent}
+                mode="contained"
+                onPress={() => filtersSheetRef.current?.close()}
+                style={styles(theme).applyFiltersButton}
               >
-                {item.label}
+                Aplicar
               </Button>
-            ))}
-            <Text variant="labelMedium" style={styles(theme).sheetSectionTitle}>
-              Grupo
-            </Text>
-            {groupFilterOptions.map(item => (
-                <Button
-                  key={item.value}
-                  mode={selectedGroupFilter === item.value ? 'contained' : 'text'}
-                  onPress={() => setSelectedGroupFilter(item.value)}
-                  style={styles(theme).yearOptionButton}
-                  contentStyle={styles(theme).yearOptionContent}
-                >
-                  {item.label}
-                </Button>
-            ))}
-            <Button
-              mode="contained"
-              onPress={() => filtersSheetRef.current?.close()}
-              style={styles(theme).applyFiltersButton}
-            >
-              Aplicar
-            </Button>
+            </View>
           </View>
         </BottomSheet>
       </Portal>
@@ -986,23 +995,35 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
   },
   bottomSheetTitle: {
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
     fontWeight: 'bold',
   },
+  filterScroll: {
+    flex: 1,
+  },
+  filterScrollContent: {
+    paddingBottom: 8,
+  },
   sheetSectionTitle: {
-    marginTop: 8,
-    marginBottom: 6,
+    marginTop: 10,
+    marginBottom: 8,
     color: theme.colors.onSurfaceVariant,
     fontWeight: '700',
   },
-  yearOptionButton: {
-    marginVertical: 4,
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 8,
   },
-  yearOptionContent: {
-    paddingVertical: 8,
+  filterChip: {
+    // chip handles its own sizing
+  },
+  applyButtonContainer: {
+    paddingTop: 10,
+    paddingBottom: 12,
   },
   applyFiltersButton: {
-    marginTop: 12,
+    // no extra margin needed — container handles spacing
   },
   emptyState: {
     padding: 48,
