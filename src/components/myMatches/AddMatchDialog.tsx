@@ -29,7 +29,7 @@ const MATCH_TYPES: Array<{
 }> = [
     {
         route: 'AddMatch',
-        title: 'Clásico',
+        title: 'Libre',
         description: 'Libre, dos equipos sin fijos',
         icon: 'soccer',
         bgColor: '',   // uses primaryContainer
@@ -45,7 +45,7 @@ const MATCH_TYPES: Array<{
     },
     {
         route: 'AddChallengeMatch',
-        title: 'Reto',
+        title: 'Retos',
         description: 'Mi grupo vs un rival externo',
         icon: 'sword-cross',
         bgColor: '#E8F5E9',

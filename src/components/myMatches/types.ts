@@ -25,9 +25,9 @@ export type SelectedMatch = {
 };
 
 export const TYPE_LABEL: Record<UnifiedMatchItem['type'], string> = {
-    matches: 'Clásico',
+    matches: 'Libre',
     matchesByTeams: 'Por equipos',
-    matchesByChallenge: 'Reto',
+    matchesByChallenge: 'Retos',
 };
 
 export const statusLabel = (status: MatchStatusFilter | UnifiedMatchItem['status']): string => {
