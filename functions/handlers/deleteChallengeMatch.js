@@ -144,6 +144,39 @@ exports.deleteChallengeMatch = onCall(async request => {
     logger.warn('deleteChallengeMatch: failed to delete reminder docs', { matchId, err: String(err) });
   }
 
+  // Clean up public match listings and their applications
+  try {
+    const listingsSnap = await db
+      .collection('publicMatchListings')
+      .where('sourceMatchId', '==', matchId)
+      .get();
+
+    if (!listingsSnap.empty) {
+      for (const listingDoc of listingsSnap.docs) {
+        // Delete applications tied to this listing
+        const applicationsSnap = await db
+          .collection('publicMatchApplications')
+          .where('listingId', '==', listingDoc.id)
+          .get();
+
+        if (!applicationsSnap.empty) {
+          const appRefs = applicationsSnap.docs.map(d => d.ref);
+          const appChunks = chunk(appRefs, 450);
+          for (const appChunk of appChunks) {
+            const batch = db.batch();
+            appChunk.forEach(ref => batch.delete(ref));
+            await batch.commit();
+          }
+        }
+
+        // Delete the listing itself
+        await listingDoc.ref.delete();
+      }
+    }
+  } catch (err) {
+    logger.warn('deleteChallengeMatch: failed to delete publicMatchListings', { matchId, err: String(err) });
+  }
+
   logger.info('deleteChallengeMatch: match deleted successfully', { matchId, uid });
   return { success: true };
 });

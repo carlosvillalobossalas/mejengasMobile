@@ -28,6 +28,7 @@ import MvpVotingModal from '../components/MvpVotingModal';
 import ChallengeMvpVotingModal from '../components/ChallengeMvpVotingModal';
 import MatchCompactCard from '../components/myMatches/MatchCompactCard';
 import ChallengePlayerRow from '../components/myMatches/ChallengePlayerRow';
+import AddMatchDialog from '../components/myMatches/AddMatchDialog';
 import { type MatchTypeFilter, type MatchStatusFilter, type UnifiedMatchItem, type SelectedMatch, TYPE_LABEL, statusLabel } from '../components/myMatches/types';
 import {
     subscribeToGroupMembersV2ByGroupId,
@@ -89,9 +90,7 @@ export default function MyMatchesScreen() {
 
     const filtersSheetRef = useRef<BottomSheet>(null);
     const detailsSheetRef = useRef<BottomSheet>(null);
-    const groupSelectSheetRef = useRef<BottomSheet>(null);
 
-    const [fabOpen, setFabOpen] = useState(false);
     const [deletingMatchId, setDeletingMatchId] = useState<string | null>(null);
     const [selectedYear, setSelectedYear] = useState<number | 'historico'>(new Date().getFullYear());
     const [selectedGroupFilter, setSelectedGroupFilter] = useState<string | 'all'>('all');
@@ -99,7 +98,11 @@ export default function MyMatchesScreen() {
     const [selectedStatusFilter, setSelectedStatusFilter] = useState<MatchStatusFilter>('all');
     const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null);
     const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
-    const [pendingAddRoute, setPendingAddRoute] = useState<'AddMatch' | 'AddMatchTeams' | 'AddChallengeMatch' | null>(null);
+
+    // Add match dialog
+    const [addDialogVisible, setAddDialogVisible] = useState(false);
+    const [addDialogStep, setAddDialogStep] = useState<'type' | 'group'>('type');
+    const [addDialogType, setAddDialogType] = useState<'AddMatch' | 'AddMatchTeams' | 'AddChallengeMatch' | null>(null);
 
     const [memberIdsByGroup, setMemberIdsByGroup] = useState<Record<string, string | null>>({});
     const [membersByGroup, setMembersByGroup] = useState<Record<string, GroupMemberV2[]>>({});
@@ -534,37 +537,36 @@ export default function MyMatchesScreen() {
         }
     }, [selectedClassicMatch, selectedChallengeMatch, selectedGroup, selectedGroupMembers]);
 
-    const handleAddMatchPress = useCallback((route: 'AddMatch' | 'AddMatchTeams' | 'AddChallengeMatch') => {
-        setFabOpen(false);
+    const handleTypeSelect = useCallback((route: 'AddMatch' | 'AddMatchTeams' | 'AddChallengeMatch') => {
         const compatible = compatibleGroupsForRoute(route);
         if (compatible.length === 0) {
             Alert.alert('Sin grupos compatibles', 'No tienes grupos compatibles para este tipo de partido.');
             return;
         }
-        if (compatible.length === 1) {
-            if (!firebaseUser?.uid) return;
-            void dispatch(selectGroup({ userId: firebaseUser.uid, groupId: compatible[0].id }));
-            setTimeout(() => navigation.navigate(route), 100);
-            return;
-        }
-        // Multiple groups — show selector
-        setPendingAddRoute(route);
-        setTimeout(() => groupSelectSheetRef.current?.expand(), 100);
-    }, [compatibleGroupsForRoute, dispatch, firebaseUser?.uid, navigation]);
+        setAddDialogType(route);
+        setAddDialogStep('group');
+    }, [compatibleGroupsForRoute]);
 
     const handleGroupSelectConfirm = useCallback((groupId: string) => {
-        if (!pendingAddRoute || !firebaseUser?.uid) return;
+        if (!addDialogType || !firebaseUser?.uid) return;
         void dispatch(selectGroup({ userId: firebaseUser.uid, groupId }));
-        groupSelectSheetRef.current?.close();
-        const route = pendingAddRoute;
-        setTimeout(() => navigation.navigate(route), 200);
-        setPendingAddRoute(null);
-    }, [pendingAddRoute, dispatch, firebaseUser?.uid, navigation]);
+        const route = addDialogType;
+        setAddDialogVisible(false);
+        setAddDialogStep('type');
+        setAddDialogType(null);
+        setTimeout(() => navigation.navigate(route), 250);
+    }, [addDialogType, dispatch, firebaseUser?.uid, navigation]);
 
-    const compatibleGroupsForPendingRoute = useMemo(
-        () => pendingAddRoute ? compatibleGroupsForRoute(pendingAddRoute) : [],
-        [pendingAddRoute, compatibleGroupsForRoute],
+    const compatibleGroupsForDialog = useMemo(
+        () => (addDialogType ? compatibleGroupsForRoute(addDialogType) : []),
+        [addDialogType, compatibleGroupsForRoute],
     );
+
+    const handleCloseAddDialog = useCallback(() => {
+        setAddDialogVisible(false);
+        setAddDialogStep('type');
+        setAddDialogType(null);
+    }, []);
 
     return (
         <View style={styles(theme).container}>
@@ -625,31 +627,15 @@ export default function MyMatchesScreen() {
                 )}
             </ScrollView>
 
-            <FAB.Group
-                open={fabOpen}
-                visible
-                icon={fabOpen ? 'close' : 'plus'}
-                color='white'
-                fabStyle={{ backgroundColor: theme.colors.secondary }}
-                actions={[
-                    {
-                        icon: 'sword-cross',
-                        label: 'Partido reto',
-                        onPress: () => handleAddMatchPress('AddChallengeMatch'),
-                    },
-                    {
-                        icon: 'account-group',
-                        label: 'Partido por equipos',
-                        onPress: () => handleAddMatchPress('AddMatchTeams'),
-                    },
-                    {
-                        icon: 'soccer',
-                        label: 'Partido clásico',
-                        onPress: () => handleAddMatchPress('AddMatch'),
-                    },
-                ]}
-                onStateChange={({ open }) => setFabOpen(open)}
-                style={[styles(theme).fab, { bottom: insets.bottom }]}
+            <FAB
+                icon="plus"
+                color="white"
+                style={[styles(theme).fab, { bottom: insets.bottom + 16, backgroundColor: theme.colors.secondary }]}
+                onPress={() => {
+                    setAddDialogStep('type');
+                    setAddDialogType(null);
+                    setAddDialogVisible(true);
+                }}
             />
 
             <Portal>
@@ -717,34 +703,15 @@ export default function MyMatchesScreen() {
                 </BottomSheet>
             </Portal>
 
-            {/* Selección de grupo antes de agregar partido */}
-            <Portal>
-                <BottomSheet
-                    ref={groupSelectSheetRef}
-                    index={-1}
-                    snapPoints={['50%']}
-                    enablePanDownToClose
-                    backdropComponent={renderBackdrop}
-                    onChange={index => {
-                        if (index === -1) setPendingAddRoute(null);
-                    }}
-                >
-                    <View style={styles(theme).sheetContent}>
-                        <Text variant="titleMedium" style={styles(theme).sheetTitle}>Seleccionar grupo</Text>
-                        {compatibleGroupsForPendingRoute.map(group => (
-                            <Button
-                                key={group.id}
-                                mode="contained"
-                                onPress={() => handleGroupSelectConfirm(group.id)}
-                                style={styles(theme).optionButton}
-                                contentStyle={styles(theme).optionButtonContent}
-                            >
-                                {group.name}
-                            </Button>
-                        ))}
-                    </View>
-                </BottomSheet>
-            </Portal>
+            <AddMatchDialog
+                visible={addDialogVisible}
+                step={addDialogStep}
+                compatibleGroups={compatibleGroupsForDialog}
+                onTypeSelect={handleTypeSelect}
+                onGroupSelect={handleGroupSelectConfirm}
+                onBack={() => setAddDialogStep('type')}
+                onDismiss={handleCloseAddDialog}
+            />
 
             <Portal>
                 <BottomSheet
@@ -1005,7 +972,7 @@ const styles = (theme: MD3Theme) =>
         },
         fab: {
             position: 'absolute',
-            right: 0,
+            right: 20,
         },
         scroll: {
             flex: 1,
@@ -1112,4 +1079,5 @@ const styles = (theme: MD3Theme) =>
             color: '#888',
             marginBottom: 4,
         },
+
     });

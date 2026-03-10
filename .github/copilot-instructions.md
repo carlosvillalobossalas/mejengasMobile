@@ -112,6 +112,9 @@
 - Avoid overengineering
 - Do not introduce unnecessary libraries
 - Follow existing project patterns
+- Keep files short and focused (ideally under 200 lines)
+- Extract dialogs, modals, and complex sub-sections into their own component files under `src/components/<feature>/`
+- Never inline large JSX blocks (dialogs, lists, forms) inside screen files
 
 ---
 
@@ -128,6 +131,8 @@
 ## Special instructions
 - Always write code and comments in English
 - Always write text labels in Spanish (UI)
+- NEVER use react-native-paper `Dialog` — it passes `style` to a Fragment internally and throws a warning/error in this project. Use `Modal` from react-native-paper with a custom container `View` styled with `backgroundColor: '#FFFFFF'` and `borderRadius` instead.
+- NEVER pass a `style` prop to `<List.Item>` — it gets forwarded to a Fragment internally and throws a warning. Use a plain View + TouchableRipple instead when you need custom layout inside a Dialog.
 - Assume the project uses:
   - React / React Native
   - Redux Toolkit
