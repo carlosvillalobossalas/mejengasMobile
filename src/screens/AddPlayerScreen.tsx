@@ -10,7 +10,8 @@ import { createGuestGroupMemberV2 } from '../repositories/groupMembersV2/groupMe
 export default function AddPlayerScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
-  const { selectedGroupId } = useAppSelector(state => state.groups);
+  const { selectedGroupId, groups } = useAppSelector(state => state.groups);
+  const selectedGroup = groups.find(g => g.id === selectedGroupId);
 
   const [playerName, setPlayerName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -72,8 +73,16 @@ export default function AddPlayerScreen() {
           <Text variant="headlineSmall" style={styles.title}>
             Agregar Jugador
           </Text>
+          {selectedGroup && (
+            <View style={styles.groupBadge}>
+              <Icon name="account-group-outline" size={16} color={theme.colors.primary} />
+              <Text variant="labelMedium" style={[styles.groupBadgeText, { color: theme.colors.primary }]}>
+                {selectedGroup.name}
+              </Text>
+            </View>
+          )}
           <Text variant="bodyMedium" style={styles.subtitle}>
-            Ingresa el nombre del nuevo jugador
+            Ingresa el nombre del nuevo jugador invitado
           </Text>
         </View>
 
@@ -148,6 +157,18 @@ const styles = StyleSheet.create({
   title: {
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  groupBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#F0F4FF',
+  },
+  groupBadgeText: {
+    fontWeight: '600',
   },
   subtitle: {
     color: '#666',

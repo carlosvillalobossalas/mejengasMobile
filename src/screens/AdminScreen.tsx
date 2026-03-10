@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
@@ -6,54 +6,47 @@ import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
 
 import type { AppDrawerParamList } from '../navigation/types';
-import { useAppSelector } from '../app/hooks';
+import { useAppDispatch, useAppSelector } from '../app/hooks';
+import { selectGroup } from '../features/groups/groupsSlice';
+import AdminGroupSelectDialog from '../components/admin/AdminGroupSelectDialog';
+
+type NavigableRoute = 'AddPlayer' | 'ManageMembers' | 'JoinRequests' | 'GroupSettings' | 'ManageTeams';
 
 type AdminOption = {
   id: string;
   title: string;
   description: string;
-  icon: 'soccer' | 'account-plus' | 'link-variant' | 'account-group' | 'account-clock' | 'cog-outline';
+  icon: 'account-plus' | 'account-group' | 'account-clock' | 'cog-outline' | 'shield-account';
   color: string;
-  onPress: () => void;
+  route: NavigableRoute;
 };
 
 export default function AdminScreen() {
   const theme = useTheme();
+  const dispatch = useAppDispatch();
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
-  const { selectedGroupId, groups } = useAppSelector(state => state.groups);
-  const selectedGroup = groups.find(g => g.id === selectedGroupId);
+  const { groups } = useAppSelector(state => state.groups);
+  const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
+  const authUserId = firebaseUser?.uid ?? null;
 
-  // ─────────────────────────────────────────────────────────────────────────
+  const [pendingRoute, setPendingRoute] = useState<NavigableRoute | null>(null);
 
   const adminOptions: AdminOption[] = [
     {
-      id: 'add-match',
-      title: 'Agregar Partido',
-      description: 'Crear un partido y elegir si queda programado o finalizado',
-      icon: 'soccer',
-      color: theme.colors.primary,
-      onPress: () =>
-        selectedGroup?.isChallengeMode
-          ? navigation.navigate('AddChallengeMatch')
-          : selectedGroup?.hasFixedTeams
-            ? navigation.navigate('AddMatchTeams')
-            : navigation.navigate('AddMatch'),
-    },
-    {
       id: 'add-player',
       title: 'Agregar Jugador',
-      description: 'Añadir un nuevo jugador al grupo',
+      description: 'Añadir un nuevo jugador invitado al grupo',
       icon: 'account-plus',
       color: theme.colors.primary,
-      onPress: () => navigation.navigate('AddPlayer'),
+      route: 'AddPlayer',
     },
     {
       id: 'manage-members',
       title: 'Gestionar Miembros',
-      description: 'Invitar o desvincular miembros del grupo (nuevo sistema)',
+      description: 'Invitar o desvincular miembros del grupo',
       icon: 'account-group',
       color: theme.colors.secondary,
-      onPress: () => navigation.navigate('ManageMembers'),
+      route: 'ManageMembers',
     },
     {
       id: 'join-requests',
@@ -61,7 +54,7 @@ export default function AdminScreen() {
       description: 'Revisar y gestionar solicitudes de jugadores para unirse al grupo',
       icon: 'account-clock',
       color: theme.colors.primary,
-      onPress: () => navigation.navigate('JoinRequests'),
+      route: 'JoinRequests',
     },
     {
       id: 'group-settings',
@@ -69,35 +62,49 @@ export default function AdminScreen() {
       description: 'Editar nombre y colores por defecto para camisetas del partido',
       icon: 'cog-outline',
       color: theme.colors.secondary,
-      onPress: () => navigation.navigate('GroupSettings'),
+      route: 'GroupSettings',
     },
   ];
 
-  if (!selectedGroupId) {
-    return (
-      <View style={styles.centerContainer}>
-        <Icon name="alert-circle" size={48} color={theme.colors.error} />
-        <Text variant="titleMedium" style={styles.errorText}>
-          No hay grupo seleccionado
-        </Text>
-      </View>
-    );
-  }
+  const hasTeamsGroups = groups.some(g => g.hasFixedTeams);
+
+  // Filter groups shown in the dialog depending on the pending route
+  const dialogGroups = useMemo(() => {
+    if (pendingRoute === 'ManageTeams') return groups.filter(g => g.hasFixedTeams);
+    return groups;
+  }, [pendingRoute, groups]);
+
+  const dialogTitle = useMemo(() => {
+    switch (pendingRoute) {
+      case 'AddPlayer': return 'Agregar Jugador';
+      case 'ManageMembers': return 'Gestionar Miembros';
+      case 'JoinRequests': return 'Solicitudes de Unión';
+      case 'GroupSettings': return 'Configuración del grupo';
+      case 'ManageTeams': return 'Administrar Equipos';
+      default: return 'Seleccionar grupo';
+    }
+  }, [pendingRoute]);
+
+  const handleGroupSelect = useCallback(
+    (groupId: string) => {
+      if (!pendingRoute || !authUserId) return;
+      const route = pendingRoute;
+      dispatch(selectGroup({ userId: authUserId, groupId }));
+      setPendingRoute(null);
+      setTimeout(() => navigation.navigate(route), 150);
+    },
+    [pendingRoute, authUserId, dispatch, navigation],
+  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Icon name="cog" size={32} color={theme.colors.primary} />
         <Text variant="headlineSmall" style={styles.headerTitle}>
-          Administración de Grupo
+          Administración
         </Text>
-        {selectedGroup && (
-          <Text variant="titleMedium" style={styles.groupName}>
-            {selectedGroup.name}
-          </Text>
-        )}
         <Text variant="bodyMedium" style={styles.headerSubtitle}>
-          Gestiona jugadores, partidos y configuraciones
+          Gestiona jugadores, miembros y configuraciones de tus grupos
         </Text>
       </View>
 
@@ -105,7 +112,7 @@ export default function AdminScreen() {
         <Card
           key={option.id}
           style={styles.optionCard}
-          onPress={option.onPress}
+          onPress={() => setPendingRoute(option.route)}
         >
           <Card.Content style={styles.cardContent}>
             <View style={[styles.iconContainer, { backgroundColor: option.color }]}>
@@ -119,19 +126,15 @@ export default function AdminScreen() {
                 {option.description}
               </Text>
             </View>
-            <Icon
-              name="chevron-right"
-              size={24}
-              color={theme.colors.onSurfaceVariant}
-            />
+            <Icon name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />
           </Card.Content>
         </Card>
       ))}
 
-      {selectedGroup?.hasFixedTeams && (
+      {hasTeamsGroups && (
         <Card
           style={styles.optionCard}
-          onPress={() => navigation.navigate('ManageTeams')}
+          onPress={() => setPendingRoute('ManageTeams')}
         >
           <Card.Content style={styles.cardContent}>
             <View style={[styles.iconContainer, { backgroundColor: theme.colors.tertiary ?? theme.colors.secondary }]}>
@@ -145,14 +148,18 @@ export default function AdminScreen() {
                 Crear y editar los equipos fijos del grupo
               </Text>
             </View>
-            <Icon
-              name="chevron-right"
-              size={24}
-              color={theme.colors.onSurfaceVariant}
-            />
+            <Icon name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />
           </Card.Content>
         </Card>
       )}
+
+      <AdminGroupSelectDialog
+        visible={pendingRoute !== null}
+        title={dialogTitle}
+        groups={dialogGroups}
+        onSelect={handleGroupSelect}
+        onDismiss={() => setPendingRoute(null)}
+      />
     </ScrollView>
   );
 }
@@ -166,17 +173,6 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    gap: 16,
-  },
-  errorText: {
-    marginTop: 16,
-    textAlign: 'center',
-  },
   header: {
     alignItems: 'center',
     marginBottom: 24,
@@ -184,10 +180,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontWeight: 'bold',
-  },
-  groupName: {
-    fontWeight: '600',
-    color: '#333',
   },
   headerSubtitle: {
     color: '#666',
@@ -220,35 +212,4 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 13,
   },
-  // ── Temporary migration styles ─────────────────────────────────────────────
-  migrationCard: {
-    marginTop: 8,
-    marginBottom: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FF6F00',
-    backgroundColor: '#FFF8E1',
-  },
-  migrationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  migrationTitle: {
-    fontWeight: 'bold',
-    color: '#FF6F00',
-  },
-  migrationSubtitle: {
-    color: '#795548',
-    marginBottom: 12,
-  },
-  migrationButton: {
-    marginBottom: 8,
-    borderRadius: 8,
-  },
-  migrationButtonContent: {
-    paddingVertical: 4,
-  },
-  // ──────────────────────────────────────────────────────────────────────────
 });
