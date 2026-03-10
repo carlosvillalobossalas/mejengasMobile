@@ -29,7 +29,7 @@ import ChallengeMvpVotingModal from '../components/ChallengeMvpVotingModal';
 import MatchCompactCard from '../components/myMatches/MatchCompactCard';
 import ChallengePlayerRow from '../components/myMatches/ChallengePlayerRow';
 import AddMatchDialog from '../components/myMatches/AddMatchDialog';
-import { type MatchTypeFilter, type MatchStatusFilter, type UnifiedMatchItem, type SelectedMatch, TYPE_LABEL, statusLabel } from '../components/myMatches/types';
+import { type MatchTypeFilter, type MatchStatusFilter, type MatchParticipationFilter, type UnifiedMatchItem, type SelectedMatch, TYPE_LABEL, statusLabel } from '../components/myMatches/types';
 import {
     subscribeToGroupMembersV2ByGroupId,
     type GroupMemberV2,
@@ -96,6 +96,7 @@ export default function MyMatchesScreen() {
     const [selectedGroupFilter, setSelectedGroupFilter] = useState<string | 'all'>('all');
     const [selectedTypeFilter, setSelectedTypeFilter] = useState<MatchTypeFilter>('all');
     const [selectedStatusFilter, setSelectedStatusFilter] = useState<MatchStatusFilter>('all');
+    const [selectedParticipationFilter, setSelectedParticipationFilter] = useState<MatchParticipationFilter>('all');
     const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null);
     const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
 
@@ -211,9 +212,6 @@ export default function MyMatchesScreen() {
             if (!memberId) return;
 
             const classicRows = (classicByGroup[group.id] ?? [])
-                .filter(match =>
-                    [...match.players1, ...match.players2].some(player => player.groupMemberId === memberId),
-                )
                 .map(match => ({
                     id: match.id,
                     key: `matches_${match.id}`,
@@ -226,12 +224,10 @@ export default function MyMatchesScreen() {
                     rightLabel: 'Equipo 2',
                     leftScore: Number(match.goalsTeam1 ?? 0),
                     rightScore: Number(match.goalsTeam2 ?? 0),
+                    isParticipant: [...match.players1, ...match.players2].some(p => p.groupMemberId === memberId),
                 }));
 
             const teamsRows = (teamsMatchesByGroup[group.id] ?? [])
-                .filter(match =>
-                    [...match.players1, ...match.players2].some(player => player.groupMemberId === memberId),
-                )
                 .map(match => {
                     const teams = teamsByGroup[group.id] ?? [];
                     const team1 = teams.find(team => team.id === match.team1Id);
@@ -249,11 +245,11 @@ export default function MyMatchesScreen() {
                         rightLabel: team2?.name ?? 'Equipo 2',
                         leftScore: Number(match.goalsTeam1 ?? 0),
                         rightScore: Number(match.goalsTeam2 ?? 0),
+                        isParticipant: [...match.players1, ...match.players2].some(p => p.groupMemberId === memberId),
                     };
                 });
 
             const challengeRows = (challengeByGroup[group.id] ?? [])
-                .filter(match => match.players.some(player => player.groupMemberId === memberId))
                 .map(match => ({
                     id: match.id,
                     key: `matchesByChallenge_${match.id}`,
@@ -266,6 +262,7 @@ export default function MyMatchesScreen() {
                     rightLabel: match.opponentName.trim() || 'Rival',
                     leftScore: Number(match.goalsTeam ?? 0),
                     rightScore: Number(match.goalsOpponent ?? 0),
+                    isParticipant: match.players.some(p => p.groupMemberId === memberId),
                 }));
 
             rows.push(...classicRows, ...teamsRows, ...challengeRows);
@@ -295,8 +292,8 @@ export default function MyMatchesScreen() {
     );
 
     const appliedFiltersRow2 = useMemo(
-        () => `Tipo: ${selectedTypeFilter === 'all' ? 'Todos' : TYPE_LABEL[selectedTypeFilter]} · Estado: ${selectedStatusFilter === 'all' ? 'Todos' : statusLabel(selectedStatusFilter)}`,
-        [selectedTypeFilter, selectedStatusFilter],
+        () => `Tipo: ${selectedTypeFilter === 'all' ? 'Todos' : TYPE_LABEL[selectedTypeFilter]} · Estado: ${selectedStatusFilter === 'all' ? 'Todos' : statusLabel(selectedStatusFilter)} · ${selectedParticipationFilter === 'mine' ? 'Solo los míos' : 'Todos los partidos'}`,
+        [selectedTypeFilter, selectedStatusFilter, selectedParticipationFilter],
     );
 
     const filteredMatches = useMemo(
@@ -306,9 +303,10 @@ export default function MyMatchesScreen() {
                 if (selectedGroupFilter !== 'all' && match.groupId !== selectedGroupFilter) return false;
                 if (selectedTypeFilter !== 'all' && match.type !== selectedTypeFilter) return false;
                 if (selectedStatusFilter !== 'all' && match.status !== selectedStatusFilter) return false;
+                if (selectedParticipationFilter === 'mine' && !match.isParticipant) return false;
                 return true;
             }),
-        [allMatches, selectedYear, selectedGroupFilter, selectedTypeFilter, selectedStatusFilter],
+        [allMatches, selectedYear, selectedGroupFilter, selectedTypeFilter, selectedStatusFilter, selectedParticipationFilter],
     );
 
     const matchesByDate = useMemo(() => {
@@ -695,6 +693,10 @@ export default function MyMatchesScreen() {
                         <Button mode={selectedStatusFilter === 'scheduled' ? 'contained' : 'text'} onPress={() => setSelectedStatusFilter('scheduled')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Por jugar</Button>
                         <Button mode={selectedStatusFilter === 'finished' ? 'contained' : 'text'} onPress={() => setSelectedStatusFilter('finished')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Finalizado</Button>
                         <Button mode={selectedStatusFilter === 'cancelled' ? 'contained' : 'text'} onPress={() => setSelectedStatusFilter('cancelled')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Cancelado</Button>
+
+                        <Text variant="labelMedium" style={styles(theme).sectionTitle}>Participación</Text>
+                        <Button mode={selectedParticipationFilter === 'all' ? 'contained' : 'text'} onPress={() => setSelectedParticipationFilter('all')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Todos los partidos</Button>
+                        <Button mode={selectedParticipationFilter === 'mine' ? 'contained' : 'text'} onPress={() => setSelectedParticipationFilter('mine')} style={styles(theme).optionButton} contentStyle={styles(theme).optionButtonContent}>Solo los que jugué</Button>
 
                         <Button mode="contained" onPress={() => filtersSheetRef.current?.close()} style={styles(theme).applyButton}>
                             Aplicar

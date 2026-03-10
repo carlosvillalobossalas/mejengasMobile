@@ -1,5 +1,6 @@
 export type MatchTypeFilter = 'all' | 'matches' | 'matchesByTeams' | 'matchesByChallenge';
 export type MatchStatusFilter = 'all' | 'scheduled' | 'finished' | 'cancelled';
+export type MatchParticipationFilter = 'all' | 'mine';
 
 export type UnifiedMatchItem = {
     id: string;
@@ -13,6 +14,8 @@ export type UnifiedMatchItem = {
     rightLabel: string;
     leftScore: number;
     rightScore: number;
+    // true when the current user is listed as a player in this match
+    isParticipant: boolean;
 };
 
 export type SelectedMatch = {
