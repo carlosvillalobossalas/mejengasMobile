@@ -37,7 +37,6 @@ export default function HomeExploreScreen() {
   const theme = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
   const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
-  const selectedGroupId = useAppSelector(state => state.groups.selectedGroupId);
   const authUserId = firebaseUser?.uid ?? null;
 
   const [isLoading, setIsLoading] = useState(true);
@@ -62,15 +61,19 @@ export default function HomeExploreScreen() {
     return index;
   }, [myApplications]);
 
-  const listingsInActiveGroup = useMemo(
-    () => listings.filter(listing => selectedGroupId && listing.groupId === selectedGroupId),
-    [listings, selectedGroupId],
-  );
-
-  const listingsOutsideActiveGroup = useMemo(
-    () => listings.filter(listing => !selectedGroupId || listing.groupId !== selectedGroupId),
-    [listings, selectedGroupId],
-  );
+  // Group listings by group, using the resolved group name as section header
+  const listingsByGroup = useMemo(() => {
+    const grouped = new Map<string, PublicMatchListing[]>();
+    listings.forEach(listing => {
+      if (!grouped.has(listing.groupId)) grouped.set(listing.groupId, []);
+      grouped.get(listing.groupId)!.push(listing);
+    });
+    return Array.from(grouped.entries()).map(([groupId, groupListings]) => ({
+      groupId,
+      groupName: groupListings[0]?.groupName ?? listingGroupNames[groupId] ?? 'Grupo',
+      groupListings,
+    }));
+  }, [listings, listingGroupNames]);
 
   useEffect(() => {
     const unsubscribe = subscribeOpenPublicListings(
@@ -272,78 +275,37 @@ export default function HomeExploreScreen() {
         </Card>
       ) : (
         <>
-          {selectedGroupId && (
-            <>
-              <Text variant="titleMedium" style={styles.sectionTitle}>Del grupo activo</Text>
-              {listingsInActiveGroup.length === 0 ? (
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  No hay publicaciones abiertas del grupo activo.
-                </Text>
-              ) : (
-                listingsInActiveGroup.map(listing => {
-                  const myStatus = myStatusByListingId.get(listing.id);
-                  return (
-                    <TouchableOpacity key={`active-${listing.id}`} onPress={() => handleOpenListing(listing)} activeOpacity={0.9}>
-                      <Card style={styles.card}>
-                        <Card.Content style={styles.cardContent}>
-                          <View style={styles.rowBetween}>
-                            <View style={styles.row}>
-                              <Icon name="soccer" size={20} color={theme.colors.primary} />
-                              <Text variant="titleMedium">{MATCH_TYPE_LABEL[listing.sourceMatchType]}</Text>
-                            </View>
-                            <Text style={[styles.badge, { color: theme.colors.primary }]}>+{Math.max(0, listing.neededPlayers - listing.acceptedPlayers)}</Text>
+          {listingsByGroup.map(({ groupId, groupName, groupListings }) => (
+            <View key={groupId}>
+              <Text variant="titleMedium" style={styles.sectionTitle}>{groupName}</Text>
+              {groupListings.map(listing => {
+                const myStatus = myStatusByListingId.get(listing.id);
+                return (
+                  <TouchableOpacity key={listing.id} onPress={() => handleOpenListing(listing)} activeOpacity={0.9}>
+                    <Card style={styles.card}>
+                      <Card.Content style={styles.cardContent}>
+                        <View style={styles.rowBetween}>
+                          <View style={styles.row}>
+                            <Icon name="soccer" size={20} color={theme.colors.primary} />
+                            <Text variant="titleMedium">{MATCH_TYPE_LABEL[listing.sourceMatchType]}</Text>
                           </View>
-                          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                            {getListingGroupName(listing)}
+                          <Text style={[styles.badge, { color: theme.colors.primary }]}>+{Math.max(0, listing.neededPlayers - listing.acceptedPlayers)}</Text>
+                        </View>
+                        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                          {formatDate(listing.matchDate)} · {listing.city || 'Zona por confirmar'}
+                        </Text>
+                        {myStatus ? (
+                          <Text variant="labelMedium" style={{ color: myStatus === 'accepted' ? theme.colors.primary : myStatus === 'pending' ? theme.colors.secondary : theme.colors.error }}>
+                            {myStatus === 'accepted' ? 'Postulación aceptada' : myStatus === 'pending' ? 'Postulación pendiente' : 'Postulación rechazada'}
                           </Text>
-                          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                            {formatDate(listing.matchDate)} · {listing.city || 'Zona por confirmar'}
-                          </Text>
-                          {myStatus ? (
-                            <Text variant="labelMedium" style={{ color: myStatus === 'accepted' ? theme.colors.primary : myStatus === 'pending' ? theme.colors.secondary : theme.colors.error }}>
-                              {myStatus === 'accepted' ? 'Postulación aceptada' : myStatus === 'pending' ? 'Postulación pendiente' : 'Postulación rechazada'}
-                            </Text>
-                          ) : null}
-                        </Card.Content>
-                      </Card>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-
-              <Text variant="titleMedium" style={styles.sectionTitle}>Fuera del grupo activo</Text>
-            </>
-          )}
-
-          {listingsOutsideActiveGroup.map(listing => {
-            const myStatus = myStatusByListingId.get(listing.id);
-            return (
-              <TouchableOpacity key={`outside-${listing.id}`} onPress={() => handleOpenListing(listing)} activeOpacity={0.9}>
-                <Card style={styles.card}>
-                  <Card.Content style={styles.cardContent}>
-                    <View style={styles.rowBetween}>
-                      <View style={styles.row}>
-                        <Icon name="soccer" size={20} color={theme.colors.primary} />
-                        <Text variant="titleMedium">{MATCH_TYPE_LABEL[listing.sourceMatchType]}</Text>
-                      </View>
-                      <Text style={[styles.badge, { color: theme.colors.primary }]}>+{Math.max(0, listing.neededPlayers - listing.acceptedPlayers)}</Text>
-                    </View>
-                    <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                      {getListingGroupName(listing)}
-                    </Text>
-                    <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                      {formatDate(listing.matchDate)} · {listing.city || 'Zona por confirmar'}
-                    </Text>
-                    {myStatus ? (
-                      <Text variant="labelMedium" style={{ color: myStatus === 'accepted' ? theme.colors.primary : myStatus === 'pending' ? theme.colors.secondary : theme.colors.error }}>
-                        {myStatus === 'accepted' ? 'Postulación aceptada' : myStatus === 'pending' ? 'Postulación pendiente' : 'Postulación rechazada'}
-                      </Text>
-                    ) : null}
-                  </Card.Content>
-                </Card>
-              </TouchableOpacity>
-            );
-          })}
+                        ) : null}
+                      </Card.Content>
+                    </Card>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
         </>
       )}
 
