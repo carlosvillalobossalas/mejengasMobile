@@ -21,6 +21,7 @@ import MatchByTeamsPlayersList from './MatchByTeamsPlayersList';
 
 type Props = {
     match: MatchByTeams;
+    groupName?: string;
     team1: Team | undefined;
     team2: Team | undefined;
     groupMembers: GroupMemberV2[];
@@ -58,6 +59,7 @@ const hexToRgba = (hex: string, alpha: number): string => {
 
 export default function MatchByTeamsCard({
     match,
+    groupName,
     team1,
     team2,
     groupMembers,
@@ -95,6 +97,11 @@ export default function MatchByTeamsCard({
                         {formatDate(match.date)}
                     </Text>
                 </View>
+                {groupName ? (
+                    <Text variant="labelSmall" style={styles(theme).groupNameLabel}>
+                        {groupName}
+                    </Text>
+                ) : null}
 
                 {/* Score row */}
                 <View style={styles(theme).scoreRow}>
@@ -273,6 +280,10 @@ const styles = (theme: MD3Theme) =>
         dateText: {
             textTransform: 'capitalize',
             color: theme.colors.onSurfaceVariant,
+        },
+        groupNameLabel: {
+            color: theme.colors.primary,
+            fontWeight: '700',
         },
         scoreRow: {
             flexDirection: 'row',

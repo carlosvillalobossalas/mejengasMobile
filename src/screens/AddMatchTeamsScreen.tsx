@@ -13,6 +13,8 @@ import {
   useTheme,
   Divider,
   Snackbar,
+  Switch,
+  TextInput,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import DatePicker from 'react-native-date-picker';
@@ -23,6 +25,7 @@ import type { MatchPosition } from '../hooks/useAddMatchTeams';
 import MatchTeamPickerModal from '../components/MatchTeamPickerModal';
 import MatchPlayerStatsRow from '../components/MatchPlayerStatsRow';
 import MatchPlayerSwapModal from '../components/MatchPlayerSwapModal';
+import type { MatchPublicationInput } from '../types/matchPublication';
 
 export default function AddMatchTeamsScreen() {
   const theme = useTheme();
@@ -33,6 +36,12 @@ export default function AddMatchTeamsScreen() {
   const [swapState, setSwapState] = useState<{ team: 1 | 2; index: number } | null>(null);
   // Tracks when the user wants to add a sub for a team
   const [addSubState, setAddSubState] = useState<{ team: 1 | 2 } | null>(null);
+  const [isPublished, setIsPublished] = useState(false);
+  const [neededPlayers, setNeededPlayers] = useState('1');
+  const [allowAnyPosition, setAllowAnyPosition] = useState(true);
+  const [preferredPositions, setPreferredPositions] = useState<MatchPosition[]>([]);
+  const [publicationCity, setPublicationCity] = useState('');
+  const [publicationNotes, setPublicationNotes] = useState('');
 
   const {
     isLoading,
@@ -129,6 +138,40 @@ export default function AddMatchTeamsScreen() {
   const closeModal = () => {
     setSwapState(null);
     setAddSubState(null);
+  };
+
+  const togglePreferredPosition = (position: MatchPosition) => {
+    setPreferredPositions(current =>
+      current.includes(position)
+        ? current.filter(currentPosition => currentPosition !== position)
+        : [...current, position],
+    );
+  };
+
+  const buildPublicationInput = (): MatchPublicationInput => {
+    if (!isPublished) {
+      return {
+        isPublished: false,
+        neededPlayers: 0,
+        allowAnyPosition: true,
+        preferredPositions: [],
+        city: null,
+        notes: null,
+        publishedByUserId: null,
+      };
+    }
+
+    const parsedNeededPlayers = Number.parseInt(neededPlayers || '1', 10);
+
+    return {
+      isPublished: true,
+      neededPlayers: Number.isNaN(parsedNeededPlayers) ? 1 : Math.max(1, parsedNeededPlayers),
+      allowAnyPosition,
+      preferredPositions: allowAnyPosition ? [] : preferredPositions,
+      city: publicationCity.trim() ? publicationCity.trim() : null,
+      notes: publicationNotes.trim() ? publicationNotes.trim() : null,
+      publishedByUserId: null,
+    };
   };
 
   const handleModalSelect = (id: string) => {
@@ -325,11 +368,117 @@ export default function AddMatchTeamsScreen() {
         </TouchableOpacity>
       </Surface>
 
+      <Text variant="labelLarge" style={styles.sectionLabel}>Publicación</Text>
+      <Surface style={styles.card} elevation={1}>
+        <View style={styles.publicationRow}>
+          <View style={{ flex: 1 }}>
+            <Text variant="bodyMedium" style={styles.publicationTitle}>Publicar en feed abierto</Text>
+            <Text
+              variant="bodySmall"
+              style={[styles.publicationSubtitle, { color: theme.colors.onSurfaceVariant }]}
+            >
+              Permite recibir postulaciones de jugadores externos
+            </Text>
+          </View>
+          <Switch
+            value={isPublished}
+            onValueChange={setIsPublished}
+            trackColor={{ false: '#D1D5DB', true: theme.colors.primary }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor="#D1D5DB"
+          />
+        </View>
+
+        {isPublished && (
+          <>
+            <TextInput
+              mode="outlined"
+              label="Jugadores que faltan"
+              value={neededPlayers}
+              onChangeText={value => setNeededPlayers(value.replace(/[^0-9]/g, ''))}
+              onBlur={() => {
+                if (!neededPlayers || neededPlayers === '0') {
+                  setNeededPlayers('1');
+                }
+              }}
+              keyboardType="number-pad"
+              dense
+            />
+
+            <View style={styles.publicationRow}>
+              <Text variant="bodyMedium" style={{ flex: 1 }}>
+                Aceptar cualquier posición
+              </Text>
+              <Switch
+                value={allowAnyPosition}
+                onValueChange={setAllowAnyPosition}
+                trackColor={{ false: '#D1D5DB', true: theme.colors.primary }}
+                thumbColor="#FFFFFF"
+                ios_backgroundColor="#D1D5DB"
+              />
+            </View>
+
+            {!allowAnyPosition && (
+              <View style={styles.positionChipsWrap}>
+                {(['POR', 'DEF', 'MED', 'DEL'] as MatchPosition[]).map(position => {
+                  const isSelected = preferredPositions.includes(position);
+                  return (
+                    <TouchableOpacity
+                      key={`teams-publication-pos-${position}`}
+                      onPress={() => togglePreferredPosition(position)}
+                      style={[
+                        styles.positionChip,
+                        {
+                          borderColor: isSelected ? theme.colors.primary : theme.colors.outline,
+                          backgroundColor: isSelected ? theme.colors.secondaryContainer : theme.colors.surface,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.positionChipText,
+                          {
+                            color: isSelected
+                              ? theme.colors.onSecondaryContainer
+                              : theme.colors.onSurfaceVariant,
+                          },
+                        ]}
+                      >
+                        {position}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            <TextInput
+              mode="outlined"
+              label="Ciudad o zona"
+              value={publicationCity}
+              onChangeText={setPublicationCity}
+              dense
+            />
+
+            <TextInput
+              mode="outlined"
+              label="Notas para postulantes"
+              value={publicationNotes}
+              onChangeText={setPublicationNotes}
+              dense
+              multiline
+            />
+          </>
+        )}
+      </Surface>
+
       {/* Save button */}
       <Button
         mode="contained"
         icon="content-save"
-        onPress={handleSave}
+        onPress={() => {
+          void handleSave(buildPublicationInput());
+        }}
         disabled={!selectedTeam1 || !selectedTeam2 || isSaving}
         loading={isSaving}
         style={styles.saveButton}
@@ -475,6 +624,33 @@ const styles = StyleSheet.create({
   addSubBtn: {
     marginTop: 4,
     borderRadius: 8,
+  },
+  publicationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  publicationTitle: {
+    fontWeight: '600',
+  },
+  publicationSubtitle: {
+    marginTop: 2,
+  },
+  positionChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  positionChip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  positionChipText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   snackbarSuccess: {
     backgroundColor: '#388E3C',

@@ -12,7 +12,7 @@ import {
 
 export type { MatchByTeams, Team, GroupMemberV2 };
 
-export function useMatchesByTeams(groupId: string | undefined) {
+export function useMatchesByTeams(groupIds: string[]) {
   const [allMatches, setAllMatches] = useState<MatchByTeams[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [groupMembers, setGroupMembers] = useState<GroupMemberV2[]>([]);
@@ -24,7 +24,7 @@ export function useMatchesByTeams(groupId: string | undefined) {
 
   // Subscribe to matches in real-time
   useEffect(() => {
-    if (!groupId) {
+    if (groupIds.length === 0) {
       setAllMatches([]);
       setIsLoading(false);
       return;
@@ -33,48 +33,73 @@ export function useMatchesByTeams(groupId: string | undefined) {
     setIsLoading(true);
     setError(null);
 
-    const unsubscribe = subscribeToMatchesByTeamsByGroupId(
-      groupId,
-      matches => {
-        setAllMatches(matches);
-        setIsLoading(false);
-      },
-      err => {
-        setError(err.message);
-        setIsLoading(false);
-      },
+    const matchesByGroup = new Map<string, MatchByTeams[]>();
+    const unsubscribers = groupIds.map(groupId =>
+      subscribeToMatchesByTeamsByGroupId(
+        groupId,
+        matches => {
+          matchesByGroup.set(groupId, matches);
+          const merged = Array.from(matchesByGroup.values())
+            .flat()
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setAllMatches(merged);
+          setIsLoading(false);
+        },
+        err => {
+          setError(err.message);
+          setIsLoading(false);
+        },
+      ),
     );
 
-    return () => unsubscribe();
-  }, [groupId]);
+    return () => {
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+    };
+  }, [groupIds]);
 
   // Subscribe to teams in real-time so team names/colors/photos reflect latest data
   useEffect(() => {
-    if (!groupId) {
+    if (groupIds.length === 0) {
       setTeams([]);
       return;
     }
 
-    const unsubscribe = subscribeToTeamsByGroupId(
-      groupId,
-      setTeams,
-      err => console.error('useMatchesByTeams: teams subscription error', err),
+    const teamsByGroup = new Map<string, Team[]>();
+    const unsubscribers = groupIds.map(groupId =>
+      subscribeToTeamsByGroupId(
+        groupId,
+        nextTeams => {
+          teamsByGroup.set(groupId, nextTeams);
+          const merged = Array.from(teamsByGroup.values()).flat();
+          const unique = new Map<string, Team>();
+          merged.forEach(team => unique.set(team.id, team));
+          setTeams(Array.from(unique.values()));
+        },
+        err => console.error('useMatchesByTeams: teams subscription error', err),
+      ),
     );
 
-    return () => unsubscribe();
-  }, [groupId]);
+    return () => {
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+    };
+  }, [groupIds]);
 
   // Load group members once per group (one-time fetch is enough for display names)
   useEffect(() => {
-    if (!groupId) {
+    if (groupIds.length === 0) {
       setGroupMembers([]);
       return;
     }
 
-    getGroupMembersV2ByGroupId(groupId)
-      .then(setGroupMembers)
+    Promise.all(groupIds.map(groupId => getGroupMembersV2ByGroupId(groupId)))
+      .then(rows => {
+        const merged = rows.flat();
+        const unique = new Map<string, GroupMemberV2>();
+        merged.forEach(member => unique.set(member.id, member));
+        setGroupMembers(Array.from(unique.values()));
+      })
       .catch(err => console.error('useMatchesByTeams: members fetch error', err));
-  }, [groupId]);
+  }, [groupIds]);
 
   const teamsMap = useMemo(
     () => new Map(teams.map(t => [t.id, t])),

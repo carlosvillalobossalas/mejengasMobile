@@ -28,11 +28,7 @@ export default function AppDrawerContent({
 
   const activeRouteName = state.routeNames[state.index];
 
-  const matchesRoute = useMemo(() => {
-    if (activeGroup?.isChallengeMode) return 'ChallengeMatches';
-    if (activeGroup?.hasFixedTeams) return 'MatchesByTeams';
-    return 'Matches';
-  }, [activeGroup]);
+  const matchesRoute = useMemo(() => 'MyMatches', []);
 
   const canShowTeamStandings = Boolean(activeGroup?.hasFixedTeams);
 

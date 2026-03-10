@@ -1,5 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
+import type { MatchPublication, MatchPosition } from '../../types/matchPublication';
+
 const COLLECTION = 'matchesByChallenge';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -45,6 +47,7 @@ export type ChallengeMatch = {
   /** Map of { [voterGroupMemberId]: votedGroupMemberId } */
   mvpVotes: Record<string, string>;
   mvpVoting: ChallengeMatchMvpVoting | null;
+  publication: MatchPublication;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -55,6 +58,14 @@ const toIsoString = (value: unknown): string => {
   const ts = value as Partial<FirebaseFirestoreTypes.Timestamp>;
   if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
   return new Date().toISOString();
+};
+
+const toIsoStringOrNull = (value: unknown): string | null => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  const ts = value as Partial<FirebaseFirestoreTypes.Timestamp>;
+  if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
+  return null;
 };
 
 const toTimestamp = (v: unknown): FirebaseFirestoreTypes.Timestamp | null => {
@@ -79,6 +90,7 @@ const mapPlayerArray = (data: unknown): ChallengeMatchPlayer[] => {
 
 const mapDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): ChallengeMatch => {
   const d = (doc.data() ?? {}) as Record<string, unknown>;
+  const publicationRaw = d.publication as Record<string, unknown> | undefined;
   const votingRaw = d.mvpVoting as Record<string, unknown> | undefined;
 
   const mvpVoting: ChallengeMatchMvpVoting | null = votingRaw
@@ -89,6 +101,27 @@ const mapDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): ChallengeMatch =>
         calculatedAt: toTimestamp(votingRaw.calculatedAt),
       }
     : null;
+
+  const publication: MatchPublication = {
+    isPublished: Boolean(publicationRaw?.isPublished ?? false),
+    neededPlayers: Number(publicationRaw?.neededPlayers ?? 0),
+    preferredPositions: Array.isArray(publicationRaw?.preferredPositions)
+      ? (publicationRaw?.preferredPositions as MatchPosition[])
+      : [],
+    allowAnyPosition: Boolean(publicationRaw?.allowAnyPosition ?? true),
+    city: publicationRaw?.city ? String(publicationRaw.city) : null,
+    notes: publicationRaw?.notes ? String(publicationRaw.notes) : null,
+    publishedByUserId: publicationRaw?.publishedByUserId ? String(publicationRaw.publishedByUserId) : null,
+    publishedAt: toIsoStringOrNull(publicationRaw?.publishedAt),
+    closedAt: toIsoStringOrNull(publicationRaw?.closedAt),
+    closedByUserId: publicationRaw?.closedByUserId ? String(publicationRaw.closedByUserId) : null,
+    closeReason:
+      publicationRaw?.closeReason === 'manual' ||
+      publicationRaw?.closeReason === 'filled' ||
+      publicationRaw?.closeReason === 'expired'
+        ? publicationRaw.closeReason
+        : null,
+  };
 
   return {
     id: doc.id,
@@ -107,6 +140,7 @@ const mapDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): ChallengeMatch =>
     mvpGroupMemberId: d.mvpGroupMemberId ? String(d.mvpGroupMemberId) : null,
     mvpVotes: (d.mvpVotes as Record<string, string>) ?? {},
     mvpVoting,
+    publication,
   };
 };
 

@@ -11,6 +11,7 @@ import {
   type GroupMemberV2,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import { saveMatchByTeams } from '../services/matches/matchesByTeamsSaveService';
+import type { MatchPublicationInput } from '../types/matchPublication';
 
 export type MatchPosition = 'POR' | 'DEF' | 'MED' | 'DEL';
 
@@ -310,7 +311,7 @@ export function useAddMatchTeams() {
     groupMembers.find(member => member.userId === firebaseUser?.uid)?.id ?? null;
 
   // Saves to matchesByTeams and atomically updates seasonStats + seasonStatsByTeams
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (publication?: MatchPublicationInput) => {
     if (!selectedGroupId || !selectedTeam1Id || !selectedTeam2Id) return;
 
     setSaveError(null);
@@ -321,6 +322,7 @@ export function useAddMatchTeams() {
         date,
         createdByUserId,
         createdByGroupMemberId,
+        publication,
         team1Id: selectedTeam1Id,
         team2Id: selectedTeam2Id,
         goalsTeam1,

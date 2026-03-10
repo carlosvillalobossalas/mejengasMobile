@@ -12,11 +12,13 @@ export type AppDrawerParamList = {
   Groups: undefined;
   PlayersTable: undefined;
   GoalkeepersTable: undefined;
+  MyMatches: undefined;
   Matches: undefined;
   MatchesByTeams: undefined;
   ChallengeMatches: undefined;
   Profile: undefined;
   Invitations: undefined;
+  PublicMatchApplications: undefined;
   Admin: undefined;
   JoinRequests: undefined;
   AddMatch: undefined;

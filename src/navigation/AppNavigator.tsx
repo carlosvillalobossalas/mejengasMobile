@@ -9,8 +9,10 @@ import GroupsScreen from '../screens/GroupsScreen';
 import PlayersTableScreen from '../screens/PlayersTableScreen';
 import GoalkeepersTableScreen from '../screens/GoalkeepersTableScreen';
 import MatchesScreen from '../screens/MatchesScreen';
+import MyMatchesScreen from '../screens/MyMatchesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InvitationsScreen from '../screens/InvitationsScreen';
+import PublicMatchApplicationsScreen from '../screens/PublicMatchApplicationsScreen';
 import AdminScreen from '../screens/AdminScreen';
 import JoinRequestsScreen from '../screens/JoinRequestsScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
@@ -194,14 +196,19 @@ export default function AppNavigator() {
         }}
       />
       <Drawer.Screen
+        name="MyMatches"
+        component={MyMatchesScreen}
+        options={{
+          title: 'Partidos',
+          drawerItemStyle: selectedGroupId ? undefined : { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
         name="Matches"
         component={MatchesScreen}
         options={{
           title: 'Partidos',
-          drawerItemStyle:
-            !activeGroup?.hasFixedTeams && !activeGroup?.isChallengeMode
-              ? undefined
-              : { display: 'none' },
+          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen
@@ -209,7 +216,7 @@ export default function AppNavigator() {
         component={MatchesByTeamsScreen}
         options={{
           title: 'Partidos',
-          drawerItemStyle: activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
+          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen
@@ -217,13 +224,21 @@ export default function AppNavigator() {
         component={ChallengeMatchesScreen}
         options={{
           title: 'Partidos',
-          drawerItemStyle: activeGroup?.isChallengeMode ? undefined : { display: 'none' },
+          drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen
         name="Invitations"
         component={InvitationsScreen}
         options={{ title: 'Invitaciones' }}
+      />
+      <Drawer.Screen
+        name="PublicMatchApplications"
+        component={PublicMatchApplicationsScreen}
+        options={{
+          title: 'Postulaciones recibidas',
+          drawerItemStyle: { display: 'none' },
+        }}
       />
       <Drawer.Screen
         name="Admin"

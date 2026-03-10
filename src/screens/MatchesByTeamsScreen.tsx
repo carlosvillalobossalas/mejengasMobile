@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import { ScrollView, View, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import {
   Text,
@@ -8,12 +8,14 @@ import {
   Portal,
   useTheme,
   MD3Theme,
+  IconButton,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import BottomSheet, {
   BottomSheetBackdrop,
-  BottomSheetFlatList,
 } from '@gorhom/bottom-sheet';
+import { useNavigation } from '@react-navigation/native';
+import type { DrawerNavigationProp } from '@react-navigation/drawer';
 
 import { useAppSelector } from '../app/hooks';
 import { useMatchesByTeams } from '../hooks/useMatchesByTeams';
@@ -22,20 +24,49 @@ import MatchByTeamsCard from '../components/MatchByTeamsCard';
 import MvpVotingModal from '../components/MvpVotingModal';
 import { castMvpVoteByTeams } from '../repositories/matches/matchesByTeamsRepository';
 import { tapScheduledSlotInMatchByTeams } from '../repositories/matches/matchSignupsRepository';
-
-// Icon component outside render to avoid React warnings
-const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF" />;
+import type { AppDrawerParamList } from '../navigation/types';
 
 export default function MatchesByTeamsScreen() {
   const theme = useTheme();
-  const { selectedGroupId } = useAppSelector(state => state.groups);
+  const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
+  const { selectedGroupId, groups } = useAppSelector(state => state.groups);
   const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
-  const bottomSheetRef = useRef<BottomSheet>(null);
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string | 'all'>('all');
+  const filtersSheetRef = useRef<BottomSheet>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   // One ref per card — used to measure position in scroll content after collapse
   const cardRefs = useRef<Map<string, View | null>>(new Map());
+
+  const eligibleGroups = useMemo(
+    () => groups.filter(group => group.hasFixedTeams && !group.isChallengeMode),
+    [groups],
+  );
+
+  useEffect(() => {
+    if (eligibleGroups.length === 0) {
+      setSelectedGroupFilter('all');
+      return;
+    }
+
+    if (selectedGroupFilter !== 'all' && !eligibleGroups.some(group => group.id === selectedGroupFilter)) {
+      setSelectedGroupFilter(eligibleGroups[0].id);
+    }
+  }, [eligibleGroups, selectedGroupFilter]);
+
+  const targetGroupIds = useMemo(
+    () =>
+      selectedGroupFilter === 'all'
+        ? eligibleGroups.map(group => group.id)
+        : [selectedGroupFilter],
+    [selectedGroupFilter, eligibleGroups],
+  );
+
+  const groupsById = useMemo(
+    () => new Map(groups.map(group => [group.id, group])),
+    [groups],
+  );
 
   const {
     matches,
@@ -46,7 +77,7 @@ export default function MatchesByTeamsScreen() {
     selectedYear,
     setSelectedYear,
     yearOptions,
-  } = useMatchesByTeams(selectedGroupId ?? undefined);
+  } = useMatchesByTeams(targetGroupIds);
 
   const {
     currentUserGroupMemberId,
@@ -100,7 +131,6 @@ export default function MatchesByTeamsScreen() {
   const handleSelectYear = useCallback(
     (year: number | 'historico') => {
       setSelectedYear(year);
-      bottomSheetRef.current?.close();
     },
     [setSelectedYear],
   );
@@ -110,6 +140,45 @@ export default function MatchesByTeamsScreen() {
     return option?.label ?? year.toString();
   };
 
+  const groupFilterOptions = useMemo(
+    () => [
+      { value: 'all' as const, label: 'Todos mis grupos' },
+      ...eligibleGroups.map(group => ({ value: group.id, label: group.name })),
+    ],
+    [eligibleGroups],
+  );
+
+  const selectedGroupFilterLabel = useMemo(() => {
+    if (selectedGroupFilter === 'all') return 'Todos mis grupos';
+    return groupsById.get(selectedGroupFilter)?.name ?? 'Grupo';
+  }, [selectedGroupFilter, groupsById]);
+
+  const appliedFiltersLabel = useMemo(
+    () => `Temporada: ${getYearLabel(selectedYear)} · Grupo: ${selectedGroupFilterLabel}`,
+    [selectedYear, selectedGroupFilterLabel],
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles(theme).headerActions}>
+          <IconButton
+            icon="filter-variant"
+            iconColor={theme.colors.secondary}
+            size={22}
+            onPress={() => filtersSheetRef.current?.expand()}
+          />
+          <IconButton
+            icon="plus"
+            iconColor={theme.colors.secondary}
+            size={22}
+            onPress={() => navigation.navigate('AddMatchTeams')}
+          />
+        </View>
+      ),
+    });
+  }, [navigation, theme]);
+
   const renderBackdrop = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (props: any) => (
@@ -118,15 +187,15 @@ export default function MatchesByTeamsScreen() {
     [],
   );
 
-  if (!selectedGroupId) {
+  if (eligibleGroups.length === 0) {
     return (
       <View style={styles(theme).centerContainer}>
         <Icon name="alert-circle" size={48} color={theme.colors.error} />
         <Text variant="titleMedium" style={styles(theme).errorText}>
-          No hay grupo seleccionado
+          No tienes grupos por equipos
         </Text>
         <Text variant="bodyMedium" style={styles(theme).errorSubtext}>
-          Por favor, seleccioná un grupo desde la pantalla de Grupos
+          Únete o crea un grupo con equipos fijos para ver partidos.
         </Text>
       </View>
     );
@@ -144,7 +213,6 @@ export default function MatchesByTeamsScreen() {
   }
 
   if (error) {
-    console.log(error)
     return (
       <View style={styles(theme).centerContainer}>
         <Icon name="alert-circle" size={48} color={theme.colors.error} />
@@ -163,16 +231,9 @@ export default function MatchesByTeamsScreen() {
           <Text variant="bodySmall" style={styles(theme).matchCount}>
             Total: {matches.length} partido{matches.length !== 1 ? 's' : ''}
           </Text>
-          <Button
-            mode="contained"
-            onPress={() => bottomSheetRef.current?.expand()}
-            icon={CalendarIcon}
-            style={styles(theme).yearButton}
-            contentStyle={styles(theme).yearButtonContent}
-            labelStyle={styles(theme).yearButtonLabel}
-          >
-            {getYearLabel(selectedYear)}
-          </Button>
+          <Text variant="bodySmall" style={styles(theme).appliedFiltersText}>
+            {appliedFiltersLabel}
+          </Text>
         </View>
       </Surface>
 
@@ -202,6 +263,7 @@ export default function MatchesByTeamsScreen() {
             >
               <MatchByTeamsCard
                 match={match}
+                groupName={selectedGroupFilter === 'all' ? groupsById.get(match.groupId)?.name : undefined}
                 team1={teamsMap.get(match.team1Id)}
                 team2={teamsMap.get(match.team2Id)}
                 groupMembers={groupMembers}
@@ -235,39 +297,58 @@ export default function MatchesByTeamsScreen() {
         )}
       </ScrollView>
 
-      {/* Year selection bottom sheet */}
+      {/* Filters bottom sheet */}
       <Portal>
         <BottomSheet
-          ref={bottomSheetRef}
+          ref={filtersSheetRef}
           index={-1}
-          snapPoints={['50%']}
+          snapPoints={['65%']}
           enablePanDownToClose
           backdropComponent={renderBackdrop}
         >
           <View style={styles(theme).bottomSheetContent}>
             <Text variant="titleMedium" style={styles(theme).bottomSheetTitle}>
-              Seleccionar Temporada
+              Filtros
             </Text>
-            <BottomSheetFlatList
-              data={yearOptions}
-              keyExtractor={(item: { value: number | 'historico'; label: string }) =>
-                item.value.toString()
-              }
-              renderItem={({
-                item,
-              }: {
-                item: { value: number | 'historico'; label: string };
-              }) => (
+            <Text variant="labelMedium" style={styles(theme).sheetSectionTitle}>
+              Temporada
+            </Text>
+            {yearOptions.map(item => (
+              <Button
+                key={item.value.toString()}
+                mode={selectedYear === item.value ? 'contained' : 'text'}
+                onPress={() => handleSelectYear(item.value)}
+                style={styles(theme).yearOptionButton}
+                contentStyle={styles(theme).yearOptionContent}
+              >
+                {item.label}
+              </Button>
+            ))}
+
+            <Text variant="labelMedium" style={styles(theme).sheetSectionTitle}>
+              Grupo
+            </Text>
+            {groupFilterOptions.map(item => (
                 <Button
-                  mode={selectedYear === item.value ? 'contained' : 'text'}
-                  onPress={() => handleSelectYear(item.value)}
+                  key={item.value}
+                  mode={selectedGroupFilter === item.value ? 'contained' : 'text'}
+                  onPress={() => {
+                    setSelectedGroupFilter(item.value);
+                  }}
                   style={styles(theme).yearOptionButton}
                   contentStyle={styles(theme).yearOptionContent}
                 >
                   {item.label}
                 </Button>
-              )}
-            />
+            ))}
+
+            <Button
+              mode="contained"
+              onPress={() => filtersSheetRef.current?.close()}
+              style={styles(theme).applyFiltersButton}
+            >
+              Aplicar
+            </Button>
           </View>
         </BottomSheet>
       </Portal>
@@ -310,24 +391,22 @@ const styles = (theme: MD3Theme) =>
       paddingHorizontal: 16,
     },
     headerContent: {
-      gap: 12,
+      gap: 6,
+    },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginRight: 4,
     },
     matchCount: {
       color: '#FFFFFF',
       textAlign: 'center',
       opacity: 0.9,
     },
-    yearButton: {
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-      marginVertical: 8,
-    },
-    yearButtonContent: {
-      paddingVertical: 4,
-    },
-    yearButtonLabel: {
+    appliedFiltersText: {
       color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '600',
+      textAlign: 'center',
+      opacity: 0.95,
     },
     bottomSheetContent: {
       flex: 1,
@@ -339,11 +418,20 @@ const styles = (theme: MD3Theme) =>
       marginBottom: 16,
       fontWeight: 'bold',
     },
+    sheetSectionTitle: {
+      marginTop: 8,
+      marginBottom: 6,
+      color: theme.colors.onSurfaceVariant,
+      fontWeight: '700',
+    },
     yearOptionButton: {
       marginVertical: 4,
     },
     yearOptionContent: {
       paddingVertical: 8,
+    },
+    applyFiltersButton: {
+      marginTop: 12,
     },
     emptyState: {
       padding: 48,

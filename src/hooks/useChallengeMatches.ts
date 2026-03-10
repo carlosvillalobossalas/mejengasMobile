@@ -11,7 +11,7 @@ import {
 
 export type { ChallengeMatch, GroupMemberV2 };
 
-export function useChallengeMatches(groupId: string | undefined) {
+export function useChallengeMatches(groupIds: string[]) {
   const [allMatches, setAllMatches] = useState<ChallengeMatch[]>([]);
   const [groupMembers, setGroupMembers] = useState<GroupMemberV2[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,8 +22,7 @@ export function useChallengeMatches(groupId: string | undefined) {
 
   // Subscribe to challenge matches in real-time
   useEffect(() => {
-    console.log(groupId)
-    if (!groupId) {
+    if (groupIds.length === 0) {
       setAllMatches([]);
       setIsLoading(false);
       return;
@@ -32,34 +31,46 @@ export function useChallengeMatches(groupId: string | undefined) {
     setIsLoading(true);
     setError(null);
 
-    const unsubscribe = subscribeToMatchesByChallengeByGroupId(
-      groupId,
-      matches => {
-        console.log(matches)
-        setAllMatches(matches);
-        setIsLoading(false);
-      },
-      err => {
-        console.log(err)
-        setError(err.message);
-        setIsLoading(false);
-      },
+    const matchesByGroup = new Map<string, ChallengeMatch[]>();
+    const unsubscribers = groupIds.map(groupId =>
+      subscribeToMatchesByChallengeByGroupId(
+        groupId,
+        matches => {
+          matchesByGroup.set(groupId, matches);
+          const merged = Array.from(matchesByGroup.values())
+            .flat()
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setAllMatches(merged);
+          setIsLoading(false);
+        },
+        err => {
+          setError(err.message);
+          setIsLoading(false);
+        },
+      ),
     );
 
-    return () => unsubscribe();
-  }, [groupId]);
+    return () => {
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+    };
+  }, [groupIds]);
 
   // Load group members once per group (one-time fetch is enough for display names)
   useEffect(() => {
-    if (!groupId) {
+    if (groupIds.length === 0) {
       setGroupMembers([]);
       return;
     }
 
-    getGroupMembersV2ByGroupId(groupId)
-      .then(setGroupMembers)
+    Promise.all(groupIds.map(groupId => getGroupMembersV2ByGroupId(groupId)))
+      .then(rows => {
+        const merged = rows.flat();
+        const unique = new Map<string, GroupMemberV2>();
+        merged.forEach(member => unique.set(member.id, member));
+        setGroupMembers(Array.from(unique.values()));
+      })
       .catch(err => console.error('useChallengeMatches: members fetch error', err));
-  }, [groupId]);
+  }, [groupIds]);
 
   const membersMap = useMemo(
     () => new Map(groupMembers.map(m => [m.id, m])),

@@ -10,6 +10,7 @@ import {
   Divider,
   Portal,
   Button,
+  Snackbar,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -21,6 +22,7 @@ import type { AppDrawerParamList } from '../navigation/types';
 import {
   subscribeToUserRoleInGroup,
   searchPublicGroupsByName,
+  getGroupsByIds,
 } from '../repositories/groups/groupsRepository';
 import type { Group } from '../repositories/groups/groupsRepository';
 import { selectGroup } from '../features/groups/groupsSlice';
@@ -30,10 +32,21 @@ import {
 } from '../repositories/users/usersRepository';
 import PlayerProfileModal from '../components/PlayerProfileModal';
 import GroupInfoModal from '../components/GroupInfoModal';
-import { subscribeToGroupMembersV2ByGroupId } from '../repositories/groupMembersV2/groupMembersV2Repository';
+import {
+  subscribeToGroupMembersV2ByGroupId,
+} from '../repositories/groupMembersV2/groupMembersV2Repository';
 import { subscribeToMatchesByGroupId } from '../repositories/matches/matchesRepository';
-import { subscribeToMatchesByTeamsByGroupId } from '../repositories/matches/matchesByTeamsRepository';
-import { subscribeToMatchesByChallengeByGroupId } from '../repositories/matches/matchesByChallengeRepository';
+import {
+  subscribeToMatchesByTeamsByGroupId,
+} from '../repositories/matches/matchesByTeamsRepository';
+import {
+  subscribeToMatchesByChallengeByGroupId,
+} from '../repositories/matches/matchesByChallengeRepository';
+import {
+  subscribeOpenPublicListings,
+  type PublicMatchListing,
+} from '../repositories/publicListings/publicMatchListingsRepository';
+import PublicMatchListingBottomSheet from '../components/PublicMatchListingBottomSheet';
 
 const MATCH_TYPE_LABELS: Record<string, string> = {
   futbol_5: 'Fútbol 5',
@@ -49,6 +62,12 @@ type FeedMatchSummary = {
   subtitle: string;
   playerGoals: number;
   playerAssists: number;
+};
+
+const LISTING_TYPE_LABEL: Record<PublicMatchListing['sourceMatchType'], string> = {
+  matches: 'Partido interno',
+  matchesByTeams: 'Partido por equipos',
+  matchesByChallenge: 'Modo reto',
 };
 
 const formatMatchDate = (dateIso: string) =>
@@ -79,10 +98,17 @@ export default function HomeFeedScreen() {
   const [groupResults, setGroupResults] = useState<Group[]>([]);
   const [selectedGroupResult, setSelectedGroupResult] = useState<Group | null>(null);
   const [userMatches, setUserMatches] = useState<FeedMatchSummary[]>([]);
+  const [publicListings, setPublicListings] = useState<PublicMatchListing[]>([]);
+  const [listingGroupNames, setListingGroupNames] = useState<Record<string, string>>({});
+  const [publicListingsError, setPublicListingsError] = useState<string | null>(null);
+  const [selectedListing, setSelectedListing] = useState<PublicMatchListing | null>(null);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   const bottomSheetRef = useRef<BottomSheet | null>(null);
   const groupSwitcherRef = useRef<BottomSheet | null>(null);
   const groupInfoModalRef = useRef<BottomSheet | null>(null);
+  const listingSheetRef = useRef<BottomSheet | null>(null);
   const searchbarRef = useRef<any>(null);
   const debouncedSearchQuery = useDebounce(searchQuery, 700);
 
@@ -110,6 +136,11 @@ export default function HomeFeedScreen() {
     [userMatches],
   );
 
+  const upcomingPublicListings = useMemo(
+    () => publicListings.slice(0, 5),
+    [publicListings],
+  );
+
   useEffect(() => {
     if (!selectedGroupId || !authUserId) {
       setUserRole(null);
@@ -125,6 +156,71 @@ export default function HomeFeedScreen() {
 
     return () => unsubscribe();
   }, [selectedGroupId, authUserId]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeOpenPublicListings(
+      rows => {
+        setPublicListings(rows);
+        setPublicListingsError(null);
+      },
+      error => {
+        setPublicListings([]);
+        setPublicListingsError(error.message || 'No se pudieron cargar publicaciones abiertas');
+      },
+    );
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const loadGroupNames = async () => {
+      const missingGroupIds = Array.from(
+        new Set(
+          publicListings
+            .filter(listing => !listing.groupName)
+            .map(listing => listing.groupId)
+            .filter(Boolean),
+        ),
+      );
+
+      if (missingGroupIds.length === 0) {
+        const hydrated = publicListings.reduce<Record<string, string>>((acc, listing) => {
+          if (listing.groupName) {
+            acc[listing.groupId] = listing.groupName;
+          }
+          return acc;
+        }, {});
+        setListingGroupNames(hydrated);
+        return;
+      }
+
+      try {
+        const groupsMap = await getGroupsByIds(missingGroupIds);
+        const hydrated = publicListings.reduce<Record<string, string>>((acc, listing) => {
+          if (listing.groupName) {
+            acc[listing.groupId] = listing.groupName;
+            return acc;
+          }
+
+          const group = groupsMap.get(listing.groupId);
+          if (group?.name) {
+            acc[listing.groupId] = group.name;
+          }
+          return acc;
+        }, {});
+        setListingGroupNames(hydrated);
+      } catch {
+        const hydrated = publicListings.reduce<Record<string, string>>((acc, listing) => {
+          if (listing.groupName) {
+            acc[listing.groupId] = listing.groupName;
+          }
+          return acc;
+        }, {});
+        setListingGroupNames(hydrated);
+      }
+    };
+
+    void loadGroupNames();
+  }, [publicListings]);
 
   useEffect(() => {
     if (!debouncedSearchQuery || debouncedSearchQuery.trim().length < 2) {
@@ -165,52 +261,102 @@ export default function HomeFeedScreen() {
   }, [debouncedSearchQuery, groups]);
 
   useEffect(() => {
-    if (!selectedGroupId || !authUserId || !activeGroup) {
+    if (!authUserId || groups.length === 0) {
       setUserMatches([]);
       return;
     }
 
-    let currentGroupMemberId: string | null = null;
-    let unsubscribeMatches: (() => void) | null = null;
+    const memberUnsubscribers: Array<() => void> = [];
+    const matchUnsubscribers = new Map<string, () => void>();
+    const matchesByGroup = new Map<string, FeedMatchSummary[]>();
 
-    const unsubscribeMembers = subscribeToGroupMembersV2ByGroupId(
-      selectedGroupId,
-      members => {
-        currentGroupMemberId = members.find(member => member.userId === authUserId)?.id ?? null;
-        if (!currentGroupMemberId) {
-          setUserMatches([]);
-          unsubscribeMatches?.();
-          unsubscribeMatches = null;
-          return;
-        }
+    const recompute = () => {
+      const merged = Array.from(matchesByGroup.values())
+        .flat()
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setUserMatches(merged);
+    };
 
-        unsubscribeMatches?.();
+    groups.forEach(group => {
+      const unsubscribeMembers = subscribeToGroupMembersV2ByGroupId(
+        group.id,
+        members => {
+          const currentGroupMemberId = members.find(member => member.userId === authUserId)?.id ?? null;
 
-        if (activeGroup.isChallengeMode) {
-          unsubscribeMatches = subscribeToMatchesByChallengeByGroupId(selectedGroupId, matches => {
-            const next = matches
-              .filter(match => match.players.some(player => player.groupMemberId === currentGroupMemberId))
-              .map(match => ({
-                id: match.id,
-                date: match.date,
-                status: match.status,
-                title: `${activeGroup.name} vs ${match.opponentName.trim() || 'Rival'}`,
-                subtitle:
-                  match.status === 'scheduled'
-                    ? 'Programado'
-                    : `${match.goalsTeam} - ${match.goalsOpponent}`,
-                playerGoals:
-                  match.players.find(player => player.groupMemberId === currentGroupMemberId)?.goals ?? 0,
-                playerAssists:
-                  match.players.find(player => player.groupMemberId === currentGroupMemberId)?.assists ?? 0,
-              }));
-            setUserMatches(next);
-          });
-          return;
-        }
+          const previousMatchUnsub = matchUnsubscribers.get(group.id);
+          if (!currentGroupMemberId) {
+            previousMatchUnsub?.();
+            matchUnsubscribers.delete(group.id);
+            matchesByGroup.set(group.id, []);
+            recompute();
+            return;
+          }
 
-        if (activeGroup.hasFixedTeams) {
-          unsubscribeMatches = subscribeToMatchesByTeamsByGroupId(selectedGroupId, matches => {
+          previousMatchUnsub?.();
+
+          if (group.isChallengeMode) {
+            const unsubscribeMatches = subscribeToMatchesByChallengeByGroupId(group.id, matches => {
+              const next = matches
+                .filter(match => match.players.some(player => player.groupMemberId === currentGroupMemberId))
+                .map(match => ({
+                  id: match.id,
+                  date: match.date,
+                  status: match.status,
+                  title: `${group.name} vs ${match.opponentName.trim() || 'Rival'}`,
+                  subtitle:
+                    match.status === 'scheduled'
+                      ? 'Programado'
+                      : `${match.goalsTeam} - ${match.goalsOpponent}`,
+                  playerGoals:
+                    match.players.find(player => player.groupMemberId === currentGroupMemberId)?.goals ?? 0,
+                  playerAssists:
+                    match.players.find(player => player.groupMemberId === currentGroupMemberId)?.assists ?? 0,
+                }));
+
+              matchesByGroup.set(group.id, next);
+              recompute();
+            });
+
+            matchUnsubscribers.set(group.id, unsubscribeMatches);
+            return;
+          }
+
+          if (group.hasFixedTeams) {
+            const unsubscribeMatches = subscribeToMatchesByTeamsByGroupId(group.id, matches => {
+              const next = matches
+                .filter(match =>
+                  [...match.players1, ...match.players2].some(
+                    player => player.groupMemberId === currentGroupMemberId,
+                  ),
+                )
+                .map(match => ({
+                  id: match.id,
+                  date: match.date,
+                  status: match.status ?? 'finished',
+                  title: group.name,
+                  subtitle:
+                    match.status === 'scheduled'
+                      ? 'Programado'
+                      : `${match.goalsTeam1} - ${match.goalsTeam2}`,
+                  playerGoals:
+                    [...match.players1, ...match.players2].find(
+                      player => player.groupMemberId === currentGroupMemberId,
+                    )?.goals ?? 0,
+                  playerAssists:
+                    [...match.players1, ...match.players2].find(
+                      player => player.groupMemberId === currentGroupMemberId,
+                    )?.assists ?? 0,
+                }));
+
+              matchesByGroup.set(group.id, next);
+              recompute();
+            });
+
+            matchUnsubscribers.set(group.id, unsubscribeMatches);
+            return;
+          }
+
+          const unsubscribeMatches = subscribeToMatchesByGroupId(group.id, matches => {
             const next = matches
               .filter(match =>
                 [...match.players1, ...match.players2].some(
@@ -221,7 +367,7 @@ export default function HomeFeedScreen() {
                 id: match.id,
                 date: match.date,
                 status: match.status ?? 'finished',
-                title: activeGroup.name,
+                title: group.name,
                 subtitle:
                   match.status === 'scheduled'
                     ? 'Programado'
@@ -235,47 +381,30 @@ export default function HomeFeedScreen() {
                     player => player.groupMemberId === currentGroupMemberId,
                   )?.assists ?? 0,
               }));
-            setUserMatches(next);
-          });
-          return;
-        }
 
-        unsubscribeMatches = subscribeToMatchesByGroupId(selectedGroupId, matches => {
-          const next = matches
-            .filter(match =>
-              [...match.players1, ...match.players2].some(
-                player => player.groupMemberId === currentGroupMemberId,
-              ),
-            )
-            .map(match => ({
-              id: match.id,
-              date: match.date,
-              status: match.status ?? 'finished',
-              title: activeGroup.name,
-              subtitle:
-                match.status === 'scheduled'
-                  ? 'Programado'
-                  : `${match.goalsTeam1} - ${match.goalsTeam2}`,
-              playerGoals:
-                [...match.players1, ...match.players2].find(
-                  player => player.groupMemberId === currentGroupMemberId,
-                )?.goals ?? 0,
-              playerAssists:
-                [...match.players1, ...match.players2].find(
-                  player => player.groupMemberId === currentGroupMemberId,
-                )?.assists ?? 0,
-            }));
-          setUserMatches(next);
-        });
-      },
-      () => setUserMatches([]),
-    );
+            matchesByGroup.set(group.id, next);
+            recompute();
+          });
+
+          matchUnsubscribers.set(group.id, unsubscribeMatches);
+        },
+        () => {
+          const previousMatchUnsub = matchUnsubscribers.get(group.id);
+          previousMatchUnsub?.();
+          matchUnsubscribers.delete(group.id);
+          matchesByGroup.set(group.id, []);
+          recompute();
+        },
+      );
+
+      memberUnsubscribers.push(unsubscribeMembers);
+    });
 
     return () => {
-      unsubscribeMembers();
-      unsubscribeMatches?.();
+      memberUnsubscribers.forEach(unsubscribe => unsubscribe());
+      matchUnsubscribers.forEach(unsubscribe => unsubscribe());
     };
-  }, [selectedGroupId, authUserId, activeGroup]);
+  }, [groups, authUserId]);
 
   const handleSelectMember = (member: User) => {
     searchbarRef.current?.blur();
@@ -313,18 +442,16 @@ export default function HomeFeedScreen() {
   );
 
   const goToMatches = () => {
-    if (activeGroup?.isChallengeMode) {
-      navigation.navigate('ChallengeMatches');
-      return;
-    }
-
-    if (activeGroup?.hasFixedTeams) {
-      navigation.navigate('MatchesByTeams');
-      return;
-    }
-
-    navigation.navigate('Matches');
+    navigation.navigate('MyMatches');
   };
+
+  const handleOpenListing = (listing: PublicMatchListing) => {
+    setSelectedListing(listing);
+    setTimeout(() => listingSheetRef.current?.expand(), 100);
+  };
+
+  const getListingGroupName = (listing: PublicMatchListing): string =>
+    listing.groupName ?? listingGroupNames[listing.groupId] ?? 'Grupo';
 
   const renderMatchRow = (
     match: FeedMatchSummary,
@@ -460,7 +587,28 @@ export default function HomeFeedScreen() {
             <Text variant="titleMedium">Partidos públicos buscando jugadores</Text>
           </View>
           <Text style={styles.sectionKicker}>Publicaciones de la comunidad</Text>
-          <Text style={{ color: theme.colors.onSurfaceVariant }}>Próximamente podrás ver y sumarte a partidos abiertos.</Text>
+          {upcomingPublicListings.length === 0 ? (
+            <Text style={{ color: theme.colors.onSurfaceVariant }}>
+              {publicListingsError ?? 'No hay publicaciones abiertas por ahora.'}
+            </Text>
+          ) : (
+            upcomingPublicListings.map(listing => (
+              <TouchableOpacity key={listing.id} style={styles.matchRow} onPress={() => handleOpenListing(listing)}>
+                <View style={styles.matchInfo}>
+                  <Text variant="titleSmall">{LISTING_TYPE_LABEL[listing.sourceMatchType]}</Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    {getListingGroupName(listing)}
+                  </Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    {formatMatchDate(listing.matchDate)} · {listing.city || 'Zona por confirmar'} · Cupos: {Math.max(0, listing.neededPlayers - listing.acceptedPlayers)}
+                  </Text>
+                </View>
+                <View style={styles.matchRightColumn}>
+                  <Icon name="chevron-right" size={20} color={theme.colors.primary} />
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </Card.Content>
       </Card>
 
@@ -512,6 +660,18 @@ export default function HomeFeedScreen() {
       </Card>
 
       <Portal>
+        <PublicMatchListingBottomSheet
+          bottomSheetRef={listingSheetRef}
+          selectedListing={selectedListing}
+          authUserId={authUserId}
+          getListingGroupName={getListingGroupName}
+          backdropComponent={renderGroupBackdrop}
+          onFeedback={message => {
+            setSnackbarMessage(message);
+            setSnackbarVisible(true);
+          }}
+        />
+
         <BottomSheet
           ref={groupSwitcherRef}
           index={-1}
@@ -575,6 +735,10 @@ export default function HomeFeedScreen() {
           Administrar Grupo
         </Button>
       )}
+
+      <Snackbar visible={snackbarVisible} onDismiss={() => setSnackbarVisible(false)} duration={2500}>
+        {snackbarMessage}
+      </Snackbar>
     </ScrollView>
   );
 }
@@ -665,4 +829,61 @@ const styles = StyleSheet.create({
   groupSheetItemName: { fontWeight: '600' },
   groupSheetItemDesc: { color: '#888', marginTop: 2 },
   adminCta: { marginTop: 2, borderRadius: 24 },
+  listingSheetContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
+    gap: 10,
+  },
+  listingSheetTitle: {
+    fontWeight: '700',
+  },
+  listingLoadingWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  listingCard: {
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  listingCardContent: {
+    gap: 8,
+  },
+  lineupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  positionBadge: {
+    minWidth: 34,
+    fontWeight: '700',
+  },
+  lineupName: {
+    flex: 1,
+  },
+  applyCta: {
+    borderRadius: 10,
+  },
+  applyFormWrap: {
+    gap: 8,
+  },
+  applyPositionsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  applyPositionChip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  applyActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 6,
+  },
 });

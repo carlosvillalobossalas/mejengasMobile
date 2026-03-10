@@ -1,7 +1,70 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
+import type { MatchPublicationInput } from '../../types/matchPublication';
+
 const CHALLENGE_MATCHES_COLLECTION = 'matchesByChallenge';
+const GROUPS_COLLECTION = 'groups';
 const CHALLENGE_SEASON_STATS_COLLECTION = 'challengeSeasonStats';
+const PUBLIC_MATCH_LISTINGS_COLLECTION = 'publicMatchListings';
+
+const buildListingId = (matchId: string) => `matchesByChallenge_${matchId}`;
+
+const shouldPublishListing = (publication?: MatchPublicationInput): boolean =>
+  Boolean(publication?.isPublished) && Number(publication?.neededPlayers ?? 0) > 0;
+
+const getGroupNameById = async (groupId: string): Promise<string | null> => {
+  try {
+    const groupDoc = await firestore().collection(GROUPS_COLLECTION).doc(groupId).get();
+    if (!groupDoc.exists) return null;
+    const data = (groupDoc.data() ?? {}) as Record<string, unknown>;
+    const name = typeof data.name === 'string' ? data.name.trim() : '';
+    return name || null;
+  } catch {
+    return null;
+  }
+};
+
+const addPublicListingToBatch = (
+  batch: FirebaseFirestoreTypes.WriteBatch,
+  matchId: string,
+  groupId: string,
+  groupName: string | null,
+  matchDate: Date,
+  publication: MatchPublicationInput | undefined,
+  fallbackPublisherUserId: string | null,
+): void => {
+  if (!shouldPublishListing(publication)) {
+    return;
+  }
+
+  const listingRef = firestore()
+    .collection(PUBLIC_MATCH_LISTINGS_COLLECTION)
+    .doc(buildListingId(matchId));
+
+  batch.set(
+    listingRef,
+    {
+      groupId,
+      groupName,
+      sourceMatchId: matchId,
+      sourceMatchType: 'matchesByChallenge',
+      matchDate: firestore.Timestamp.fromDate(matchDate),
+      city: publication?.city ?? '',
+      neededPlayers: Number(publication?.neededPlayers ?? 0),
+      acceptedPlayers: 0,
+      preferredPositions: publication?.allowAnyPosition ? [] : (publication?.preferredPositions ?? []),
+      allowAnyPosition: Boolean(publication?.allowAnyPosition ?? true),
+      notes: publication?.notes ?? null,
+      status: 'open',
+      closedReason: null,
+      publishedByUserId: publication?.publishedByUserId ?? fallbackPublisherUserId,
+      publishedAt: firestore.FieldValue.serverTimestamp(),
+      closedAt: null,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,6 +86,7 @@ export type ChallengeMatchToSave = {
   opponentColor?: string;
   opponentName: string;
   goalsOpponent: number;
+  publication?: MatchPublicationInput;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
 };
@@ -40,6 +104,7 @@ export type ScheduledChallengeMatchToSave = {
   teamColor?: string;
   opponentColor?: string;
   opponentName: string;
+  publication?: MatchPublicationInput;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
 };
@@ -123,6 +188,7 @@ export async function saveChallengeMatch(match: ChallengeMatchToSave): Promise<v
   const isDraw = goalsTeam === goalsOpponent;
 
   const batch = firestore().batch();
+  const groupName = await getGroupNameById(groupId);
 
   const matchRef = firestore().collection(CHALLENGE_MATCHES_COLLECTION).doc();
   const opensAt = firestore.Timestamp.fromDate(new Date());
@@ -149,6 +215,21 @@ export async function saveChallengeMatch(match: ChallengeMatchToSave): Promise<v
     goalsTeam,
     teamColor: match.teamColor ?? null,
     opponentColor: match.opponentColor ?? null,
+    publication: {
+      isPublished: Boolean(match.publication?.isPublished ?? false),
+      neededPlayers: Number(match.publication?.neededPlayers ?? 0),
+      preferredPositions: match.publication?.preferredPositions ?? [],
+      allowAnyPosition: Boolean(match.publication?.allowAnyPosition ?? true),
+      city: match.publication?.city ?? null,
+      notes: match.publication?.notes ?? null,
+      publishedByUserId: match.publication?.isPublished
+        ? (match.publication?.publishedByUserId ?? null)
+        : null,
+      publishedAt: match.publication?.isPublished ? firestore.FieldValue.serverTimestamp() : null,
+      closedAt: null,
+      closedByUserId: null,
+      closeReason: null,
+    },
     opponentName: match.opponentName.trim(),
     goalsOpponent,
     mvpGroupMemberId: null,
@@ -160,6 +241,16 @@ export async function saveChallengeMatch(match: ChallengeMatchToSave): Promise<v
     },
     mvpVotes: {},
   });
+
+  addPublicListingToBatch(
+    batch,
+    matchRef.id,
+    groupId,
+    groupName,
+    match.date,
+    match.publication,
+    createdByUserId,
+  );
 
   // Update challengeSeasonStats for each player
   for (const player of match.players) {
@@ -198,6 +289,7 @@ export async function saveScheduledChallengeMatch(
   const createdByGroupMemberId = match.createdByGroupMemberId ?? null;
 
   const batch = firestore().batch();
+  const groupName = await getGroupNameById(groupId);
   const matchRef = firestore().collection(CHALLENGE_MATCHES_COLLECTION).doc();
   const matchDateTs = firestore.Timestamp.fromDate(match.date);
 
@@ -220,12 +312,37 @@ export async function saveScheduledChallengeMatch(
     goalsTeam: 0,
     teamColor: match.teamColor ?? null,
     opponentColor: match.opponentColor ?? null,
+    publication: {
+      isPublished: Boolean(match.publication?.isPublished ?? false),
+      neededPlayers: Number(match.publication?.neededPlayers ?? 0),
+      preferredPositions: match.publication?.preferredPositions ?? [],
+      allowAnyPosition: Boolean(match.publication?.allowAnyPosition ?? true),
+      city: match.publication?.city ?? null,
+      notes: match.publication?.notes ?? null,
+      publishedByUserId: match.publication?.isPublished
+        ? (match.publication?.publishedByUserId ?? null)
+        : null,
+      publishedAt: match.publication?.isPublished ? firestore.FieldValue.serverTimestamp() : null,
+      closedAt: null,
+      closedByUserId: null,
+      closeReason: null,
+    },
     opponentName: match.opponentName.trim(),
     goalsOpponent: 0,
     mvpGroupMemberId: null,
     mvpVoting: null,
     mvpVotes: {},
   });
+
+  addPublicListingToBatch(
+    batch,
+    matchRef.id,
+    groupId,
+    groupName,
+    match.date,
+    match.publication,
+    createdByUserId,
+  );
 
   await batch.commit();
 }

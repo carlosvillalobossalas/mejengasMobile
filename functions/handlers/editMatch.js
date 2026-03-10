@@ -4,12 +4,39 @@ const admin = require('firebase-admin');
 const { chunk } = require('../utils/helpers');
 
 const VALID_POSITIONS = new Set(['POR', 'DEF', 'MED', 'DEL']);
+const PUBLIC_MATCH_LISTINGS_COLLECTION = 'publicMatchListings';
+
+const buildListingId = matchId => `matches_${matchId}`;
 
 const normalizeHexColor = value => {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   if (!/^#[0-9a-fA-F]{6}$/.test(trimmed)) return null;
   return trimmed.toUpperCase();
+};
+
+const normalizePublication = publication => {
+  const raw = publication && typeof publication === 'object' ? publication : {};
+  const preferredPositions = Array.isArray(raw.preferredPositions)
+    ? raw.preferredPositions.filter(pos => VALID_POSITIONS.has(pos))
+    : [];
+
+  return {
+    isPublished: Boolean(raw.isPublished ?? false),
+    neededPlayers: Math.max(0, Number(raw.neededPlayers ?? 0) || 0),
+    preferredPositions,
+    allowAnyPosition: Boolean(raw.allowAnyPosition ?? true),
+    city: typeof raw.city === 'string' && raw.city.trim() ? raw.city.trim() : null,
+    notes: typeof raw.notes === 'string' && raw.notes.trim() ? raw.notes.trim() : null,
+    publishedByUserId:
+      typeof raw.publishedByUserId === 'string' && raw.publishedByUserId.trim()
+        ? raw.publishedByUserId.trim()
+        : null,
+    publishedAt: null,
+    closedAt: null,
+    closedByUserId: null,
+    closeReason: null,
+  };
 };
 
 const normalizePlayers = players =>
@@ -136,6 +163,7 @@ exports.editMatch = onCall(async request => {
     date,
     team1Color,
     team2Color,
+    publication,
     markAsFinished = false,
   } = updatedMatchData;
 
@@ -231,6 +259,10 @@ exports.editMatch = onCall(async request => {
     throw new HttpsError('invalid-argument', 'date no es una fecha válida.');
   }
 
+  const normalizedPublication = publication !== undefined
+    ? normalizePublication(publication)
+    : undefined;
+
   // Read current status before transaction for post-transaction cleanup
   const currentStatus = String(matchData.status ?? 'finished');
 
@@ -243,6 +275,22 @@ exports.editMatch = onCall(async request => {
 
     const old = snap.data();
     const statusInTransaction = old.status ?? 'finished';
+    const listingRef = db
+      .collection(PUBLIC_MATCH_LISTINGS_COLLECTION)
+      .doc(buildListingId(matchId));
+    let listingSnap = null;
+    let existingListing = null;
+
+    if (normalizedPublication !== undefined) {
+      listingSnap = await t.get(listingRef);
+      existingListing = listingSnap.exists ? listingSnap.data() : null;
+    }
+
+    const groupRef = db.collection('groups').doc(String(old.groupId ?? ''));
+    const groupSnap = await t.get(groupRef);
+    const groupName = groupSnap.exists
+      ? (String(groupSnap.data()?.name ?? '').trim() || null)
+      : null;
 
     const newMatchForImpact = {
       groupId: old.groupId,
@@ -260,6 +308,7 @@ exports.editMatch = onCall(async request => {
       goalsTeam2,
       team1Color: normalizeHexColor(team1Color),
       team2Color: normalizeHexColor(team2Color),
+      ...(normalizedPublication !== undefined ? { publication: normalizedPublication } : {}),
       date: admin.firestore.Timestamp.fromDate(parsedDate),
       editedAt: FieldValue.serverTimestamp(),
       editedBy: uid,
@@ -288,6 +337,38 @@ exports.editMatch = onCall(async request => {
     } else {
       // Editing a scheduled match without finalizing: no stats changes
       t.update(matchRef, { ...baseMatchUpdate, status: 'scheduled' });
+    }
+
+    if (normalizedPublication !== undefined) {
+      if (normalizedPublication.isPublished && normalizedPublication.neededPlayers > 0) {
+        t.set(
+          listingRef,
+          {
+            groupId: old.groupId,
+            groupName,
+            sourceMatchId: matchId,
+            sourceMatchType: 'matches',
+            matchDate: admin.firestore.Timestamp.fromDate(parsedDate),
+            city: normalizedPublication.city ?? '',
+            neededPlayers: normalizedPublication.neededPlayers,
+            acceptedPlayers: Number(existingListing?.acceptedPlayers ?? 0),
+            preferredPositions: normalizedPublication.allowAnyPosition
+              ? []
+              : normalizedPublication.preferredPositions,
+            allowAnyPosition: normalizedPublication.allowAnyPosition,
+            notes: normalizedPublication.notes ?? null,
+            status: 'open',
+            closedReason: null,
+            publishedByUserId: normalizedPublication.publishedByUserId ?? uid,
+            publishedAt: existingListing?.publishedAt ?? FieldValue.serverTimestamp(),
+            closedAt: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      } else if (listingSnap?.exists) {
+        t.delete(listingRef);
+      }
     }
   });
 

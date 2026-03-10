@@ -20,8 +20,11 @@ export default function HomeManageScreen() {
     () => groups.find(group => group.id === selectedGroupId),
     [groups, selectedGroupId],
   );
-
   const canAdmin = Boolean(activeGroup && authUserId && activeGroup.ownerId === authUserId);
+
+  const openApplications = () => {
+    navigation.navigate('PublicMatchApplications');
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -46,6 +49,23 @@ export default function HomeManageScreen() {
         <Card.Content style={styles.cardContent}>
           <View style={styles.row}><Icon name="account-group" size={22} color={theme.colors.primary} /><Text variant="titleMedium">Grupos</Text></View>
           <Button mode="contained" buttonColor={theme.colors.secondary} textColor={theme.colors.onSecondary} onPress={() => navigation.navigate('Groups')}>Gestionar grupos</Button>
+        </Card.Content>
+      </Card>
+
+      <Card style={styles.card}>
+        <Card.Content style={styles.cardContent}>
+          <View style={styles.row}>
+            <Icon name="account-check-outline" size={22} color={theme.colors.primary} />
+            <Text variant="titleMedium">Postulaciones recibidas (grupo activo)</Text>
+          </View>
+          <Button
+            mode="contained"
+            buttonColor={theme.colors.secondary}
+            textColor={theme.colors.onSecondary}
+            onPress={openApplications}
+          >
+            Ver postulaciones
+          </Button>
         </Card.Content>
       </Card>
 

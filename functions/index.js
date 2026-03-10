@@ -21,6 +21,11 @@ const {
 	onChallengeMatchSignupUpdated,
 	onMatchByTeamsSignupUpdated,
 } = require('./handlers/matchSignupNotificationsHandler');
+const { applyPublicMatchApplication } = require('./handlers/applyPublicMatchApplication');
+const { reviewPublicMatchApplication } = require('./handlers/reviewPublicMatchApplication');
+const { getOpenPublicMatchListings } = require('./handlers/getOpenPublicMatchListings');
+const { getMyPublicMatchApplications } = require('./handlers/getMyPublicMatchApplications');
+const { getPendingPublicMatchApplications } = require('./handlers/getPendingPublicMatchApplications');
 
 exports.notifyGroupOnNewMatch = notifyGroupOnNewMatch;
 exports.notifyUserOnInvite = notifyUserOnInvite;
@@ -46,3 +51,8 @@ exports.migrateGroupDefaultKitColors = migrateGroupDefaultKitColors;
 exports.onMatchSignupUpdated = onMatchSignupUpdated;
 exports.onChallengeMatchSignupUpdated = onChallengeMatchSignupUpdated;
 exports.onMatchByTeamsSignupUpdated = onMatchByTeamsSignupUpdated;
+exports.applyPublicMatchApplication = applyPublicMatchApplication;
+exports.reviewPublicMatchApplication = reviewPublicMatchApplication;
+exports.getOpenPublicMatchListings = getOpenPublicMatchListings;
+exports.getMyPublicMatchApplications = getMyPublicMatchApplications;
+exports.getPendingPublicMatchApplications = getPendingPublicMatchApplications;

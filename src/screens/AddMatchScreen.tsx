@@ -36,6 +36,7 @@ import { useAppSelector } from '../app/hooks';
 import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import { getMatchById } from '../repositories/matches/matchesRepository';
 import { saveMatch, saveScheduledMatch } from '../services/matches/matchSaveService';
+import type { MatchPublicationInput } from '../types/matchPublication';
 import type { AppDrawerParamList } from '../navigation/types';
 
 const POSITIONS: ScheduledPosition[] = ['POR', 'DEF', 'MED', 'DEL'];
@@ -361,6 +362,12 @@ export default function AddMatchScreen({ route }: Props) {
 
   const [team1Color, setTeam1Color] = useState(selectedGroup?.defaultTeam1Color ?? '#000000');
   const [team2Color, setTeam2Color] = useState(selectedGroup?.defaultTeam2Color ?? '#FFFFFF');
+  const [isPublished, setIsPublished] = useState(false);
+  const [neededPlayers, setNeededPlayers] = useState('1');
+  const [allowAnyPosition, setAllowAnyPosition] = useState(true);
+  const [preferredPositions, setPreferredPositions] = useState<ScheduledPosition[]>([]);
+  const [publicationCity, setPublicationCity] = useState('');
+  const [publicationNotes, setPublicationNotes] = useState('');
 
   useEffect(() => {
     if (!selectedGroup || isEditMode) return;
@@ -448,6 +455,12 @@ export default function AddMatchScreen({ route }: Props) {
         setMatchDate(new Date(match.date));
         setTeam1Color(match.team1Color ?? selectedGroup?.defaultTeam1Color ?? '#000000');
         setTeam2Color(match.team2Color ?? selectedGroup?.defaultTeam2Color ?? '#FFFFFF');
+        setIsPublished(Boolean(match.publication?.isPublished));
+        setNeededPlayers(String(Math.max(1, match.publication?.neededPlayers ?? 1)));
+        setAllowAnyPosition(Boolean(match.publication?.allowAnyPosition ?? true));
+        setPreferredPositions(match.publication?.preferredPositions ?? []);
+        setPublicationCity(match.publication?.city ?? '');
+        setPublicationNotes(match.publication?.notes ?? '');
       } catch (error) {
         console.error('AddMatch(edit): error loading match', error);
         setSnackbarMessage('Error al cargar el partido');
@@ -545,6 +558,40 @@ export default function AddMatchScreen({ route }: Props) {
     setStatusMode(value ? 'finished' : 'scheduled');
   };
 
+  const togglePreferredPosition = (position: ScheduledPosition) => {
+    setPreferredPositions(current =>
+      current.includes(position)
+        ? current.filter(currentPosition => currentPosition !== position)
+        : [...current, position],
+    );
+  };
+
+  const buildPublicationInput = (): MatchPublicationInput => {
+    if (!isPublished) {
+      return {
+        isPublished: false,
+        neededPlayers: 0,
+        allowAnyPosition: true,
+        preferredPositions: [],
+        city: null,
+        notes: null,
+        publishedByUserId: null,
+      };
+    }
+
+    const parsedNeededPlayers = Number.parseInt(neededPlayers || '1', 10);
+
+    return {
+      isPublished: true,
+      neededPlayers: Number.isNaN(parsedNeededPlayers) ? 1 : Math.max(1, parsedNeededPlayers),
+      allowAnyPosition,
+      preferredPositions: allowAnyPosition ? [] : preferredPositions,
+      city: publicationCity.trim() ? publicationCity.trim() : null,
+      notes: publicationNotes.trim() ? publicationNotes.trim() : null,
+      publishedByUserId: createdByUserId,
+    };
+  };
+
   const saveEditMatch = async () => {
     if (!matchId || !selectedGroupId) return;
 
@@ -590,6 +637,7 @@ export default function AddMatchScreen({ route }: Props) {
                 team2Color,
                 date: matchDate.toISOString(),
                 markAsFinished,
+                publication: buildPublicationInput(),
               },
             },
           }),
@@ -606,7 +654,7 @@ export default function AddMatchScreen({ route }: Props) {
 
       setSnackbarMessage(markAsFinished ? 'Partido finalizado y guardado exitosamente' : 'Partido actualizado exitosamente');
       setSnackbarVisible(true);
-      setTimeout(() => navigation.navigate('Matches'), 1500);
+      setTimeout(() => navigation.navigate('MyMatches'), 1500);
     } catch (error) {
       console.error('AddMatch(edit): error saving match', error);
       setSnackbarMessage('Error al actualizar el partido');
@@ -639,6 +687,7 @@ export default function AddMatchScreen({ route }: Props) {
           })),
           team1Color,
           team2Color,
+          publication: buildPublicationInput(),
         });
 
         setSnackbarMessage('Partido programado guardado');
@@ -670,6 +719,7 @@ export default function AddMatchScreen({ route }: Props) {
             ownGoals: slot.ownGoals,
             isSub: slot.isSub,
           })),
+          publication: buildPublicationInput(),
         });
 
         setSnackbarMessage('Partido finalizado guardado');
@@ -786,6 +836,103 @@ export default function AddMatchScreen({ route }: Props) {
             </Text>
           </View>
           <Icon name="pencil-outline" size={20} color={theme.colors.primary} />
+        </Card.Content>
+      </Card>
+
+      <Card style={styles(theme).card}>
+        <Card.Content style={styles(theme).publicationContent}>
+          <View style={styles(theme).publicationRow}>
+            <View style={{ flex: 1 }}>
+              <Text variant="labelSmall" style={styles(theme).dateLabel}>
+                Publicación externa
+              </Text>
+              <Text variant="bodySmall" style={styles(theme).statusSwitchText}>
+                Mostrar este partido en el feed público
+              </Text>
+            </View>
+            <Switch
+              value={isPublished}
+              onValueChange={setIsPublished}
+              trackColor={{ false: '#D1D5DB', true: theme.colors.primary }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor="#D1D5DB"
+            />
+          </View>
+
+          {isPublished && (
+            <>
+              <TextInput
+                mode="outlined"
+                label="Jugadores que faltan"
+                value={neededPlayers}
+                onChangeText={value => setNeededPlayers(value.replace(/[^0-9]/g, ''))}
+                onBlur={() => {
+                  if (!neededPlayers || neededPlayers === '0') {
+                    setNeededPlayers('1');
+                  }
+                }}
+                keyboardType="number-pad"
+                dense
+              />
+
+              <View style={styles(theme).publicationRow}>
+                <Text variant="bodyMedium" style={{ flex: 1 }}>
+                  Aceptar cualquier posición
+                </Text>
+                <Switch
+                  value={allowAnyPosition}
+                  onValueChange={setAllowAnyPosition}
+                  trackColor={{ false: '#D1D5DB', true: theme.colors.primary }}
+                  thumbColor="#FFFFFF"
+                  ios_backgroundColor="#D1D5DB"
+                />
+              </View>
+
+              {!allowAnyPosition && (
+                <View style={styles(theme).positionChipsWrap}>
+                  {POSITIONS.map(position => {
+                    const isSelected = preferredPositions.includes(position);
+                    return (
+                      <TouchableOpacity
+                        key={`publication-pos-${position}`}
+                        onPress={() => togglePreferredPosition(position)}
+                        style={[
+                          styles(theme).positionChip,
+                          isSelected && styles(theme).positionChipSelected,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles(theme).positionChipText,
+                            isSelected && styles(theme).positionChipTextSelected,
+                          ]}
+                        >
+                          {position}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              <TextInput
+                mode="outlined"
+                label="Ciudad o zona"
+                value={publicationCity}
+                onChangeText={setPublicationCity}
+                dense
+              />
+
+              <TextInput
+                mode="outlined"
+                label="Notas para postulantes"
+                value={publicationNotes}
+                onChangeText={setPublicationNotes}
+                dense
+                multiline
+              />
+            </>
+          )}
         </Card.Content>
       </Card>
 
@@ -1036,6 +1183,40 @@ const styles = (theme: MD3Theme) =>
     },
     colorsCardContent: {
       gap: 8,
+    },
+    publicationContent: {
+      gap: 10,
+    },
+    publicationRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+    },
+    positionChipsWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    positionChip: {
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: theme.colors.surface,
+    },
+    positionChipSelected: {
+      borderColor: theme.colors.primary,
+      backgroundColor: theme.colors.secondaryContainer,
+    },
+    positionChipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.colors.onSurfaceVariant,
+    },
+    positionChipTextSelected: {
+      color: theme.colors.onSecondaryContainer,
     },
     colorLabel: {
       marginTop: 4,

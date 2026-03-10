@@ -5,6 +5,10 @@ const { chunk } = require('../utils/helpers');
 
 const COLLECTION = 'matchesByChallenge';
 const STATS_COLLECTION = 'challengeSeasonStats';
+const PUBLIC_MATCH_LISTINGS_COLLECTION = 'publicMatchListings';
+const VALID_POSITIONS = new Set(['POR', 'DEF', 'MED', 'DEL']);
+
+const buildListingId = matchId => `matchesByChallenge_${matchId}`;
 
 const normalizeHexColor = value => {
   if (typeof value !== 'string') return null;
@@ -12,6 +16,46 @@ const normalizeHexColor = value => {
   if (!/^#[0-9a-fA-F]{6}$/.test(trimmed)) return null;
   return trimmed.toUpperCase();
 };
+
+const normalizePublication = publication => {
+  const raw = publication && typeof publication === 'object' ? publication : {};
+  const preferredPositions = Array.isArray(raw.preferredPositions)
+    ? raw.preferredPositions.filter(pos => ['POR', 'DEF', 'MED', 'DEL'].includes(pos))
+    : [];
+
+  return {
+    isPublished: Boolean(raw.isPublished ?? false),
+    neededPlayers: Math.max(0, Number(raw.neededPlayers ?? 0) || 0),
+    preferredPositions,
+    allowAnyPosition: Boolean(raw.allowAnyPosition ?? true),
+    city: typeof raw.city === 'string' && raw.city.trim() ? raw.city.trim() : null,
+    notes: typeof raw.notes === 'string' && raw.notes.trim() ? raw.notes.trim() : null,
+    publishedByUserId:
+      typeof raw.publishedByUserId === 'string' && raw.publishedByUserId.trim()
+        ? raw.publishedByUserId.trim()
+        : null,
+    publishedAt: null,
+    closedAt: null,
+    closedByUserId: null,
+    closeReason: null,
+  };
+};
+
+const normalizePlayers = players =>
+  (players ?? []).map(player => {
+    const rawGroupMemberId = typeof player?.groupMemberId === 'string'
+      ? player.groupMemberId.trim()
+      : null;
+
+    return {
+      groupMemberId: rawGroupMemberId ? rawGroupMemberId : null,
+      position: VALID_POSITIONS.has(player?.position) ? player.position : 'DEF',
+      goals: Number(player?.goals ?? 0) || 0,
+      assists: Number(player?.assists ?? 0) || 0,
+      ownGoals: Number(player?.ownGoals ?? 0) || 0,
+      isSub: Boolean(player?.isSub ?? false),
+    };
+  });
 
 /**
  * Applies (or reverts) a challenge match's statistical impact on
@@ -116,6 +160,7 @@ exports.editChallengeMatch = onCall(async request => {
     date,
     teamColor,
     opponentColor,
+    publication,
     markAsFinished = false,
   } = updatedMatchData;
 
@@ -128,6 +173,8 @@ exports.editChallengeMatch = onCall(async request => {
   if (!date || typeof date !== 'string') {
     throw new HttpsError('invalid-argument', 'date es requerida y debe ser una cadena ISO-8601.');
   }
+
+  const normalizedPlayers = normalizePlayers(players);
 
   const db = admin.firestore();
   const FieldValue = admin.firestore.FieldValue;
@@ -159,7 +206,7 @@ exports.editChallengeMatch = onCall(async request => {
   }
 
   // Validate no duplicate players — null groupMemberIds are allowed (empty/unassigned slots)
-  const playerIds = players.map(p => p.groupMemberId).filter(id => !!id);
+  const playerIds = normalizedPlayers.map(p => p.groupMemberId).filter(id => !!id);
   const playerIdSet = new Set(playerIds);
   if (playerIdSet.size < playerIds.length) {
     throw new HttpsError('invalid-argument', 'Hay jugadores duplicados en el equipo.');
@@ -167,18 +214,23 @@ exports.editChallengeMatch = onCall(async request => {
 
   // Validate all players belong to the group
   const FIRESTORE_IN_LIMIT = 10;
-  const playerIdChunks = chunk([...playerIdSet], FIRESTORE_IN_LIMIT);
-  const groupMemberDocs = (
-    await Promise.all(
-      playerIdChunks.map(ids =>
-        db
-          .collection('groupMembers_v2')
-          .where('groupId', '==', groupId)
-          .where(admin.firestore.FieldPath.documentId(), 'in', ids)
-          .get(),
-      ),
-    )
-  ).flatMap(snap => snap.docs);
+  const uniquePlayerIds = [...playerIdSet];
+  let groupMemberDocs = [];
+
+  if (uniquePlayerIds.length > 0) {
+    const playerIdChunks = chunk(uniquePlayerIds, FIRESTORE_IN_LIMIT);
+    groupMemberDocs = (
+      await Promise.all(
+        playerIdChunks.map(ids =>
+          db
+            .collection('groupMembers_v2')
+            .where('groupId', '==', groupId)
+            .where(admin.firestore.FieldPath.documentId(), 'in', ids)
+            .get(),
+        ),
+      )
+    ).flatMap(snap => snap.docs);
+  }
 
   if (groupMemberDocs.length !== playerIdSet.size) {
     throw new HttpsError('invalid-argument', 'Uno o más jugadores no pertenecen a este grupo.');
@@ -189,62 +241,125 @@ exports.editChallengeMatch = onCall(async request => {
     throw new HttpsError('invalid-argument', 'date no es una fecha válida.');
   }
 
+  const normalizedPublication = publication !== undefined
+    ? normalizePublication(publication)
+    : undefined;
+
   const currentStatus = String(matchData.status ?? 'finished');
 
-  await db.runTransaction(async t => {
-    const snap = await t.get(matchRef);
-    if (!snap.exists) {
-      throw new HttpsError('not-found', `El partido "${matchId}" no existe.`);
+  try {
+    await db.runTransaction(async t => {
+      const snap = await t.get(matchRef);
+      if (!snap.exists) {
+        throw new HttpsError('not-found', `El partido "${matchId}" no existe.`);
+      }
+
+      const old = snap.data();
+      const statusInTransaction = old.status ?? 'finished';
+      const listingRef = db
+        .collection(PUBLIC_MATCH_LISTINGS_COLLECTION)
+        .doc(buildListingId(matchId));
+      let listingSnap = null;
+      let existingListing = null;
+
+      if (normalizedPublication !== undefined) {
+        listingSnap = await t.get(listingRef);
+        existingListing = listingSnap.exists ? listingSnap.data() : null;
+      }
+
+      const groupRef = db.collection('groups').doc(String(old.groupId ?? ''));
+      const groupSnap = await t.get(groupRef);
+      const groupName = groupSnap.exists
+        ? (String(groupSnap.data()?.name ?? '').trim() || null)
+        : null;
+
+      const newMatchForImpact = {
+        groupId: old.groupId,
+        season: old.season,
+        goalsTeam,
+        goalsOpponent,
+        players: normalizedPlayers,
+      };
+
+      const baseMatchUpdate = {
+        players: normalizedPlayers,
+        goalsTeam,
+        goalsOpponent,
+        teamColor: normalizeHexColor(teamColor),
+        opponentColor: normalizeHexColor(opponentColor),
+        ...(normalizedPublication !== undefined ? { publication: normalizedPublication } : {}),
+        opponentName: String(opponentName ?? ''),
+        date: admin.firestore.Timestamp.fromDate(parsedDate),
+        editedAt: FieldValue.serverTimestamp(),
+        editedBy: uid,
+        impactVersion: FieldValue.increment(1),
+      };
+
+      if (statusInTransaction === 'finished') {
+        processChallengeMatchImpact(old, -1, t, db, FieldValue);
+        processChallengeMatchImpact(newMatchForImpact, +1, t, db, FieldValue);
+        t.update(matchRef, { ...baseMatchUpdate, status: 'finished' });
+      } else if (statusInTransaction === 'scheduled' && markAsFinished) {
+        processChallengeMatchImpact(newMatchForImpact, +1, t, db, FieldValue);
+        const opensAt = admin.firestore.Timestamp.now();
+        const closesAt = admin.firestore.Timestamp.fromMillis(
+          opensAt.toMillis() + 24 * 60 * 60 * 1000,
+        );
+        t.update(matchRef, {
+          ...baseMatchUpdate,
+          status: 'finished',
+          mvpVoting: { status: 'open', opensAt, closesAt, calculatedAt: null },
+          mvpVotes: {},
+          mvpGroupMemberId: null,
+        });
+      } else {
+        t.update(matchRef, { ...baseMatchUpdate, status: 'scheduled' });
+      }
+
+      if (normalizedPublication !== undefined) {
+        if (normalizedPublication.isPublished && normalizedPublication.neededPlayers > 0) {
+          t.set(
+            listingRef,
+            {
+              groupId: old.groupId,
+              groupName,
+              sourceMatchId: matchId,
+              sourceMatchType: 'matchesByChallenge',
+              matchDate: admin.firestore.Timestamp.fromDate(parsedDate),
+              city: normalizedPublication.city ?? '',
+              neededPlayers: normalizedPublication.neededPlayers,
+              acceptedPlayers: Number(existingListing?.acceptedPlayers ?? 0),
+              preferredPositions: normalizedPublication.allowAnyPosition
+                ? []
+                : normalizedPublication.preferredPositions,
+              allowAnyPosition: normalizedPublication.allowAnyPosition,
+              notes: normalizedPublication.notes ?? null,
+              status: 'open',
+              closedReason: null,
+              publishedByUserId: normalizedPublication.publishedByUserId ?? uid,
+              publishedAt: existingListing?.publishedAt ?? FieldValue.serverTimestamp(),
+              closedAt: null,
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+        } else if (listingSnap?.exists) {
+          t.delete(listingRef);
+        }
+      }
+    });
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
     }
 
-    const old = snap.data();
-    const statusInTransaction = old.status ?? 'finished';
-
-    const newMatchForImpact = {
-      groupId: old.groupId,
-      season: old.season,
-      goalsTeam,
-      goalsOpponent,
-      players,
-    };
-
-    const baseMatchUpdate = {
-      players,
-      goalsTeam,
-      goalsOpponent,
-      teamColor: normalizeHexColor(teamColor),
-      opponentColor: normalizeHexColor(opponentColor),
-      opponentName: String(opponentName ?? ''),
-      date: admin.firestore.Timestamp.fromDate(parsedDate),
-      editedAt: FieldValue.serverTimestamp(),
-      editedBy: uid,
-      impactVersion: FieldValue.increment(1),
-    };
-
-    if (statusInTransaction === 'finished') {
-      // Normal edit of a finished match: revert old stats, apply new stats
-      processChallengeMatchImpact(old, -1, t, db, FieldValue);
-      processChallengeMatchImpact(newMatchForImpact, +1, t, db, FieldValue);
-      t.update(matchRef, { ...baseMatchUpdate, status: 'finished' });
-    } else if (statusInTransaction === 'scheduled' && markAsFinished) {
-      // Finalizing a scheduled match: apply stats for the first time, open MVP voting
-      processChallengeMatchImpact(newMatchForImpact, +1, t, db, FieldValue);
-      const opensAt = admin.firestore.Timestamp.now();
-      const closesAt = admin.firestore.Timestamp.fromMillis(
-        opensAt.toMillis() + 24 * 60 * 60 * 1000,
-      );
-      t.update(matchRef, {
-        ...baseMatchUpdate,
-        status: 'finished',
-        mvpVoting: { status: 'open', opensAt, closesAt, calculatedAt: null },
-        mvpVotes: {},
-        mvpGroupMemberId: null,
-      });
-    } else {
-      // Editing a scheduled match without finalizing: no stats changes
-      t.update(matchRef, { ...baseMatchUpdate, status: 'scheduled' });
-    }
-  });
+    logger.error('editChallengeMatch: unexpected error while saving', {
+      matchId,
+      uid,
+      err: String(error),
+    });
+    throw new HttpsError('internal', 'No se pudo editar el partido. Intenta de nuevo.');
+  }
 
   // When finalizing a scheduled match, cancel any pending reminders
   if (currentStatus === 'scheduled' && markAsFinished) {

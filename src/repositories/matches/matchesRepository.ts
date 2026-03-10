@@ -1,5 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
+import type { MatchPublication, MatchPosition } from '../../types/matchPublication';
+
 export type MvpVotingStatus = 'open' | 'calculated';
 
 export type MvpVoting = {
@@ -37,6 +39,7 @@ export type Match = {
   /** Map of { [voterGroupMemberId]: votedGroupMemberId } */
   mvpVotes: Record<string, string>;
   status?: 'finished' | 'scheduled' | 'cancelled';
+  publication: MatchPublication;
 };
 
 const MATCHES_COLLECTION = 'matches';
@@ -77,6 +80,28 @@ const mapPlayerArray = (data: unknown): MatchPlayer[] => {
 
 const mapMatchDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Match => {
   const data = (doc.data() ?? {}) as Record<string, unknown>;
+
+  const publicationRaw = data.publication as Record<string, unknown> | undefined;
+  const publication: MatchPublication = {
+    isPublished: Boolean(publicationRaw?.isPublished ?? false),
+    neededPlayers: Number(publicationRaw?.neededPlayers ?? 0),
+    preferredPositions: Array.isArray(publicationRaw?.preferredPositions)
+      ? (publicationRaw?.preferredPositions as MatchPosition[])
+      : [],
+    allowAnyPosition: Boolean(publicationRaw?.allowAnyPosition ?? true),
+    city: publicationRaw?.city ? String(publicationRaw.city) : null,
+    notes: publicationRaw?.notes ? String(publicationRaw.notes) : null,
+    publishedByUserId: publicationRaw?.publishedByUserId ? String(publicationRaw.publishedByUserId) : null,
+    publishedAt: toIsoString(publicationRaw?.publishedAt),
+    closedAt: toIsoString(publicationRaw?.closedAt),
+    closedByUserId: publicationRaw?.closedByUserId ? String(publicationRaw.closedByUserId) : null,
+    closeReason:
+      publicationRaw?.closeReason === 'manual' ||
+      publicationRaw?.closeReason === 'filled' ||
+      publicationRaw?.closeReason === 'expired'
+        ? publicationRaw.closeReason
+        : null,
+  };
 
   const votingRaw = data.mvpVoting as Record<string, unknown> | undefined;
   const toTimestamp = (v: unknown): FirebaseFirestoreTypes.Timestamp | null => {
@@ -119,6 +144,7 @@ const mapMatchDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Match => {
     mvpVoting,
     mvpVotes,
     status: (data.status as Match['status']) ?? 'finished',
+    publication,
   };
 };
 

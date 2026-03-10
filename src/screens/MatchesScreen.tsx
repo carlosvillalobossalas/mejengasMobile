@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
 import {
   ScrollView,
   View,
@@ -16,9 +16,10 @@ import {
   MD3Theme,
   Button,
   Portal,
+  IconButton,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import auth from '@react-native-firebase/auth';
@@ -41,9 +42,6 @@ import {
 } from '../repositories/matches/matchSignupsRepository';
 import type { AppDrawerParamList } from '../navigation/types';
 
-// Icon component for year button - moved outside to avoid warnings
-const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF" />;
-
 export default function MatchesScreen() {
   const theme = useTheme();
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
@@ -55,6 +53,7 @@ export default function MatchesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string | 'all'>('all');
   const [selectedYear, setSelectedYear] = useState<number | 'historico'>(
     new Date().getFullYear(),
   );
@@ -69,7 +68,7 @@ export default function MatchesScreen() {
   // Whether the current user is admin or owner of the selected group
   const [isAdminOrOwner, setIsAdminOrOwner] = useState(false);
   const [deletingMatchId, setDeletingMatchId] = useState<string | null>(null);
-  const bottomSheetRef = useRef<BottomSheet>(null);
+  const filtersSheetRef = useRef<BottomSheet>(null);
   const slotModalRef = useRef<BottomSheet>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   // One ref per card — used to measure position in scroll content after collapse
@@ -87,6 +86,35 @@ export default function MatchesScreen() {
   const selectedGroup = useMemo(
     () => groups.find(group => group.id === selectedGroupId),
     [groups, selectedGroupId],
+  );
+
+  const eligibleGroups = useMemo(
+    () => groups.filter(group => !group.hasFixedTeams && !group.isChallengeMode),
+    [groups],
+  );
+
+  useEffect(() => {
+    if (eligibleGroups.length === 0) {
+      setSelectedGroupFilter('all');
+      return;
+    }
+
+    if (selectedGroupFilter !== 'all' && !eligibleGroups.some(group => group.id === selectedGroupFilter)) {
+      setSelectedGroupFilter(eligibleGroups[0].id);
+    }
+  }, [eligibleGroups, selectedGroupFilter]);
+
+  const targetGroupIds = useMemo(
+    () =>
+      selectedGroupFilter === 'all'
+        ? eligibleGroups.map(group => group.id)
+        : [selectedGroupFilter],
+    [selectedGroupFilter, eligibleGroups],
+  );
+
+  const groupsById = useMemo(
+    () => new Map(groups.map(group => [group.id, group])),
+    [groups],
   );
 
   const isOwner = useMemo(() => {
@@ -214,31 +242,38 @@ export default function MatchesScreen() {
     setTimeout(() => setSelectedSlot(null), 200);
   }, []);
 
-  // Subscribe to group members in real-time so newly added players appear without manual refresh
+  // Subscribe to group members in real-time for the selected filter scope
   useEffect(() => {
-    if (!selectedGroupId) {
+    if (targetGroupIds.length === 0) {
       setAllPlayers([]);
       return;
     }
 
-    const unsubscribe = subscribeToGroupMembersV2ByGroupId(selectedGroupId, members => {
-      setAllPlayers(members);
-    });
+    const membersByGroup = new Map<string, GroupMemberV2[]>();
+    const unsubscribers = targetGroupIds.map(groupId =>
+      subscribeToGroupMembersV2ByGroupId(groupId, members => {
+        membersByGroup.set(groupId, members);
+        const merged = Array.from(membersByGroup.values()).flat();
+        const unique = new Map<string, GroupMemberV2>();
+        merged.forEach(member => unique.set(member.id, member));
+        setAllPlayers(Array.from(unique.values()));
+      }),
+    );
 
     return () => {
-      unsubscribe();
+      unsubscribers.forEach(unsubscribe => unsubscribe());
     };
-  }, [selectedGroupId]);
+  }, [targetGroupIds]);
 
   // Check if the current user is admin/owner so the edit button can be shown
   useEffect(() => {
     const checkRole = async () => {
-      if (!selectedGroupId || !firebaseUser?.uid) {
+      if (selectedGroupFilter === 'all' || !firebaseUser?.uid) {
         setIsAdminOrOwner(false);
         return;
       }
       try {
-        const member = await getGroupMemberV2ByUserId(selectedGroupId, firebaseUser.uid);
+        const member = await getGroupMemberV2ByUserId(selectedGroupFilter, firebaseUser.uid);
         const role = member?.role ?? '';
         setIsAdminOrOwner(role === 'admin' || role === 'owner');
       } catch (err) {
@@ -248,27 +283,35 @@ export default function MatchesScreen() {
     };
 
     checkRole();
-  }, [selectedGroupId, firebaseUser?.uid]);
+  }, [selectedGroupFilter, firebaseUser?.uid]);
 
   // Subscribe to matches in real-time
   useEffect(() => {
-    if (!selectedGroupId) {
+    if (targetGroupIds.length === 0) {
       setIsLoading(false);
+      setAllMatches([]);
       return;
     }
 
     setIsLoading(true);
     setError(null);
 
-    const unsubscribe = subscribeToMatchesByGroupId(selectedGroupId, matchesData => {
-      setAllMatches(matchesData);
-      setIsLoading(false);
-    });
+    const matchesByGroup = new Map<string, Match[]>();
+    const unsubscribers = targetGroupIds.map(groupId =>
+      subscribeToMatchesByGroupId(groupId, matchesData => {
+        matchesByGroup.set(groupId, matchesData);
+        const merged = Array.from(matchesByGroup.values())
+          .flat()
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setAllMatches(merged);
+        setIsLoading(false);
+      }),
+    );
 
     return () => {
-      unsubscribe();
+      unsubscribers.forEach(unsubscribe => unsubscribe());
     };
-  }, [selectedGroupId]);
+  }, [targetGroupIds]);
 
   const yearOptions = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -325,14 +368,48 @@ export default function MatchesScreen() {
     return option?.label || year.toString();
   };
 
-  const handleOpenYearSelector = useCallback(() => {
-    bottomSheetRef.current?.expand();
-  }, []);
+  const groupFilterOptions = useMemo(
+    () => [
+      { value: 'all' as const, label: 'Todos mis grupos' },
+      ...eligibleGroups.map(group => ({ value: group.id, label: group.name })),
+    ],
+    [eligibleGroups],
+  );
+
+  const selectedGroupFilterLabel = useMemo(() => {
+    if (selectedGroupFilter === 'all') return 'Todos mis grupos';
+    return groupsById.get(selectedGroupFilter)?.name ?? 'Grupo';
+  }, [selectedGroupFilter, groupsById]);
 
   const handleSelectYear = useCallback((year: number | 'historico') => {
     setSelectedYear(year);
-    bottomSheetRef.current?.close();
   }, []);
+
+  const appliedFiltersLabel = useMemo(
+    () => `Temporada: ${getYearLabel(selectedYear)} · Grupo: ${selectedGroupFilterLabel}`,
+    [selectedYear, selectedGroupFilterLabel],
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles(theme).headerActions}>
+          <IconButton
+            icon="filter-variant"
+            iconColor={theme.colors.secondary}
+            size={22}
+            onPress={() => filtersSheetRef.current?.expand()}
+          />
+          <IconButton
+            icon="plus"
+            iconColor={theme.colors.secondary}
+            size={22}
+            onPress={() => navigation.navigate('AddMatch')}
+          />
+        </View>
+      ),
+    });
+  }, [navigation, theme]);
 
   // Derives from live subscription data so mvpVotes reflects in real-time
   const selectedVotingMatch = useMemo(
@@ -482,7 +559,7 @@ export default function MatchesScreen() {
   };
 
   const renderMatch = (match: Match) => {
-    console.log(match)
+    const groupForMatch = groupsById.get(match.groupId);
     const isExpanded = expandedMatchId === match.id;
     const result = getMatchResult(match);
     const resultColor = getMatchResultColor(match);
@@ -499,6 +576,11 @@ export default function MatchesScreen() {
         >
           <Card.Content style={styles(theme).cardContent}>
             {/* Compact score row */}
+            {selectedGroupFilter === 'all' ? (
+              <Text variant="labelSmall" style={styles(theme).groupNameLabel}>
+                {groupForMatch?.name ?? 'Grupo'}
+              </Text>
+            ) : null}
             <View style={styles(theme).compactRow}>
               <Text variant="bodyMedium" style={styles(theme).compactTeam} numberOfLines={1}>
                 Equipo 1
@@ -598,8 +680,8 @@ export default function MatchesScreen() {
                   team2Players={match.players2}
                   allPlayers={allPlayers}
                   mvpGroupMemberId={match.mvpGroupMemberId}
-                  team1Color={match.team1Color ?? selectedGroup?.defaultTeam1Color}
-                  team2Color={match.team2Color ?? selectedGroup?.defaultTeam2Color}
+                  team1Color={match.team1Color ?? groupForMatch?.defaultTeam1Color}
+                  team2Color={match.team2Color ?? groupForMatch?.defaultTeam2Color}
                   matchDate={match.date}
                   onSlotPress={async ({ team, slotIndex, groupMemberId }) => {
                     if (!firebaseUser?.uid) return;
@@ -648,15 +730,15 @@ export default function MatchesScreen() {
     );
   };
 
-  if (!selectedGroupId) {
+  if (eligibleGroups.length === 0) {
     return (
       <View style={styles(theme).centerContainer}>
         <Icon name="alert-circle" size={48} color={theme.colors.error} />
         <Text variant="titleMedium" style={styles(theme).errorText}>
-          No hay grupo seleccionado
+          No tienes grupos modo clásico
         </Text>
         <Text variant="bodyMedium" style={styles(theme).errorSubtext}>
-          Por favor, seleccioná un grupo desde la pantalla de Grupos
+          Únete o crea un grupo sin equipos fijos para ver partidos.
         </Text>
       </View>
     );
@@ -692,16 +774,9 @@ export default function MatchesScreen() {
           <Text variant="bodySmall" style={styles(theme).matchCount}>
             Total: {matches.length} partido{matches.length !== 1 ? 's' : ''}
           </Text>
-          <Button
-            mode="contained"
-            onPress={handleOpenYearSelector}
-            icon={CalendarIcon}
-            style={styles(theme).yearButton}
-            contentStyle={styles(theme).yearButtonContent}
-            labelStyle={styles(theme).yearButtonLabel}
-          >
-            {getYearLabel(selectedYear)}
-          </Button>
+          <Text variant="bodySmall" style={styles(theme).appliedFiltersText}>
+            {appliedFiltersLabel}
+          </Text>
         </View>
       </Surface>
 
@@ -737,33 +812,54 @@ export default function MatchesScreen() {
         )}
       </ScrollView>
 
-      {/* Year Selection Bottom Sheet */}
+      {/* Filters Bottom Sheet */}
       <Portal>
         <BottomSheet
-          ref={bottomSheetRef}
+          ref={filtersSheetRef}
           index={-1}
-          snapPoints={['50%']}
+          snapPoints={['65%']}
           enablePanDownToClose
           backdropComponent={renderBackdrop}
         >
           <View style={styles(theme).bottomSheetContent}>
             <Text variant="titleMedium" style={styles(theme).bottomSheetTitle}>
-              Seleccionar Temporada
+              Filtros
             </Text>
-            <BottomSheetFlatList
-              data={yearOptions}
-              keyExtractor={(item: { value: number | 'historico'; label: string }) => item.value.toString()}
-              renderItem={({ item }: { item: { value: number | 'historico'; label: string } }) => (
+            <Text variant="labelMedium" style={styles(theme).sheetSectionTitle}>
+              Temporada
+            </Text>
+            {yearOptions.map(item => (
+              <Button
+                key={item.value.toString()}
+                mode={selectedYear === item.value ? 'contained' : 'text'}
+                onPress={() => handleSelectYear(item.value)}
+                style={styles(theme).yearOptionButton}
+                contentStyle={styles(theme).yearOptionContent}
+              >
+                {item.label}
+              </Button>
+            ))}
+            <Text variant="labelMedium" style={styles(theme).sheetSectionTitle}>
+              Grupo
+            </Text>
+            {groupFilterOptions.map(item => (
                 <Button
-                  mode={selectedYear === item.value ? 'contained' : 'text'}
-                  onPress={() => handleSelectYear(item.value)}
+                  key={item.value}
+                  mode={selectedGroupFilter === item.value ? 'contained' : 'text'}
+                  onPress={() => setSelectedGroupFilter(item.value)}
                   style={styles(theme).yearOptionButton}
                   contentStyle={styles(theme).yearOptionContent}
                 >
                   {item.label}
                 </Button>
-              )}
-            />
+            ))}
+            <Button
+              mode="contained"
+              onPress={() => filtersSheetRef.current?.close()}
+              style={styles(theme).applyFiltersButton}
+            >
+              Aplicar
+            </Button>
           </View>
         </BottomSheet>
       </Portal>
@@ -866,24 +962,22 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerContent: {
-    gap: 12,
+    gap: 6,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 4,
   },
   matchCount: {
     color: '#FFFFFF',
     textAlign: 'center',
     opacity: 0.9,
   },
-  yearButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginVertical: 8,
-  },
-  yearButtonContent: {
-    paddingVertical: 4,
-  },
-  yearButtonLabel: {
+  appliedFiltersText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    textAlign: 'center',
+    opacity: 0.95,
   },
   bottomSheetContent: {
     flex: 1,
@@ -895,11 +989,20 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     marginBottom: 16,
     fontWeight: 'bold',
   },
+  sheetSectionTitle: {
+    marginTop: 8,
+    marginBottom: 6,
+    color: theme.colors.onSurfaceVariant,
+    fontWeight: '700',
+  },
   yearOptionButton: {
     marginVertical: 4,
   },
   yearOptionContent: {
     paddingVertical: 8,
+  },
+  applyFiltersButton: {
+    marginTop: 12,
   },
   emptyState: {
     padding: 48,
@@ -1048,6 +1151,11 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: '700',
     textTransform: 'capitalize',
+  },
+  groupNameLabel: {
+    color: theme.colors.primary,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   statusLabel: {
     textAlign: 'center',

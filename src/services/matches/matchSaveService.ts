@@ -1,5 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
+import type { MatchPublicationInput } from '../../types/matchPublication';
+
 export type TeamPlayer = {
   position: 'POR' | 'DEF' | 'MED' | 'DEL';
   groupMemberId: string | null;
@@ -19,6 +21,7 @@ export type MatchToSave = {
   team2Goals: number;
   team1Color?: string;
   team2Color?: string;
+  publication?: MatchPublicationInput;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
 };
@@ -37,7 +40,68 @@ type PlayerStats = {
 };
 
 const MATCHES_COLLECTION = 'matches';
+const GROUPS_COLLECTION = 'groups';
 const SEASON_STATS_COLLECTION = 'seasonStats';
+const PUBLIC_MATCH_LISTINGS_COLLECTION = 'publicMatchListings';
+
+const buildListingId = (matchId: string) => `matches_${matchId}`;
+
+const shouldPublishListing = (publication?: MatchPublicationInput): boolean =>
+  Boolean(publication?.isPublished) && Number(publication?.neededPlayers ?? 0) > 0;
+
+const getGroupNameById = async (groupId: string): Promise<string | null> => {
+  try {
+    const groupDoc = await firestore().collection(GROUPS_COLLECTION).doc(groupId).get();
+    if (!groupDoc.exists) return null;
+    const data = (groupDoc.data() ?? {}) as Record<string, unknown>;
+    const name = typeof data.name === 'string' ? data.name.trim() : '';
+    return name || null;
+  } catch {
+    return null;
+  }
+};
+
+const addPublicListingToBatch = (
+  batch: FirebaseFirestoreTypes.WriteBatch,
+  matchId: string,
+  groupId: string,
+  groupName: string | null,
+  matchDate: Date,
+  publication: MatchPublicationInput | undefined,
+  fallbackPublisherUserId: string | null,
+): void => {
+  if (!shouldPublishListing(publication)) {
+    return;
+  }
+
+  const listingRef = firestore()
+    .collection(PUBLIC_MATCH_LISTINGS_COLLECTION)
+    .doc(buildListingId(matchId));
+
+  batch.set(
+    listingRef,
+    {
+      groupId,
+      groupName,
+      sourceMatchId: matchId,
+      sourceMatchType: 'matches',
+      matchDate: firestore.Timestamp.fromDate(matchDate),
+      city: publication?.city ?? '',
+      neededPlayers: Number(publication?.neededPlayers ?? 0),
+      acceptedPlayers: 0,
+      preferredPositions: publication?.allowAnyPosition ? [] : (publication?.preferredPositions ?? []),
+      allowAnyPosition: Boolean(publication?.allowAnyPosition ?? true),
+      notes: publication?.notes ?? null,
+      status: 'open',
+      closedReason: null,
+      publishedByUserId: publication?.publishedByUserId ?? fallbackPublisherUserId,
+      publishedAt: firestore.FieldValue.serverTimestamp(),
+      closedAt: null,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+};
 
 /**
  * Adds two batch operations on the seasonStats doc for a single player:
@@ -112,6 +176,7 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
   const isDraw = team1Goals === team2Goals;
 
   const batch = firestore().batch();
+  const groupName = await getGroupNameById(groupId);
 
   // Write the match document
   const matchRef = firestore().collection(MATCHES_COLLECTION).doc();
@@ -132,6 +197,21 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
     goalsTeam2: team2Goals,
     team1Color: match.team1Color ?? null,
     team2Color: match.team2Color ?? null,
+    publication: {
+      isPublished: Boolean(match.publication?.isPublished ?? false),
+      neededPlayers: Number(match.publication?.neededPlayers ?? 0),
+      preferredPositions: match.publication?.preferredPositions ?? [],
+      allowAnyPosition: Boolean(match.publication?.allowAnyPosition ?? true),
+      city: match.publication?.city ?? null,
+      notes: match.publication?.notes ?? null,
+      publishedByUserId: match.publication?.isPublished
+        ? (match.publication?.publishedByUserId ?? null)
+        : null,
+      publishedAt: match.publication?.isPublished ? firestore.FieldValue.serverTimestamp() : null,
+      closedAt: null,
+      closedByUserId: null,
+      closeReason: null,
+    },
     mvpGroupMemberId: null,
     players1: match.team1Players.map(p => ({
       groupMemberId: p.groupMemberId,
@@ -159,6 +239,16 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
     // Empty votes map — keys are voterGroupMemberIds, values are votedGroupMemberIds
     mvpVotes: {},
   });
+
+  addPublicListingToBatch(
+    batch,
+    matchRef.id,
+    groupId,
+    groupName,
+    match.date,
+    match.publication,
+    createdByUserId,
+  );
 
   // Process Team 1 players
   for (const player of match.team1Players) {
@@ -218,6 +308,7 @@ export type ScheduledMatchToSave = {
   team2Players: ScheduledPlayerToSave[];
   team1Color?: string;
   team2Color?: string;
+  publication?: MatchPublicationInput;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
 };
@@ -240,6 +331,7 @@ export async function saveScheduledMatch(
   const createdByGroupMemberId = match.createdByGroupMemberId ?? null;
 
   const batch = firestore().batch();
+  const groupName = await getGroupNameById(groupId);
   const matchRef = firestore().collection(MATCHES_COLLECTION).doc();
 
   batch.set(matchRef, {
@@ -254,6 +346,21 @@ export async function saveScheduledMatch(
     goalsTeam2: 0,
     team1Color: match.team1Color ?? null,
     team2Color: match.team2Color ?? null,
+    publication: {
+      isPublished: Boolean(match.publication?.isPublished ?? false),
+      neededPlayers: Number(match.publication?.neededPlayers ?? 0),
+      preferredPositions: match.publication?.preferredPositions ?? [],
+      allowAnyPosition: Boolean(match.publication?.allowAnyPosition ?? true),
+      city: match.publication?.city ?? null,
+      notes: match.publication?.notes ?? null,
+      publishedByUserId: match.publication?.isPublished
+        ? (match.publication?.publishedByUserId ?? null)
+        : null,
+      publishedAt: match.publication?.isPublished ? firestore.FieldValue.serverTimestamp() : null,
+      closedAt: null,
+      closedByUserId: null,
+      closeReason: null,
+    },
     mvpGroupMemberId: null,
     status: 'scheduled',
     players1: match.team1Players.map(p => ({
@@ -275,6 +382,16 @@ export async function saveScheduledMatch(
     mvpVoting: null,
     mvpVotes: {},
   });
+
+  addPublicListingToBatch(
+    batch,
+    matchRef.id,
+    groupId,
+    groupName,
+    match.date,
+    match.publication,
+    createdByUserId,
+  );
 
   await batch.commit();
 }

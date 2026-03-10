@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import { ScrollView, View, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import {
   Text,
@@ -9,11 +9,11 @@ import {
   Card,
   useTheme,
   MD3Theme,
+  IconButton,
 } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import BottomSheet, {
   BottomSheetBackdrop,
-  BottomSheetFlatList,
 } from '@gorhom/bottom-sheet';
 import { useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -35,10 +35,6 @@ import {
   replaceScheduledSlotInChallengeMatch,
 } from '../repositories/matches/matchSignupsRepository';
 import type { AppDrawerParamList } from '../navigation/types';
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const CalendarIcon = () => <Icon name="calendar-month" size={20} color="#FFFFFF" />;
 
 const POSITION_ORDER: Record<ChallengeMatchPlayer['position'], number> = {
   POR: 0,
@@ -112,7 +108,6 @@ export default function ChallengeMatchesScreen() {
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
   const { selectedGroupId, groups } = useAppSelector(state => state.groups);
   const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
-  const currentUser = useAppSelector(state => state.auth.firestoreUser);
 
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
@@ -122,10 +117,40 @@ export default function ChallengeMatchesScreen() {
     groupMemberId: string;
   } | null>(null);
   const [deletingMatchId, setDeletingMatchId] = useState<string | null>(null);
-  const bottomSheetRef = useRef<BottomSheet>(null);
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string | 'all'>('all');
+  const filtersSheetRef = useRef<BottomSheet>(null);
   const slotModalRef = useRef<BottomSheet>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const cardRefs = useRef<Map<string, View | null>>(new Map());
+
+  const eligibleGroups = useMemo(
+    () => groups.filter(group => group.isChallengeMode),
+    [groups],
+  );
+
+  useEffect(() => {
+    if (eligibleGroups.length === 0) {
+      setSelectedGroupFilter('all');
+      return;
+    }
+
+    if (selectedGroupFilter !== 'all' && !eligibleGroups.some(group => group.id === selectedGroupFilter)) {
+      setSelectedGroupFilter(eligibleGroups[0].id);
+    }
+  }, [eligibleGroups, selectedGroupFilter]);
+
+  const targetGroupIds = useMemo(
+    () =>
+      selectedGroupFilter === 'all'
+        ? eligibleGroups.map(group => group.id)
+        : [selectedGroupFilter],
+    [selectedGroupFilter, eligibleGroups],
+  );
+
+  const groupsById = useMemo(
+    () => new Map(groups.map(group => [group.id, group])),
+    [groups],
+  );
 
   const activeGroup = useMemo(
     () => groups.find(g => g.id === selectedGroupId),
@@ -142,7 +167,7 @@ export default function ChallengeMatchesScreen() {
     selectedYear,
     setSelectedYear,
     yearOptions,
-  } = useChallengeMatches(selectedGroupId ?? undefined);
+  } = useChallengeMatches(targetGroupIds);
 
   const {
     currentUserGroupMemberId,
@@ -400,6 +425,45 @@ export default function ChallengeMatchesScreen() {
     return option?.label ?? year.toString();
   };
 
+  const groupFilterOptions = useMemo(
+    () => [
+      { value: 'all' as const, label: 'Todos mis grupos' },
+      ...eligibleGroups.map(group => ({ value: group.id, label: group.name })),
+    ],
+    [eligibleGroups],
+  );
+
+  const selectedGroupFilterLabel = useMemo(() => {
+    if (selectedGroupFilter === 'all') return 'Todos mis grupos';
+    return groupsById.get(selectedGroupFilter)?.name ?? 'Grupo';
+  }, [selectedGroupFilter, groupsById]);
+
+  const appliedFiltersLabel = useMemo(
+    () => `Temporada: ${getYearLabel(selectedYear)} · Grupo: ${selectedGroupFilterLabel}`,
+    [selectedYear, selectedGroupFilterLabel],
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles(theme).headerActions}>
+          <IconButton
+            icon="filter-variant"
+            iconColor={theme.colors.secondary}
+            size={22}
+            onPress={() => filtersSheetRef.current?.expand()}
+          />
+          <IconButton
+            icon="plus"
+            iconColor={theme.colors.secondary}
+            size={22}
+            onPress={() => navigation.navigate('AddChallengeMatch')}
+          />
+        </View>
+      ),
+    });
+  }, [navigation, theme]);
+
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
   const handleVote = useCallback(
@@ -434,7 +498,6 @@ export default function ChallengeMatchesScreen() {
   const handleSelectYear = useCallback(
     (year: number | 'historico') => {
       setSelectedYear(year);
-      bottomSheetRef.current?.close();
     },
     [setSelectedYear],
   );
@@ -455,8 +518,10 @@ export default function ChallengeMatchesScreen() {
     const hasVoted = !!(currentUserGroupMemberId && match.mvpVotes[currentUserGroupMemberId]);
     const opponentLabel = match.opponentName.trim() || 'Rival';
     const isScheduled = match.status === 'scheduled';
-    const teamColor = match.teamColor ?? activeGroup?.defaultTeam1Color ?? theme.colors.primary;
-    const baseOpponentColor = match.opponentColor ?? activeGroup?.defaultTeam2Color ?? '#FFFFFF';
+    const groupForMatch = groupsById.get(match.groupId);
+    const teamColor = match.teamColor ?? groupForMatch?.defaultTeam1Color ?? theme.colors.primary;
+    const baseOpponentColor = match.opponentColor ?? groupForMatch?.defaultTeam2Color ?? '#FFFFFF';
+    const matchGroupName = groupForMatch?.name ?? groupName;
     const opponentColor =
       baseOpponentColor.toLowerCase() === teamColor.toLowerCase()
         ? '#111111'
@@ -482,7 +547,7 @@ export default function ChallengeMatchesScreen() {
             {/* Compact row: groupName | status+score | rival | chevron */}
             <View style={styles(theme).compactRow}>
               <Text variant="bodyMedium" style={styles(theme).compactTeam} numberOfLines={1}>
-                {groupName}
+                {matchGroupName}
               </Text>
               <View style={styles(theme).compactScoreColumn}>
                 <Text style={[styles(theme).statusLabel, getStatusStyle(match.status)]}>
@@ -572,6 +637,12 @@ export default function ChallengeMatchesScreen() {
 
                 <Divider style={styles(theme).divider} />
 
+                {selectedGroupFilter === 'all' ? (
+                  <Text variant="labelSmall" style={styles(theme).groupNameLabel}>
+                    Grupo: {matchGroupName}
+                  </Text>
+                ) : null}
+
                 {/* Lineup */}
                 {starters.length > 0 && (
                   <>
@@ -587,7 +658,7 @@ export default function ChallengeMatchesScreen() {
                       mvpGroupMemberId={match.mvpGroupMemberId}
                       teamColor={teamColor}
                       secondaryTeamColor={opponentColor}
-                      teamName={groupName}
+                      teamName={matchGroupName}
                       secondaryTeamName="Rival"
                       matchDate={match.date}
                       onSlotPress={async ({ slotIndex, groupMemberId }) => {
@@ -672,13 +743,13 @@ export default function ChallengeMatchesScreen() {
 
   // ─── Early returns ───────────────────────────────────────────────────────────
 
-  if (!selectedGroupId) {
+  if (eligibleGroups.length === 0) {
     return (
       <View style={styles(theme).centerContainer}>
         <Icon name="alert-circle" size={48} color={theme.colors.error} />
-        <Text variant="titleMedium" style={styles(theme).errorText}>No hay grupo seleccionado</Text>
+        <Text variant="titleMedium" style={styles(theme).errorText}>No tienes grupos modo reto</Text>
         <Text variant="bodyMedium" style={styles(theme).errorSubtext}>
-          Por favor, selección un grupo desde la pantalla de Grupos
+          Únete o crea un grupo en modo reto para ver partidos.
         </Text>
       </View>
     );
@@ -713,16 +784,9 @@ export default function ChallengeMatchesScreen() {
           <Text variant="bodySmall" style={styles(theme).matchCount}>
             Total: {matches.length} partido{matches.length !== 1 ? 's' : ''}
           </Text>
-          <Button
-            mode="contained"
-            onPress={() => bottomSheetRef.current?.expand()}
-            icon={CalendarIcon}
-            style={styles(theme).yearButton}
-            contentStyle={styles(theme).yearButtonContent}
-            labelStyle={styles(theme).yearButtonLabel}
-          >
-            {getYearLabel(selectedYear)}
-          </Button>
+          <Text variant="bodySmall" style={styles(theme).appliedFiltersText}>
+            {appliedFiltersLabel}
+          </Text>
         </View>
       </Surface>
 
@@ -756,39 +820,55 @@ export default function ChallengeMatchesScreen() {
         )}
       </ScrollView>
 
-      {/* Year selection bottom sheet */}
+      {/* Filters bottom sheet */}
       <Portal>
         <BottomSheet
-          ref={bottomSheetRef}
+          ref={filtersSheetRef}
           index={-1}
-          snapPoints={['50%']}
+          snapPoints={['65%']}
           enablePanDownToClose
           backdropComponent={renderBackdrop}
         >
           <View style={styles(theme).bottomSheetContent}>
             <Text variant="titleMedium" style={styles(theme).bottomSheetTitle}>
-              Seleccionar Temporada
+              Filtros
             </Text>
-            <BottomSheetFlatList
-              data={yearOptions}
-              keyExtractor={(item: { value: number | 'historico'; label: string }) =>
-                item.value.toString()
-              }
-              renderItem={({
-                item,
-              }: {
-                item: { value: number | 'historico'; label: string };
-              }) => (
+            <Text variant="labelMedium" style={styles(theme).sheetSectionTitle}>
+              Temporada
+            </Text>
+            {yearOptions.map(item => (
+              <Button
+                key={item.value.toString()}
+                mode={selectedYear === item.value ? 'contained' : 'text'}
+                onPress={() => handleSelectYear(item.value)}
+                style={styles(theme).yearOptionButton}
+                contentStyle={styles(theme).yearOptionContent}
+              >
+                {item.label}
+              </Button>
+            ))}
+
+            <Text variant="labelMedium" style={styles(theme).sheetSectionTitle}>
+              Grupo
+            </Text>
+            {groupFilterOptions.map(item => (
                 <Button
-                  mode={selectedYear === item.value ? 'contained' : 'text'}
-                  onPress={() => handleSelectYear(item.value)}
+                  key={item.value}
+                  mode={selectedGroupFilter === item.value ? 'contained' : 'text'}
+                  onPress={() => setSelectedGroupFilter(item.value)}
                   style={styles(theme).yearOptionButton}
                   contentStyle={styles(theme).yearOptionContent}
                 >
                   {item.label}
                 </Button>
-              )}
-            />
+            ))}
+            <Button
+              mode="contained"
+              onPress={() => filtersSheetRef.current?.close()}
+              style={styles(theme).applyFiltersButton}
+            >
+              Aplicar
+            </Button>
           </View>
         </BottomSheet>
       </Portal>
@@ -882,14 +962,30 @@ const styles = (theme: MD3Theme) =>
       paddingHorizontal: 16,
     },
     headerContent: { gap: 12 },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginRight: 4,
+    },
     matchCount: { color: '#FFFFFF', textAlign: 'center', opacity: 0.9 },
-    yearButton: { backgroundColor: 'rgba(255, 255, 255, 0.2)', marginVertical: 8 },
-    yearButtonContent: { paddingVertical: 4 },
-    yearButtonLabel: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+    appliedFiltersText: {
+      color: '#FFFFFF',
+      textAlign: 'center',
+      opacity: 0.95,
+    },
     bottomSheetContent: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
     bottomSheetTitle: { textAlign: 'center', marginBottom: 16, fontWeight: 'bold' },
+    sheetSectionTitle: {
+      marginTop: 8,
+      marginBottom: 6,
+      color: theme.colors.onSurfaceVariant,
+      fontWeight: '700',
+    },
     yearOptionButton: { marginVertical: 4 },
     yearOptionContent: { paddingVertical: 8 },
+    applyFiltersButton: {
+      marginTop: 12,
+    },
     emptyState: { padding: 48, alignItems: 'center', gap: 16 },
     emptyText: { textAlign: 'center', color: '#666' },
     emptySubtext: { textAlign: 'center', color: '#999' },
@@ -944,6 +1040,11 @@ const styles = (theme: MD3Theme) =>
       color: theme.colors.primary,
       fontWeight: '700',
       textTransform: 'capitalize',
+    },
+    groupNameLabel: {
+      color: theme.colors.primary,
+      fontWeight: '700',
+      marginBottom: 4,
     },
     centerContainer: {
       flex: 1,

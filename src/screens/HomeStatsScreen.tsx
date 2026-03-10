@@ -40,17 +40,7 @@ export default function HomeStatsScreen() {
   );
 
   const goToMatches = () => {
-    if (activeGroup?.isChallengeMode) {
-      navigation.navigate('ChallengeMatches');
-      return;
-    }
-
-    if (activeGroup?.hasFixedTeams) {
-      navigation.navigate('MatchesByTeams');
-      return;
-    }
-
-    navigation.navigate('Matches');
+    navigation.navigate('MyMatches');
   };
 
   return (
