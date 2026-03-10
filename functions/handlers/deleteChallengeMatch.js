@@ -74,19 +74,12 @@ exports.deleteChallengeMatch = onCall(async request => {
   const matchData = matchSnap.data();
   const groupId = String(matchData.groupId ?? '');
 
-  const memberSnap = await db
-    .collection('groupMembers_v2')
-    .where('groupId', '==', groupId)
-    .where('userId', '==', uid)
-    .limit(1)
-    .get();
-
-  if (memberSnap.empty) {
-    throw new HttpsError('permission-denied', 'No eres miembro de este grupo.');
+  // Verify the caller is the group owner using groups.ownerId (same check as the UI)
+  const groupSnap = await db.collection('groups').doc(groupId).get();
+  if (!groupSnap.exists) {
+    throw new HttpsError('not-found', 'El grupo no existe.');
   }
-
-  const callerRole = String(memberSnap.docs[0].data().role ?? '');
-  if (callerRole !== 'owner') {
+  if (groupSnap.data().ownerId !== uid) {
     throw new HttpsError('permission-denied', 'Solo el owner puede eliminar partidos.');
   }
 
@@ -144,34 +137,31 @@ exports.deleteChallengeMatch = onCall(async request => {
     logger.warn('deleteChallengeMatch: failed to delete reminder docs', { matchId, err: String(err) });
   }
 
-  // Clean up public match listings and their applications
+  // Clean up the public match listing and its applications using the deterministic listing ID
   try {
-    const listingsSnap = await db
-      .collection('publicMatchListings')
-      .where('sourceMatchId', '==', matchId)
-      .get();
+    const listingId = `matchesByChallenge_${matchId}`;
+    const listingRef = db.collection('publicMatchListings').doc(listingId);
+    const listingSnap = await listingRef.get();
 
-    if (!listingsSnap.empty) {
-      for (const listingDoc of listingsSnap.docs) {
-        // Delete applications tied to this listing
-        const applicationsSnap = await db
-          .collection('publicMatchApplications')
-          .where('listingId', '==', listingDoc.id)
-          .get();
+    if (listingSnap.exists) {
+      // Delete all applications tied to this listing
+      const applicationsSnap = await db
+        .collection('publicMatchApplications')
+        .where('listingId', '==', listingId)
+        .get();
 
-        if (!applicationsSnap.empty) {
-          const appRefs = applicationsSnap.docs.map(d => d.ref);
-          const appChunks = chunk(appRefs, 450);
-          for (const appChunk of appChunks) {
-            const batch = db.batch();
-            appChunk.forEach(ref => batch.delete(ref));
-            await batch.commit();
-          }
+      if (!applicationsSnap.empty) {
+        const appRefs = applicationsSnap.docs.map(d => d.ref);
+        const appChunks = chunk(appRefs, 450);
+        for (const appChunk of appChunks) {
+          const batch = db.batch();
+          appChunk.forEach(ref => batch.delete(ref));
+          await batch.commit();
         }
-
-        // Delete the listing itself
-        await listingDoc.ref.delete();
       }
+
+      await listingRef.delete();
+      logger.info('deleteChallengeMatch: listing deleted', { listingId, matchId });
     }
   } catch (err) {
     logger.warn('deleteChallengeMatch: failed to delete publicMatchListings', { matchId, err: String(err) });
