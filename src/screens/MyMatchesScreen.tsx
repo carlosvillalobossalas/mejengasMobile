@@ -362,17 +362,34 @@ export default function MyMatchesScreen() {
 
     const isAdminOrOwnerForSelectedGroup = useMemo(() => {
         if (!selectedMatch || !firebaseUser?.uid) return false;
+        // Owner check via group document (fast, no member subscription needed)
+        const group = groupsById.get(selectedMatch.groupId);
+        if (group?.ownerId === firebaseUser.uid) return true;
+        // Admin/owner role via group member record
         const members = membersByGroup[selectedMatch.groupId] ?? [];
         const member = members.find(m => m.userId === firebaseUser.uid);
         const role = member?.role ?? '';
         return role === 'admin' || role === 'owner';
-    }, [selectedMatch, membersByGroup, firebaseUser?.uid]);
+    }, [selectedMatch, membersByGroup, groupsById, firebaseUser?.uid]);
 
     const isOwnerForSelectedGroup = useMemo(() => {
         if (!selectedMatch || !firebaseUser?.uid) return false;
         const group = groupsById.get(selectedMatch.groupId);
         return group?.ownerId === firebaseUser.uid;
     }, [selectedMatch, groupsById, firebaseUser?.uid]);
+
+    // True if the current user created the selected match (by userId or by groupMemberId)
+    const isCreatorOfSelectedMatch = useMemo(() => {
+        if (!selectedMatch || !firebaseUser?.uid) return false;
+        const memberId = memberIdsByGroup[selectedMatch.groupId] ?? null;
+        const match = selectedClassicMatch ?? selectedTeamsMatch ?? selectedChallengeMatch;
+        if (!match) return false;
+        if (match.createdByUserId === firebaseUser.uid) return true;
+        if (memberId && match.createdByGroupMemberId === memberId) return true;
+        return false;
+    }, [selectedMatch, firebaseUser?.uid, memberIdsByGroup, selectedClassicMatch, selectedTeamsMatch, selectedChallengeMatch]);
+
+    const canEditSelectedMatch = isAdminOrOwnerForSelectedGroup || isCreatorOfSelectedMatch;
 
     // MVP voting hooks — one per match type, active only when the matching type is selected
     const {
@@ -792,7 +809,7 @@ export default function MyMatchesScreen() {
                                 ) : null}
 
                                 {/* Editar */}
-                                {isAdminOrOwnerForSelectedGroup && selectedMatch.type !== 'matchesByTeams' ? (
+                                {canEditSelectedMatch && selectedMatch.type !== 'matchesByTeams' ? (
                                     <TouchableOpacity
                                         style={styles(theme).expandedActionItem}
                                         activeOpacity={0.7}
