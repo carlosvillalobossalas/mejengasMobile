@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
   ActivityIndicator,
+  Avatar,
   Button,
   Card,
   Portal,
@@ -38,6 +39,8 @@ export default function HomeExploreScreen() {
   const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
   const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
   const authUserId = firebaseUser?.uid ?? null;
+  const { groups } = useAppSelector(state => state.groups);
+  const groupsById = useMemo(() => new Map(groups.map(g => [g.id, g])), [groups]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [listings, setListings] = useState<PublicMatchListing[]>([]);
@@ -275,9 +278,23 @@ export default function HomeExploreScreen() {
         </Card>
       ) : (
         <>
-          {listingsByGroup.map(({ groupId, groupName, groupListings }) => (
-            <View key={groupId}>
-              <Text variant="titleMedium" style={styles.sectionTitle}>{groupName}</Text>
+          {listingsByGroup.map(({ groupId, groupName, groupListings }) => {
+            const sectionGroup = groupsById.get(groupId);
+            return (
+              <View key={groupId}>
+                <View style={styles.sectionHeader}>
+                  {sectionGroup?.photoUrl ? (
+                    <Avatar.Image size={36} source={{ uri: sectionGroup.photoUrl }} />
+                  ) : (
+                    <Avatar.Text
+                      size={36}
+                      label={groupName.charAt(0).toUpperCase()}
+                      style={{ backgroundColor: theme.colors.primaryContainer }}
+                      color={theme.colors.primary}
+                    />
+                  )}
+                  <Text variant="titleMedium" style={styles.sectionTitle}>{groupName}</Text>
+                </View>
               {groupListings.map(listing => {
                 const myStatus = myStatusByListingId.get(listing.id);
                 return (
@@ -304,8 +321,9 @@ export default function HomeExploreScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
-          ))}
+              </View>
+            );
+          })}
         </>
       )}
 
@@ -341,7 +359,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   helper: { marginBottom: 12 },
-  sectionTitle: { fontWeight: '700', marginTop: 6 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, marginBottom: 4 },
+  sectionTitle: { fontWeight: '700' },
   badge: { fontWeight: '700' },
   loadingContainer: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 24 },
   applicationRow: {
