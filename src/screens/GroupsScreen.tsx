@@ -18,6 +18,7 @@ import {
   FAB,
   HelperText,
   IconButton,
+  Menu,
   Modal,
   Portal,
   SegmentedButtons,
@@ -88,6 +89,7 @@ export default function GroupsScreen() {
   const [newGroupMode, setNewGroupMode] = useState<GroupMode>('libre');
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [openMenuGroupId, setOpenMenuGroupId] = useState<string | null>(null);
 
   const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
   const firestoreUser = useAppSelector(state => state.auth.firestoreUser);
@@ -211,6 +213,7 @@ export default function GroupsScreen() {
   const handleOpenSettings = useCallback(
     (groupId: string) => {
       if (!userId) return;
+      setOpenMenuGroupId(null);
       dispatch(selectGroup({ userId, groupId }));
       setTimeout(() => navigation.navigate('GroupSettings'), 150);
     },
@@ -220,8 +223,39 @@ export default function GroupsScreen() {
   const handleAddPlayer = useCallback(
     (groupId: string) => {
       if (!userId) return;
+      setOpenMenuGroupId(null);
       dispatch(selectGroup({ userId, groupId }));
       setTimeout(() => navigation.navigate('AddPlayer'), 150);
+    },
+    [userId, dispatch, navigation],
+  );
+
+  const handleManageMembers = useCallback(
+    (groupId: string) => {
+      if (!userId) return;
+      setOpenMenuGroupId(null);
+      dispatch(selectGroup({ userId, groupId }));
+      setTimeout(() => navigation.navigate('ManageMembers'), 150);
+    },
+    [userId, dispatch, navigation],
+  );
+
+  const handleJoinRequests = useCallback(
+    (groupId: string) => {
+      if (!userId) return;
+      setOpenMenuGroupId(null);
+      dispatch(selectGroup({ userId, groupId }));
+      setTimeout(() => navigation.navigate('JoinRequests'), 150);
+    },
+    [userId, dispatch, navigation],
+  );
+
+  const handleManageTeams = useCallback(
+    (groupId: string) => {
+      if (!userId) return;
+      setOpenMenuGroupId(null);
+      dispatch(selectGroup({ userId, groupId }));
+      setTimeout(() => navigation.navigate('ManageTeams'), 150);
     },
     [userId, dispatch, navigation],
   );
@@ -320,18 +354,47 @@ export default function GroupsScreen() {
                 </View>
 
                 <View style={styles.cardActions}>
-                  <IconButton
-                    icon="account-plus"
-                    size={20}
-                    iconColor={theme.colors.primary}
-                    onPress={() => handleAddPlayer(group.id)}
-                  />
-                  <IconButton
-                    icon="cog-outline"
-                    size={20}
-                    iconColor={theme.colors.onSurfaceVariant}
-                    onPress={() => handleOpenSettings(group.id)}
-                  />
+                  <Menu
+                    visible={openMenuGroupId === group.id}
+                    onDismiss={() => setOpenMenuGroupId(null)}
+                    contentStyle={{ backgroundColor: '#FFFFFF' }}
+                    anchor={
+                      <IconButton
+                        icon="dots-vertical"
+                        size={22}
+                        iconColor={theme.colors.onSurfaceVariant}
+                        onPress={() => setOpenMenuGroupId(group.id)}
+                      />
+                    }
+                  >
+                    <Menu.Item
+                      leadingIcon="account-plus"
+                      onPress={() => handleAddPlayer(group.id)}
+                      title="Agregar jugador"
+                    />
+                    <Menu.Item
+                      leadingIcon="account-group"
+                      onPress={() => handleManageMembers(group.id)}
+                      title="Gestionar miembros"
+                    />
+                    <Menu.Item
+                      leadingIcon="account-clock"
+                      onPress={() => handleJoinRequests(group.id)}
+                      title="Solicitudes de unión"
+                    />
+                    {group.hasFixedTeams && (
+                      <Menu.Item
+                        leadingIcon="shield-account"
+                        onPress={() => handleManageTeams(group.id)}
+                        title="Administrar equipos"
+                      />
+                    )}
+                    <Menu.Item
+                      leadingIcon="cog-outline"
+                      onPress={() => handleOpenSettings(group.id)}
+                      title="Configuración"
+                    />
+                  </Menu>
                 </View>
               </View>
 
@@ -546,8 +609,6 @@ const styles = StyleSheet.create({
     marginBottom: -4,
   },
   cardActions: {
-    flexDirection: 'column',
-    alignItems: 'center',
     marginRight: -8,
   },
   metaText: {

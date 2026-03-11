@@ -68,15 +68,6 @@ export default function HomeManageScreen() {
           </Button>
         </Card.Content>
       </Card>
-
-      {canAdmin && (
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <View style={styles.row}><Icon name="cog" size={22} color={theme.colors.primary} /><Text variant="titleMedium">Administrar Grupo</Text></View>
-            <Button mode="contained" buttonColor={theme.colors.primary} textColor={theme.colors.onSecondary} onPress={() => navigation.navigate('Admin')}>Abrir administración</Button>
-          </Card.Content>
-        </Card>
-      )}
     </ScrollView>
   );
 }

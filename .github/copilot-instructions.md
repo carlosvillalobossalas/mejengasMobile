@@ -133,6 +133,7 @@
 - Always write text labels in Spanish (UI)
 - NEVER use react-native-paper `Dialog` — it passes `style` to a Fragment internally and throws a warning/error in this project. Use `Modal` from react-native-paper with a custom container `View` styled with `backgroundColor: '#FFFFFF'` and `borderRadius` instead.
 - NEVER pass a `style` prop to `<List.Item>` — it gets forwarded to a Fragment internally and throws a warning. Use a plain View + TouchableRipple instead when you need custom layout inside a Dialog.
+- ALWAYS pass `contentStyle={{ backgroundColor: '#FFFFFF' }}` to react-native-paper `Menu` components — without it the menu background picks up the theme's primary/surface tint and shows an unwanted pink/rose color.
 - Assume the project uses:
   - React / React Native
   - Redux Toolkit

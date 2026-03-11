@@ -12,7 +12,6 @@ import MyMatchesScreen from '../screens/MyMatchesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InvitationsScreen from '../screens/InvitationsScreen';
 import PublicMatchApplicationsScreen from '../screens/PublicMatchApplicationsScreen';
-import AdminScreen from '../screens/AdminScreen';
 import JoinRequestsScreen from '../screens/JoinRequestsScreen';
 import AddMatchScreen from '../screens/AddMatchScreen';
 import AddMatchTeamsScreen from '../screens/AddMatchTeamsScreen';
@@ -215,25 +214,17 @@ export default function AppNavigator() {
         }}
       />
       <Drawer.Screen
-        name="Admin"
-        component={AdminScreen}
-        options={{
-          title: 'Administrar Grupo',
-          drawerItemStyle: isAdmin ? undefined : { display: 'none' },
-        }}
-      />
-      <Drawer.Screen
         name="JoinRequests"
         component={JoinRequestsScreen}
         options={({ navigation }) => ({
           title: 'Solicitudes de Unión',
-          drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+          drawerItemStyle: { display: 'none' },
           headerLeft: () => (
             <IconButton
               icon="chevron-left"
               iconColor={theme.colors.secondary}
               size={26}
-              onPress={() => navigation.navigate('Admin')}
+              onPress={() => navigation.navigate('Groups')}
             />
           ),
         })}
@@ -294,13 +285,13 @@ export default function AppNavigator() {
         component={ManageMembersScreen}
         options={({ navigation }) => ({
           title: 'Gestionar Miembros',
-          drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+          drawerItemStyle: { display: 'none' },
           headerLeft: () => (
             <IconButton
               icon="chevron-left"
               iconColor={theme.colors.secondary}
               size={26}
-              onPress={() => navigation.navigate('Admin')}
+              onPress={() => navigation.navigate('Groups')}
             />
           ),
         })}
@@ -326,13 +317,13 @@ export default function AppNavigator() {
         component={ManageTeamsScreen}
         options={({ navigation }) => ({
           title: 'Administrar Equipos',
-          drawerItemStyle: isAdmin && activeGroup?.hasFixedTeams ? undefined : { display: 'none' },
+          drawerItemStyle: { display: 'none' },
           headerLeft: () => (
             <IconButton
               icon="chevron-left"
               iconColor={theme.colors.secondary}
               size={26}
-              onPress={() => navigation.navigate('Admin')}
+              onPress={() => navigation.navigate('Groups')}
             />
           ),
         })}
