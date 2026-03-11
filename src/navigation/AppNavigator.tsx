@@ -278,13 +278,13 @@ export default function AppNavigator() {
         component={AddPlayerScreen}
         options={({ navigation }) => ({
           title: 'Agregar Jugador',
-          drawerItemStyle: isAdmin ? undefined : { display: 'none' },
+          drawerItemStyle: { display: 'none' },
           headerLeft: () => (
             <IconButton
               icon="chevron-left"
               iconColor={theme.colors.secondary}
               size={26}
-              onPress={() => navigation.navigate('Admin')}
+              onPress={() => navigation.navigate('Groups')}
             />
           ),
         })}

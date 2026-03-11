@@ -10,7 +10,7 @@ import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { selectGroup } from '../features/groups/groupsSlice';
 import AdminGroupSelectDialog from '../components/admin/AdminGroupSelectDialog';
 
-type NavigableRoute = 'AddPlayer' | 'ManageMembers' | 'JoinRequests' | 'GroupSettings' | 'ManageTeams';
+type NavigableRoute = 'ManageMembers' | 'JoinRequests' | 'GroupSettings' | 'ManageTeams';
 
 type AdminOption = {
   id: string;
@@ -32,14 +32,6 @@ export default function AdminScreen() {
   const [pendingRoute, setPendingRoute] = useState<NavigableRoute | null>(null);
 
   const adminOptions: AdminOption[] = [
-    {
-      id: 'add-player',
-      title: 'Agregar Jugador',
-      description: 'Añadir un nuevo jugador invitado al grupo',
-      icon: 'account-plus',
-      color: theme.colors.primary,
-      route: 'AddPlayer',
-    },
     {
       id: 'manage-members',
       title: 'Gestionar Miembros',
@@ -68,7 +60,6 @@ export default function AdminScreen() {
 
   const dialogTitle = useMemo(() => {
     switch (pendingRoute) {
-      case 'AddPlayer': return 'Agregar Jugador';
       case 'ManageMembers': return 'Gestionar Miembros';
       case 'JoinRequests': return 'Solicitudes de Unión';
       case 'GroupSettings': return 'Configuración del grupo';

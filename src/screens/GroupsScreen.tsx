@@ -64,6 +64,18 @@ const deriveModeFlags = (mode: GroupMode) => ({
   isChallengeMode: mode === 'retos',
 });
 
+const MATCH_TYPE_LABELS: Record<string, string> = {
+  futbol_5: 'Fútbol 5',
+  futbol_7: 'Fútbol 7',
+  futbol_11: 'Fútbol 11',
+};
+
+const getGroupModeLabel = (hasFixedTeams: boolean, isChallengeMode: boolean): string => {
+  if (isChallengeMode) return 'Retos';
+  if (hasFixedTeams) return 'Por equipos';
+  return 'Libre';
+};
+
 export default function GroupsScreen() {
   const dispatch = useAppDispatch();
   const theme = useTheme();
@@ -200,8 +212,16 @@ export default function GroupsScreen() {
     (groupId: string) => {
       if (!userId) return;
       dispatch(selectGroup({ userId, groupId }));
-      // Small delay so the selection is committed before navigating
       setTimeout(() => navigation.navigate('GroupSettings'), 150);
+    },
+    [userId, dispatch, navigation],
+  );
+
+  const handleAddPlayer = useCallback(
+    (groupId: string) => {
+      if (!userId) return;
+      dispatch(selectGroup({ userId, groupId }));
+      setTimeout(() => navigation.navigate('AddPlayer'), 150);
     },
     [userId, dispatch, navigation],
   );
@@ -267,6 +287,8 @@ export default function GroupsScreen() {
       {groups.map(group => {
         const ownerName = group.ownerId ? owners[group.ownerId] || 'Cargando...' : 'Desconocido';
         const isOwner = group.ownerId === userId;
+        const typeLabel = MATCH_TYPE_LABELS[group.type] ?? group.type;
+        const modeLabel = getGroupModeLabel(group.hasFixedTeams, group.isChallengeMode);
 
         return (
           <Card key={group.id} style={styles.card}>
@@ -292,17 +314,25 @@ export default function GroupsScreen() {
                       {group.description}
                     </Text>
                   ) : null}
-                  <Text variant="labelSmall" style={styles.ownerText}>
-                    Dueño: {ownerName}
+                  <Text variant="labelSmall" style={styles.metaText}>
+                    {typeLabel} · {modeLabel} · {ownerName}
                   </Text>
                 </View>
 
-                <IconButton
-                  icon="cog-outline"
-                  size={22}
-                  iconColor={theme.colors.onSurfaceVariant}
-                  onPress={() => handleOpenSettings(group.id)}
-                />
+                <View style={styles.cardActions}>
+                  <IconButton
+                    icon="account-plus"
+                    size={20}
+                    iconColor={theme.colors.primary}
+                    onPress={() => handleAddPlayer(group.id)}
+                  />
+                  <IconButton
+                    icon="cog-outline"
+                    size={20}
+                    iconColor={theme.colors.onSurfaceVariant}
+                    onPress={() => handleOpenSettings(group.id)}
+                  />
+                </View>
               </View>
 
               {!isOwner && (
@@ -514,6 +544,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     marginTop: 0,
     marginBottom: -4,
+  },
+  cardActions: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginRight: -8,
+  },
+  metaText: {
+    opacity: 0.45,
+    marginTop: 2,
   },
   fab: {
     position: 'absolute',
