@@ -118,15 +118,6 @@ export default function AppDrawerContent({
           icon={({ color, size }) => <List.Icon icon="email-multiple-outline" color={color} style={{ width: size }} />}
           style={styles.subItem}
         />
-        {isAdmin && (
-          <DrawerItem
-            label="Administrar Grupo"
-            focused={activeRouteName === 'Admin'}
-            onPress={() => navigation.navigate('Admin')}
-            icon={({ color, size }) => <List.Icon icon="cog" color={color} style={{ width: size }} />}
-            style={styles.subItem}
-          />
-        )}
       </List.Accordion>
 
       <View style={styles.logoutWrap}>
