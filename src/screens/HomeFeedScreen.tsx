@@ -428,6 +428,7 @@ export default function HomeFeedScreen() {
         if (feedItem.kind === 'listing') {
             const { listing } = feedItem;
             const groupName = getListingGroupName(listing);
+            const group = groupsById.get(listing.groupId);
             const spotsLeft = Math.max(0, listing.neededPlayers - listing.acceptedPlayers);
             return (
                 <TouchableOpacity
@@ -435,43 +436,50 @@ export default function HomeFeedScreen() {
                     activeOpacity={0.6}
                     onPress={() => handleOpenListing(listing)}
                 >
-                    <View style={styles.feedMeta}>
-                        <View style={[styles.feedDot, { backgroundColor: theme.colors.secondary }]} />
-                        <Text
-                            variant="labelSmall"
-                            style={[styles.feedMetaType, { color: theme.colors.secondary }]}
-                        >
-                            Búsqueda
-                        </Text>
-                        <Text variant="labelSmall" style={styles.feedMetaSub} numberOfLines={1}>
-                            · {groupName}
-                        </Text>
-                        <Icon
-                            name="chevron-right"
-                            size={14}
-                            color={theme.colors.onSurfaceVariant}
-                            style={styles.feedMetaChevron}
-                        />
+                    <View style={styles.feedAvatarCol}>
+                        {group?.photoUrl ? (
+                            <Avatar.Image size={38} source={{ uri: group.photoUrl }} />
+                        ) : (
+                            <Avatar.Text
+                                size={38}
+                                label={groupName.charAt(0).toUpperCase()}
+                                style={{ backgroundColor: theme.colors.secondaryContainer }}
+                                color={theme.colors.secondary}
+                            />
+                        )}
                     </View>
-                    <Text variant="bodyMedium" style={styles.feedRowTitle} numberOfLines={1}>
-                        {formatDate(listing.matchDate)}
-                        {listing.city ? ` · ${listing.city}` : ''}
-                    </Text>
-                    <Text variant="bodySmall" style={styles.feedRowSubtitle}>
-                        {spotsLeft === 0
-                            ? 'Sin cupos disponibles'
-                            : `${spotsLeft} cupo${spotsLeft !== 1 ? 's' : ''} disponible${spotsLeft !== 1 ? 's' : ''}`}
-                    </Text>
-                    {listing.notes ? (
-                        <Text variant="bodySmall" style={styles.feedRowNotes} numberOfLines={2}>
-                            {listing.notes}
+                    <View style={styles.feedContentCol}>
+                        <View style={styles.feedContentHeader}>
+                            <Text variant="labelMedium" style={styles.feedGroupName} numberOfLines={1}>
+                                {groupName}
+                            </Text>
+                            <View style={[styles.feedDot, { backgroundColor: theme.colors.secondary }]} />
+                            <Text variant="labelSmall" style={[styles.feedMetaType, { color: theme.colors.secondary }]}>
+                                Búsqueda
+                            </Text>
+                            <Icon name="chevron-right" size={13} color={theme.colors.onSurfaceVariant} />
+                        </View>
+                        <Text variant="bodyMedium" style={styles.feedRowTitle} numberOfLines={1}>
+                            {formatDate(listing.matchDate)}
+                            {listing.city ? ` · ${listing.city}` : ''}
                         </Text>
-                    ) : null}
+                        <Text variant="bodySmall" style={styles.feedRowSubtitle}>
+                            {spotsLeft === 0
+                                ? 'Sin cupos disponibles'
+                                : `${spotsLeft} cupo${spotsLeft !== 1 ? 's' : ''} disponible${spotsLeft !== 1 ? 's' : ''}`}
+                        </Text>
+                        {listing.notes ? (
+                            <Text variant="bodySmall" style={styles.feedRowNotes} numberOfLines={2}>
+                                {listing.notes}
+                            </Text>
+                        ) : null}
+                    </View>
                 </TouchableOpacity>
             );
         }
 
         const { item } = feedItem;
+        const group = groupsById.get(item.groupId);
         const typeColor =
             item.type === 'matchesByChallenge'
                 ? ((theme.colors as unknown as Record<string, string>).tertiary ?? theme.colors.primary)
@@ -485,39 +493,53 @@ export default function HomeFeedScreen() {
                 activeOpacity={0.6}
                 onPress={() => openMatchDetails(item)}
             >
-                <View style={styles.feedMeta}>
-                    <View style={[styles.feedDot, { backgroundColor: typeColor }]} />
-                    <Text variant="labelSmall" style={[styles.feedMetaType, { color: typeColor }]}>
-                        Partido
+                <View style={styles.feedAvatarCol}>
+                    {group?.photoUrl ? (
+                        <Avatar.Image size={38} source={{ uri: group.photoUrl }} />
+                    ) : (
+                        <Avatar.Text
+                            size={38}
+                            label={item.groupName.charAt(0).toUpperCase()}
+                            style={{ backgroundColor: theme.colors.primaryContainer }}
+                            color={theme.colors.primary}
+                        />
+                    )}
+                </View>
+                <View style={styles.feedContentCol}>
+                    <View style={styles.feedContentHeader}>
+                        <Text variant="labelMedium" style={styles.feedGroupName} numberOfLines={1}>
+                            {item.groupName}
+                        </Text>
+                        <View style={[styles.feedDot, { backgroundColor: typeColor }]} />
+                        <Text variant="labelSmall" style={[styles.feedMetaType, { color: typeColor }]}>
+                            Partido
+                        </Text>
+                        {item.isParticipant ? (
+                            <View style={styles.participantBadge}>
+                                <Icon name="check-circle" size={11} color={theme.colors.primary} />
+                                <Text variant="labelSmall" style={[styles.participantLabel, { color: theme.colors.primary }]}>
+                                    Yo jugué
+                                </Text>
+                            </View>
+                        ) : null}
+                    </View>
+                    <Text variant="bodyMedium" style={styles.feedRowTitle}>
+                        {item.leftLabel} vs {item.rightLabel}
                     </Text>
-                    <Text variant="labelSmall" style={styles.feedMetaSub} numberOfLines={1}>
-                        · {item.groupName}
-                    </Text>
-                    {item.isParticipant ? (
-                        <View style={styles.participantBadge}>
-                            <Icon name="check-circle" size={11} color={theme.colors.primary} />
-                            <Text variant="labelSmall" style={[styles.participantLabel, { color: theme.colors.primary }]}>
-                                Yo jugué
+                    {item.status === 'finished' ? (
+                        <Text variant="titleMedium" style={[styles.feedRowScore, { color: typeColor }]}>
+                            {item.leftScore} – {item.rightScore}
+                        </Text>
+                    ) : null}
+                    <View style={styles.feedRowBottom}>
+                        <Text variant="bodySmall" style={styles.feedRowSubtitle}>
+                            {formatDate(item.date)}
+                        </Text>
+                        <View style={[styles.statusPill, { backgroundColor: STATUS_COLOR[item.status] + '22' }]}>
+                            <Text variant="labelSmall" style={[styles.statusPillText, { color: STATUS_COLOR[item.status] }]}>
+                                {STATUS_LABEL[item.status] ?? item.status}
                             </Text>
                         </View>
-                    ) : null}
-                </View>
-                <Text variant="bodyMedium" style={styles.feedRowTitle}>
-                    {item.leftLabel} vs {item.rightLabel}
-                </Text>
-                {item.status === 'finished' ? (
-                    <Text variant="titleMedium" style={[styles.feedRowScore, { color: typeColor }]}>
-                        {item.leftScore} – {item.rightScore}
-                    </Text>
-                ) : null}
-                <View style={styles.feedRowBottom}>
-                    <Text variant="bodySmall" style={styles.feedRowSubtitle}>
-                        {formatDate(item.date)}
-                    </Text>
-                    <View style={[styles.statusPill, { backgroundColor: STATUS_COLOR[item.status] + '22' }]}>
-                        <Text variant="labelSmall" style={[styles.statusPillText, { color: STATUS_COLOR[item.status] }]}>
-                            {STATUS_LABEL[item.status] ?? item.status}
-                        </Text>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -636,7 +658,7 @@ export default function HomeFeedScreen() {
                 renderItem={renderFeedItem}
                 ListHeaderComponent={ListHeader}
                 ListEmptyComponent={ListEmpty}
-                ItemSeparatorComponent={() => <Divider />}
+                ItemSeparatorComponent={() => <Divider style={{ height: 1.5 }} />}
                 contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 16 }]}
             />
 
@@ -779,23 +801,34 @@ const styles = StyleSheet.create({
     feedRow: {
         backgroundColor: '#FFFFFF',
         paddingHorizontal: 16,
-        paddingVertical: 14,
-        gap: 4,
+        paddingVertical: 22,
+        flexDirection: 'row',
+        gap: 10,
     },
-    feedMeta: {
+    feedAvatarCol: {
+        paddingTop: 2,
+    },
+    feedContentCol: {
+        flex: 1,
+        gap: 3,
+    },
+    feedContentHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
-        marginBottom: 2,
+        marginBottom: 1,
+    },
+    feedGroupName: {
+        fontWeight: '700',
+        color: '#1A1A1A',
+        flexShrink: 1,
     },
     feedDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
     },
     feedMetaType: { fontWeight: '700', letterSpacing: 0.2 },
-    feedMetaSub: { color: '#888', flex: 1 },
-    feedMetaChevron: { marginLeft: 4 },
     feedRowTitle: { fontWeight: '700', color: '#1A1A1A' },
     feedRowScore: { fontWeight: '900', lineHeight: 28 },
     feedRowSubtitle: { color: '#666' },
