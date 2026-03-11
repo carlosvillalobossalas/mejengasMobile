@@ -1,11 +1,28 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Button, Card, HelperText, Text, TextInput, useTheme } from 'react-native-paper';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Avatar, Button, Card, HelperText, Text, TextInput, useTheme } from 'react-native-paper';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
-import { useAppSelector } from '../app/hooks';
+import { useAppDispatch, useAppSelector } from '../app/hooks';
+import { updateGroupPhoto } from '../features/groups/groupsSlice';
 import {
   updateGroupSettings,
 } from '../repositories/groups/groupSettingsRepository';
+import { updateGroupPhotoUrl } from '../repositories/groups/groupsRepository';
+import { uploadGroupPhoto } from '../services/storage/groupPhotoService';
+
+const MATCH_TYPE_LABELS: Record<string, string> = {
+  futbol_5: 'Fútbol 5',
+  futbol_7: 'Fútbol 7',
+  futbol_11: 'Fútbol 11',
+};
+
+const getGroupModeLabel = (hasFixedTeams: boolean, isChallengeMode: boolean): string => {
+  if (isChallengeMode) return 'Retos';
+  if (hasFixedTeams) return 'Por equipos';
+  return 'Libre';
+};
 
 const TEAM_COLOR_OPTIONS = [
   '#000000',
@@ -24,6 +41,7 @@ const TEAM_COLOR_OPTIONS = [
 
 export default function GroupSettingsScreen() {
   const theme = useTheme();
+  const dispatch = useAppDispatch();
   const { selectedGroupId, groups } = useAppSelector(state => state.groups);
 
   const selectedGroup = useMemo(
@@ -34,6 +52,7 @@ export default function GroupSettingsScreen() {
   const [name, setName] = useState(selectedGroup?.name ?? '');
   const [defaultTeam1Color, setDefaultTeam1Color] = useState(selectedGroup?.defaultTeam1Color ?? '#000000');
   const [defaultTeam2Color, setDefaultTeam2Color] = useState(selectedGroup?.defaultTeam2Color ?? '#FFFFFF');
+  const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -41,9 +60,27 @@ export default function GroupSettingsScreen() {
     setName(selectedGroup.name ?? '');
     setDefaultTeam1Color(selectedGroup.defaultTeam1Color ?? '#000000');
     setDefaultTeam2Color(selectedGroup.defaultTeam2Color ?? '#FFFFFF');
+    setLocalPhotoUri(null); // reset local pick when group changes
   }, [selectedGroup]);
 
   const canEditTeamDefaults = Boolean(selectedGroup && !selectedGroup.hasFixedTeams && !selectedGroup.isChallengeMode);
+
+  const pickPhoto = useCallback(async () => {
+    const result = await launchImageLibrary({
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 800,
+      maxHeight: 800,
+    });
+    if (!result.didCancel && result.assets?.length) {
+      const uri = result.assets[0].uri;
+      if (uri) {
+        const normalized =
+          Platform.OS === 'ios' && !uri.startsWith('file://') ? `file://${uri}` : uri;
+        setLocalPhotoUri(normalized);
+      }
+    }
+  }, []);
 
   const isNameValid = name.trim().length > 0;
 
@@ -54,6 +91,15 @@ export default function GroupSettingsScreen() {
 
     setIsSaving(true);
     try {
+      // Upload new photo if one was picked
+      if (localPhotoUri) {
+        const url = await uploadGroupPhoto(selectedGroup.id, localPhotoUri);
+        await updateGroupPhotoUrl(selectedGroup.id, url);
+        // Update the Redux store immediately so the UI reflects the new photo
+        dispatch(updateGroupPhoto({ groupId: selectedGroup.id, photoUrl: url }));
+        setLocalPhotoUri(null);
+      }
+
       await updateGroupSettings({
         groupId: selectedGroup.id,
         name,
@@ -86,7 +132,55 @@ export default function GroupSettingsScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Card style={[styles.card, { backgroundColor: theme.colors.onPrimary }] }>
         <Card.Content>
-          <Text variant="titleLarge" style={styles.title}>Configuración del grupo</Text>
+
+          {/* Avatar */}
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={pickPhoto}
+            disabled={isSaving}
+            activeOpacity={0.7}
+          >
+            {localPhotoUri ? (
+              <Avatar.Image size={80} source={{ uri: localPhotoUri }} />
+            ) : selectedGroup.photoUrl ? (
+              <Avatar.Image size={80} source={{ uri: selectedGroup.photoUrl }} />
+            ) : (
+              <Avatar.Text
+                size={80}
+                label={selectedGroup.name.charAt(0).toUpperCase()}
+                style={{ backgroundColor: theme.colors.primaryContainer }}
+                color={theme.colors.primary}
+              />
+            )}
+            <View style={[styles.avatarCameraIcon, isSaving && styles.avatarCameraIconUploading]}>
+              {isSaving ? (
+                <ActivityIndicator size={16} color="#FFFFFF" />
+              ) : (
+                <Icon name="camera" size={16} color="#FFFFFF" />
+              )}
+            </View>
+          </TouchableOpacity>
+          {localPhotoUri && (
+            <TouchableOpacity onPress={() => setLocalPhotoUri(null)} style={styles.removePhotoButton}>
+              <Text variant="labelSmall" style={{ color: theme.colors.error }}>Eliminar foto nueva</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Read-only group info */}
+          <View style={styles.infoRow}>
+            <View style={styles.infoChip}>
+              <Icon name="soccer" size={14} color={theme.colors.primary} />
+              <Text variant="labelMedium" style={[styles.infoChipText, { color: theme.colors.primary }]}>
+                {MATCH_TYPE_LABELS[selectedGroup.type] ?? selectedGroup.type}
+              </Text>
+            </View>
+            <View style={styles.infoChip}>
+              <Icon name="account-group" size={14} color={theme.colors.secondary} />
+              <Text variant="labelMedium" style={[styles.infoChipText, { color: theme.colors.secondary }]}>
+                {getGroupModeLabel(selectedGroup.hasFixedTeams, selectedGroup.isChallengeMode)}
+              </Text>
+            </View>
+          </View>
 
           <TextInput
             mode="outlined"
@@ -185,6 +279,49 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 12,
+  },
+  avatarContainer: {
+    alignSelf: 'center',
+    marginBottom: 8,
+    position: 'relative',
+  },
+  avatarCameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#2196F3',
+    borderRadius: 18,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  avatarCameraIconUploading: {
+    backgroundColor: '#90CAF9',
+  },
+  removePhotoButton: {
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  infoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  infoChipText: {
+    fontWeight: '600',
   },
   title: {
     fontWeight: '700',

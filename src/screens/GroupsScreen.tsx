@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,9 +7,11 @@ import {
   ScrollView,
   Platform,
   Keyboard,
-  Switch as NativeSwitch,
+  TouchableOpacity,
+  Image,
 } from 'react-native';
 import {
+  Avatar,
   Button,
   Card,
   HelperText,
@@ -22,13 +24,17 @@ import {
   SegmentedButtons,
   useTheme,
 } from 'react-native-paper';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
-import { selectGroup } from '../features/groups/groupsSlice';
+import { selectGroup, setGroups } from '../features/groups/groupsSlice';
 import { getUserById } from '../repositories/users/usersRepository';
-import { subscribeToGroupsForUser, createGroup, leaveGroup, type Group } from '../repositories/groups/groupsRepository';
+import { subscribeToGroupsForUser, createGroup, leaveGroup, updateGroupPhotoUrl, type Group } from '../repositories/groups/groupsRepository';
+import { uploadGroupPhoto } from '../services/storage/groupPhotoService';
 
 type GroupType = 'futbol_7' | 'futbol_5' | 'futbol_11';
+type GroupMode = 'libre' | 'equipos' | 'retos';
 
 const GROUP_TYPE_OPTIONS = [
   { value: 'futbol_5', label: 'Fútbol 5' },
@@ -36,45 +42,55 @@ const GROUP_TYPE_OPTIONS = [
   { value: 'futbol_11', label: 'Fútbol 11' },
 ];
 
+const GROUP_MODE_OPTIONS = [
+  { value: 'libre', label: 'Libre' },
+  { value: 'equipos', label: 'Equipos' },
+  { value: 'retos', label: 'Retos' },
+];
+
+const GROUP_MODE_DESCRIPTIONS: Record<GroupMode, string> = {
+  libre: 'Los equipos se arman libremente partido a partido. Ideal para mejengas o grupos casuales.',
+  equipos: 'El grupo tiene equipos fijos con jugadores asignados. Ideal para ligas o torneos.',
+  retos: 'Solo se registra el equipo del grupo. Los rivales se identifican por nombre. Ideal para partidos contra otros equipos.',
+};
+
+const deriveModeFlags = (mode: GroupMode) => ({
+  hasFixedTeams: mode === 'equipos',
+  isChallengeMode: mode === 'retos',
+});
+
 export default function GroupsScreen() {
   const dispatch = useAppDispatch();
   const theme = useTheme()
   const [owners, setOwners] = useState<Record<string, string>>({});
-  const [groups, setGroupsLocal] = useState<Group[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupType, setNewGroupType] = useState<GroupType>('futbol_7');
-  const [hasFixedTeams, setHasFixedTeams] = useState(false);
-  const [isChallengeMode, setIsChallengeMode] = useState(false);
+  const [newGroupMode, setNewGroupMode] = useState<GroupMode>('libre');
+  const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
   const firestoreUser = useAppSelector(state => state.auth.firestoreUser);
   const { selectedGroupId } = useAppSelector(state => state.groups);
-  const reduxGroups = useAppSelector(state => state.groups.groups);
-
-  // Initialize groups from Redux
-  useEffect(() => {
-    if (reduxGroups.length > 0 && groups.length === 0) {
-      setGroupsLocal(reduxGroups);
-    }
-  }, [reduxGroups, groups.length]);
+  const groups = useAppSelector(state => state.groups.groups);
 
   useEffect(() => {
     if (!userId) return;
 
-    // Subscribe to real-time updates of groups
+    // Subscribe to real-time updates — keep Redux in sync so any
+    // local patch (e.g. updateGroupPhoto) is preserved across screens
     const unsubscribe = subscribeToGroupsForUser(userId, (groupsData) => {
-      setGroupsLocal(groupsData);
+      dispatch(setGroups(groupsData));
     });
 
     return () => {
       unsubscribe();
     };
-  }, [userId]);
+  }, [userId, dispatch]);
 
-  // Fetch owner names for all groups
+  // Fetch owner names for all groups when the group list changes
   useEffect(() => {
     const fetchOwners = async () => {
       const ownerIds = [...new Set(groups.map(g => g.ownerId).filter(Boolean))];
@@ -102,6 +118,31 @@ export default function GroupsScreen() {
   const [isLoading] = useState(false);
   const [error] = useState<string | null>(null);
 
+  const resetForm = () => {
+    setNewGroupName('');
+    setNewGroupDescription('');
+    setNewGroupType('futbol_7');
+    setNewGroupMode('libre');
+    setLocalPhotoUri(null);
+  };
+
+  const pickPhoto = useCallback(async () => {
+    const result = await launchImageLibrary({
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 800,
+      maxHeight: 800,
+    });
+    if (!result.didCancel && result.assets?.length) {
+      const uri = result.assets[0].uri;
+      if (uri) {
+        const normalized =
+          Platform.OS === 'ios' && !uri.startsWith('file://') ? `file://${uri}` : uri;
+        setLocalPhotoUri(normalized);
+      }
+    }
+  }, []);
+
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) {
       Alert.alert('Error', 'Por favor ingresa un nombre para el grupo');
@@ -115,7 +156,9 @@ export default function GroupsScreen() {
 
     setIsCreating(true);
     try {
-      await createGroup(
+      const { hasFixedTeams, isChallengeMode } = deriveModeFlags(newGroupMode);
+
+      const groupId = await createGroup(
         newGroupName.trim(),
         newGroupDescription.trim(),
         userId,
@@ -126,12 +169,18 @@ export default function GroupsScreen() {
         firestoreUser?.photoURL ?? null,
       );
 
+      // Upload avatar if one was selected — non-blocking, group already created
+      if (localPhotoUri) {
+        try {
+          const url = await uploadGroupPhoto(groupId, localPhotoUri);
+          await updateGroupPhotoUrl(groupId, url);
+        } catch {
+          console.warn('Group photo upload failed');
+        }
+      }
+
       Alert.alert('Éxito', 'Grupo creado correctamente');
-      setNewGroupName('');
-      setNewGroupDescription('');
-      setNewGroupType('futbol_7');
-      setHasFixedTeams(false);
-      setIsChallengeMode(false);
+      resetForm();
       setShowCreateModal(false);
     } catch (error) {
       console.error('Error creating group:', error);
@@ -145,6 +194,7 @@ export default function GroupsScreen() {
     if (!userId) return;
     dispatch(selectGroup({ userId, groupId }));
   };
+
 
   const handleLeaveGroup = (group: Group) => {
     if (!userId) return;
@@ -212,6 +262,20 @@ export default function GroupsScreen() {
           <Card key={group.id} style={styles.card}>
             <Card.Content style={styles.cardContent}>
               <View style={styles.cardHeader}>
+                {group.photoUrl ? (
+                  <Avatar.Image
+                    size={44}
+                    source={{ uri: group.photoUrl }}
+                    style={styles.groupAvatar}
+                  />
+                ) : (
+                  <Avatar.Text
+                    size={44}
+                    label={group.name.charAt(0).toUpperCase()}
+                    style={[styles.groupAvatar, { backgroundColor: theme.colors.primaryContainer }]}
+                    color={theme.colors.primary}
+                  />
+                )}
                 <View style={styles.textContainer}>
                   <Text variant="titleMedium" style={styles.groupName}>
                     {group.name}
@@ -266,11 +330,7 @@ export default function GroupsScreen() {
           onDismiss={() => {
             Keyboard.dismiss();
             setShowCreateModal(false);
-            setNewGroupName('');
-            setNewGroupDescription('');
-            setNewGroupType('futbol_7');
-            setHasFixedTeams(false);
-            setIsChallengeMode(false);
+            resetForm();
           }}
           contentContainerStyle={styles.modalWrapper}
         >
@@ -287,6 +347,25 @@ export default function GroupsScreen() {
                 <Text variant="titleLarge" style={styles.modalTitle}>
                   Crear Nuevo Grupo
                 </Text>
+
+                {/* Group avatar picker */}
+                <TouchableOpacity
+                  style={styles.avatarPicker}
+                  onPress={pickPhoto}
+                  disabled={isCreating}
+                  activeOpacity={0.7}
+                >
+                  {localPhotoUri ? (
+                    <Image source={{ uri: localPhotoUri }} style={styles.avatarPickerImage} />
+                  ) : (
+                    <View style={styles.avatarPickerPlaceholder}>
+                      <Icon name="camera-plus" size={28} color="#9E9E9E" />
+                      <Text variant="labelSmall" style={styles.avatarPickerLabel}>
+                        Foto del grupo
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
 
                 <TextInput
                   label="Nombre del grupo"
@@ -312,6 +391,23 @@ export default function GroupsScreen() {
                   {newGroupDescription.length}/240
                 </HelperText>
 
+                <Text variant="labelLarge" style={styles.fieldLabel}>Modo de juego</Text>
+                <SegmentedButtons
+                  value={newGroupMode}
+                  onValueChange={value => setNewGroupMode(value as GroupMode)}
+                  buttons={GROUP_MODE_OPTIONS}
+                  style={styles.segmentedButtons}
+                  theme={{
+                    colors: {
+                      secondaryContainer: theme.colors.primary,
+                      onSecondaryContainer: '#FFFFFF',
+                    },
+                  }}
+                />
+                <Text variant="bodySmall" style={styles.modeDescription}>
+                  {GROUP_MODE_DESCRIPTIONS[newGroupMode]}
+                </Text>
+
                 <Text variant="labelLarge" style={styles.fieldLabel}>Tipo de partido</Text>
                 <SegmentedButtons
                   value={newGroupType}
@@ -325,60 +421,12 @@ export default function GroupsScreen() {
                     },
                   }}
                 />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextContainer}>
-                    <Text variant="labelLarge">Equipos definidos</Text>
-                    <Text variant="bodySmall" style={styles.switchDescription}>
-                      {hasFixedTeams
-                        ? 'Cada equipo tiene jugadores fijos asignados'
-                        : 'Los equipos se arman libremente por partido'}
-                    </Text>
-                  </View>
-                  <NativeSwitch
-                    value={hasFixedTeams}
-                    onValueChange={val => {
-                      setHasFixedTeams(val);
-                      if (val) setIsChallengeMode(false);
-                    }}
-                    disabled={isCreating || isChallengeMode}
-                    trackColor={{ false: '#D1D5DB', true: theme.colors.primary }}
-                    thumbColor="#FFFFFF"
-                    ios_backgroundColor="#D1D5DB"
-                  />
-                </View>
-
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextContainer}>
-                    <Text variant="labelLarge">Modo Desafío</Text>
-                    <Text variant="bodySmall" style={styles.switchDescription}>
-                      {isChallengeMode
-                        ? 'Solo se registra el equipo propio, los rivales por nombre'
-                        : 'Activar para grupos donde siempre juega el mismo equipo'}
-                    </Text>
-                  </View>
-                  <NativeSwitch
-                    value={isChallengeMode}
-                    onValueChange={val => {
-                      setIsChallengeMode(val);
-                      if (val) setHasFixedTeams(false);
-                    }}
-                    disabled={isCreating || hasFixedTeams}
-                    trackColor={{ false: '#D1D5DB', true: theme.colors.primary }}
-                    thumbColor="#FFFFFF"
-                    ios_backgroundColor="#D1D5DB"
-                  />
-                </View>
-
                 <View style={styles.modalButtons}>
                   <Button
                     mode="outlined"
                     onPress={() => {
                       setShowCreateModal(false);
-                      setNewGroupName('');
-                      setNewGroupDescription('');
-                      setNewGroupType('futbol_7');
-                      setHasFixedTeams(false);
-                      setIsChallengeMode(false);
+                      resetForm();
                     }}
                     disabled={isCreating}
                     style={styles.modalButton}
@@ -438,7 +486,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
+  },
+  groupAvatar: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
   },
   cardActions: {
     alignItems: 'flex-end',
@@ -497,20 +549,38 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   segmentedButtons: {
-    marginBottom: 20,
+    marginBottom: 8,
   },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  modeDescription: {
+    color: '#666',
     marginBottom: 20,
-    gap: 12,
+    lineHeight: 18,
   },
-  switchTextContainer: {
+  avatarPicker: {
+    alignSelf: 'center',
+    marginBottom: 20,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    borderStyle: 'dashed',
+  },
+  avatarPickerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPickerPlaceholder: {
     flex: 1,
-    gap: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#F5F5F5',
   },
-  switchDescription: {
-    opacity: 0.6,
+  avatarPickerLabel: {
+    color: '#9E9E9E',
+    fontSize: 10,
+    textAlign: 'center',
   },
 });

@@ -16,6 +16,7 @@ export type Group = {
   isChallengeMode: boolean;
   defaultTeam1Color: string;
   defaultTeam2Color: string;
+  photoUrl: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -73,6 +74,7 @@ const mapGroupDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Group => {
     isChallengeMode: Boolean(data.isChallengeMode ?? false),
     defaultTeam1Color: String(data.defaultTeam1Color ?? DEFAULT_TEAM_1_COLOR),
     defaultTeam2Color: String(data.defaultTeam2Color ?? DEFAULT_TEAM_2_COLOR),
+    photoUrl: data.photoUrl ? String(data.photoUrl) : null,
   };
 };
 
@@ -502,6 +504,22 @@ export async function createGroup(
   await ensureGroupNotificationDefaults(ownerId, docRef.id);
 
   return docRef.id;
+}
+
+/**
+ * Update the photoUrl of a group document.
+ */
+export async function updateGroupPhotoUrl(
+  groupId: string,
+  photoUrl: string,
+): Promise<void> {
+  await firestore()
+    .collection(GROUPS_COLLECTION)
+    .doc(groupId)
+    .update({
+      photoUrl,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    });
 }
 
 /**

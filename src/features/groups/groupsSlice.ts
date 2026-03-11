@@ -81,6 +81,12 @@ const groupsSlice = createSlice({
     setSelectedGroupId(state, action: PayloadAction<string | null>) {
       state.selectedGroupId = action.payload;
     },
+    updateGroupPhoto(state, action: PayloadAction<{ groupId: string; photoUrl: string | null }>) {
+      const group = state.groups.find(g => g.id === action.payload.groupId);
+      if (group) {
+        group.photoUrl = action.payload.photoUrl;
+      }
+    },
     clearGroupsError(state) {
       state.error = null;
       if (state.status === 'error') state.status = 'idle';
@@ -156,5 +162,5 @@ const groupsSlice = createSlice({
   },
 });
 
-export const { setSelectedGroupId, clearGroupsError, setGroups } = groupsSlice.actions;
+export const { setSelectedGroupId, clearGroupsError, setGroups, updateGroupPhoto } = groupsSlice.actions;
 export default groupsSlice.reducer;
