@@ -56,14 +56,6 @@ export default function AdminScreen() {
       color: theme.colors.primary,
       route: 'JoinRequests',
     },
-    {
-      id: 'group-settings',
-      title: 'Configuración del grupo',
-      description: 'Editar nombre y colores por defecto para camisetas del partido',
-      icon: 'cog-outline',
-      color: theme.colors.secondary,
-      route: 'GroupSettings',
-    },
   ];
 
   const hasTeamsGroups = groups.some(g => g.hasFixedTeams);

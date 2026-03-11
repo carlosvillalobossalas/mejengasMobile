@@ -1,34 +1,39 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  StyleSheet,
-  View,
   Alert,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
-  Keyboard,
-  TouchableOpacity,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import {
+  ActivityIndicator,
   Avatar,
   Button,
   Card,
-  HelperText,
-  Text,
-  ActivityIndicator,
-  Portal,
-  Modal,
-  TextInput,
   FAB,
+  HelperText,
+  IconButton,
+  Modal,
+  Portal,
   SegmentedButtons,
+  Text,
+  TextInput,
   useTheme,
 } from 'react-native-paper';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
+import { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useNavigation } from '@react-navigation/native';
+
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { selectGroup, setGroups } from '../features/groups/groupsSlice';
+import type { AppDrawerParamList } from '../navigation/types';
 import { getUserById } from '../repositories/users/usersRepository';
 import { subscribeToGroupsForUser, createGroup, leaveGroup, updateGroupPhotoUrl, type Group } from '../repositories/groups/groupsRepository';
 import { uploadGroupPhoto } from '../services/storage/groupPhotoService';
@@ -61,7 +66,8 @@ const deriveModeFlags = (mode: GroupMode) => ({
 
 export default function GroupsScreen() {
   const dispatch = useAppDispatch();
-  const theme = useTheme()
+  const theme = useTheme();
+  const navigation = useNavigation<DrawerNavigationProp<AppDrawerParamList>>();
   const [owners, setOwners] = useState<Record<string, string>>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -73,7 +79,7 @@ export default function GroupsScreen() {
 
   const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
   const firestoreUser = useAppSelector(state => state.auth.firestoreUser);
-  const { selectedGroupId } = useAppSelector(state => state.groups);
+  const selectedGroupId = useAppSelector(state => state.groups.selectedGroupId);
   const groups = useAppSelector(state => state.groups.groups);
 
   useEffect(() => {
@@ -190,11 +196,15 @@ export default function GroupsScreen() {
     }
   };
 
-  const onSelectGroup = (groupId: string) => {
-    if (!userId) return;
-    dispatch(selectGroup({ userId, groupId }));
-  };
-
+  const handleOpenSettings = useCallback(
+    (groupId: string) => {
+      if (!userId) return;
+      dispatch(selectGroup({ userId, groupId }));
+      // Small delay so the selection is committed before navigating
+      setTimeout(() => navigation.navigate('GroupSettings'), 150);
+    },
+    [userId, dispatch, navigation],
+  );
 
   const handleLeaveGroup = (group: Group) => {
     if (!userId) return;
@@ -255,63 +265,57 @@ export default function GroupsScreen() {
       ) : null}
 
       {groups.map(group => {
-        const isSelected = group.id === selectedGroupId;
         const ownerName = group.ownerId ? owners[group.ownerId] || 'Cargando...' : 'Desconocido';
+        const isOwner = group.ownerId === userId;
 
         return (
           <Card key={group.id} style={styles.card}>
             <Card.Content style={styles.cardContent}>
               <View style={styles.cardHeader}>
                 {group.photoUrl ? (
-                  <Avatar.Image
-                    size={44}
-                    source={{ uri: group.photoUrl }}
-                    style={styles.groupAvatar}
-                  />
+                  <Avatar.Image size={48} source={{ uri: group.photoUrl }} />
                 ) : (
                   <Avatar.Text
-                    size={44}
+                    size={48}
                     label={group.name.charAt(0).toUpperCase()}
-                    style={[styles.groupAvatar, { backgroundColor: theme.colors.primaryContainer }]}
+                    style={{ backgroundColor: theme.colors.primaryContainer }}
                     color={theme.colors.primary}
                   />
                 )}
+
                 <View style={styles.textContainer}>
                   <Text variant="titleMedium" style={styles.groupName}>
                     {group.name}
                   </Text>
-
                   {group.description ? (
                     <Text variant="bodySmall" style={styles.description}>
                       {group.description}
                     </Text>
                   ) : null}
-
                   <Text variant="labelSmall" style={styles.ownerText}>
                     Dueño: {ownerName}
                   </Text>
                 </View>
 
-                <View style={styles.cardActions}>
-                  <Button
-                    mode={isSelected ? 'contained' : 'elevated'}
-                    onPress={() => onSelectGroup(group.id)}
-                    compact
-                  >
-                    {isSelected ? 'Seleccionado' : 'Seleccionar'}
-                  </Button>
-                  {group.ownerId !== userId ? (
-                    <Button
-                      mode="text"
-                      textColor={theme.colors.error}
-                      onPress={() => handleLeaveGroup(group)}
-                      compact
-                    >
-                      Abandonar
-                    </Button>
-                  ) : null}
-                </View>
+                <IconButton
+                  icon="cog-outline"
+                  size={22}
+                  iconColor={theme.colors.onSurfaceVariant}
+                  onPress={() => handleOpenSettings(group.id)}
+                />
               </View>
+
+              {!isOwner && (
+                <Button
+                  mode="text"
+                  compact
+                  textColor={theme.colors.error}
+                  onPress={() => handleLeaveGroup(group)}
+                  style={styles.leaveButton}
+                >
+                  Abandonar grupo
+                </Button>
+              )}
             </Card.Content>
           </Card>
         );
@@ -320,7 +324,8 @@ export default function GroupsScreen() {
       <FAB
         icon="plus"
         label="Crear Grupo"
-        style={styles.fab}
+        color='white'
+        style={{...styles.fab, backgroundColor: theme.colors.primary, }}
         onPress={() => setShowCreateModal(true)}
       />
 
@@ -475,41 +480,40 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   card: {
-    borderRadius: 8,
-    elevation: 1,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    elevation: 0,
   },
   cardContent: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  groupAvatar: {
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  cardActions: {
-    alignItems: 'flex-end',
-    gap: 4,
+    gap: 12,
   },
   textContainer: {
     flex: 1,
-    gap: 4,
+    gap: 2,
   },
   groupName: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   description: {
-    opacity: 0.7,
+    opacity: 0.65,
     lineHeight: 18,
   },
   ownerText: {
-    opacity: 0.5,
+    opacity: 0.45,
     marginTop: 2,
+  },
+  leaveButton: {
+    alignSelf: 'flex-end',
+    marginTop: 0,
+    marginBottom: -4,
   },
   fab: {
     position: 'absolute',
