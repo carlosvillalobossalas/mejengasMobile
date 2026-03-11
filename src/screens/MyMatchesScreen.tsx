@@ -4,7 +4,6 @@ import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import auth from '@react-native-firebase/auth';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import {
     Button,
@@ -21,15 +20,9 @@ import {
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { selectGroup } from '../features/groups/groupsSlice';
 import type { AppDrawerParamList } from '../navigation/types';
-import MatchLineup from '../components/MatchLineup';
-import PlayersList from '../components/PlayersList';
-import ChallengeMatchLineup from '../components/ChallengeMatchLineup';
-import MatchByTeamsPlayersList from '../components/MatchByTeamsPlayersList';
-import MvpVotingModal from '../components/MvpVotingModal';
-import ChallengeMvpVotingModal from '../components/ChallengeMvpVotingModal';
 import MatchCompactCard from '../components/myMatches/MatchCompactCard';
-import ChallengePlayerRow from '../components/myMatches/ChallengePlayerRow';
 import AddMatchDialog from '../components/myMatches/AddMatchDialog';
+import MatchDetailSheet from '../components/myMatches/MatchDetailSheet';
 import { type MatchTypeFilter, type MatchStatusFilter, type MatchParticipationFilter, type UnifiedMatchItem, type SelectedMatch, TYPE_LABEL, statusLabel } from '../components/myMatches/types';
 import {
     subscribeToGroupMembersV2ByGroupId,
@@ -39,28 +32,16 @@ import { subscribeToMatchesByGroupId, type Match } from '../repositories/matches
 import {
     subscribeToMatchesByTeamsByGroupId,
     type MatchByTeams,
-    castMvpVoteByTeams,
 } from '../repositories/matches/matchesByTeamsRepository';
 import {
     subscribeToMatchesByChallengeByGroupId,
     type ChallengeMatch,
-    type ChallengeMatchPlayer,
 } from '../repositories/matches/matchesByChallengeRepository';
 import {
     subscribeToTeamsByGroupId,
     type Team,
 } from '../repositories/teams/teamsRepository';
-import { shareMatchOnWhatsApp } from '../services/matches/matchShareService';
-import { shareChallengeMatchOnWhatsApp } from '../services/matches/challengeMatchShareService';
-import { useMvpVoting } from '../hooks/useMvpVoting';
-import { useChallengeMatchMvpVoting } from '../hooks/useChallengeMatchMvpVoting';
 
-const CHALLENGE_POSITION_ORDER: Record<ChallengeMatchPlayer['position'], number> = {
-    POR: 0,
-    DEF: 1,
-    MED: 2,
-    DEL: 3,
-};
 
 const formatDateHeader = (dateKey: string): string => {
     const todayKey = new Date().toLocaleDateString('en-CA');
@@ -92,14 +73,12 @@ export default function MyMatchesScreen() {
     const filtersSheetRef = useRef<BottomSheet>(null);
     const detailsSheetRef = useRef<BottomSheet>(null);
 
-    const [deletingMatchId, setDeletingMatchId] = useState<string | null>(null);
     const [selectedYear, setSelectedYear] = useState<number | 'historico'>(new Date().getFullYear());
     const [selectedGroupFilter, setSelectedGroupFilter] = useState<string | 'all'>('all');
     const [selectedTypeFilter, setSelectedTypeFilter] = useState<MatchTypeFilter>('all');
     const [selectedStatusFilter, setSelectedStatusFilter] = useState<MatchStatusFilter>('all');
     const [selectedParticipationFilter, setSelectedParticipationFilter] = useState<MatchParticipationFilter>('all');
     const [selectedMatch, setSelectedMatch] = useState<SelectedMatch | null>(null);
-    const [selectedVotingMatchId, setSelectedVotingMatchId] = useState<string | null>(null);
 
     // Add match dialog
     const [addDialogVisible, setAddDialogVisible] = useState(false);
@@ -321,208 +300,6 @@ export default function MyMatchesScreen() {
         return Array.from(grouped.entries());
     }, [filteredMatches]);
 
-    const selectedClassicMatch = useMemo(
-        () =>
-            selectedMatch?.type === 'matches'
-                ? (classicByGroup[selectedMatch.groupId] ?? []).find(match => match.id === selectedMatch.id) ?? null
-                : null,
-        [selectedMatch, classicByGroup],
-    );
-
-    const selectedTeamsMatch = useMemo(
-        () =>
-            selectedMatch?.type === 'matchesByTeams'
-                ? (teamsMatchesByGroup[selectedMatch.groupId] ?? []).find(match => match.id === selectedMatch.id) ?? null
-                : null,
-        [selectedMatch, teamsMatchesByGroup],
-    );
-
-    const selectedChallengeMatch = useMemo(
-        () =>
-            selectedMatch?.type === 'matchesByChallenge'
-                ? (challengeByGroup[selectedMatch.groupId] ?? []).find(match => match.id === selectedMatch.id) ?? null
-                : null,
-        [selectedMatch, challengeByGroup],
-    );
-
-    const selectedGroupMembers = selectedMatch ? membersByGroup[selectedMatch.groupId] ?? [] : [];
-    const selectedGroup = selectedMatch ? groupsById.get(selectedMatch.groupId) : undefined;
-    const selectedTeams = selectedMatch ? teamsByGroup[selectedMatch.groupId] ?? [] : [];
-
-    const selectedChallengePlayers = useMemo(() => {
-        if (!selectedChallengeMatch) return { starters: [] as ChallengeMatchPlayer[], subs: [] as ChallengeMatchPlayer[] };
-        const sorted = [...selectedChallengeMatch.players].sort(
-            (a, b) => CHALLENGE_POSITION_ORDER[a.position] - CHALLENGE_POSITION_ORDER[b.position],
-        );
-        return {
-            starters: sorted.filter(player => !player.isSub),
-            subs: sorted.filter(player => player.isSub),
-        };
-    }, [selectedChallengeMatch]);
-
-    const isAdminOrOwnerForSelectedGroup = useMemo(() => {
-        if (!selectedMatch || !firebaseUser?.uid) return false;
-        // Owner check via group document (fast, no member subscription needed)
-        const group = groupsById.get(selectedMatch.groupId);
-        if (group?.ownerId === firebaseUser.uid) return true;
-        // Admin/owner role via group member record
-        const members = membersByGroup[selectedMatch.groupId] ?? [];
-        const member = members.find(m => m.userId === firebaseUser.uid);
-        const role = member?.role ?? '';
-        return role === 'admin' || role === 'owner';
-    }, [selectedMatch, membersByGroup, groupsById, firebaseUser?.uid]);
-
-    const isOwnerForSelectedGroup = useMemo(() => {
-        if (!selectedMatch || !firebaseUser?.uid) return false;
-        const group = groupsById.get(selectedMatch.groupId);
-        return group?.ownerId === firebaseUser.uid;
-    }, [selectedMatch, groupsById, firebaseUser?.uid]);
-
-    // True if the current user created the selected match (by userId or by groupMemberId)
-    const isCreatorOfSelectedMatch = useMemo(() => {
-        if (!selectedMatch || !firebaseUser?.uid) return false;
-        const memberId = memberIdsByGroup[selectedMatch.groupId] ?? null;
-        const match = selectedClassicMatch ?? selectedTeamsMatch ?? selectedChallengeMatch;
-        if (!match) return false;
-        if (match.createdByUserId === firebaseUser.uid) return true;
-        if (memberId && match.createdByGroupMemberId === memberId) return true;
-        return false;
-    }, [selectedMatch, firebaseUser?.uid, memberIdsByGroup, selectedClassicMatch, selectedTeamsMatch, selectedChallengeMatch]);
-
-    const canEditSelectedMatch = isAdminOrOwnerForSelectedGroup || isCreatorOfSelectedMatch;
-
-    // MVP voting hooks — one per match type, active only when the matching type is selected
-    const {
-        currentUserGroupMemberId: classicMvpMemberId,
-        canVoteInMatch: canVoteClassic,
-        castVote: castClassicVote,
-        isVoting: isVotingClassic,
-        voteError: classicVoteError,
-        clearVoteError: clearClassicVoteError,
-    } = useMvpVoting(
-        selectedMatch?.type === 'matches' ? selectedMatch.groupId : null,
-        firebaseUser?.uid ?? null,
-    );
-
-    const {
-        currentUserGroupMemberId: teamsMvpMemberId,
-        canVoteInMatch: canVoteTeams,
-        castVote: castTeamsVote,
-        isVoting: isVotingTeams,
-        voteError: teamsVoteError,
-        clearVoteError: clearTeamsVoteError,
-    } = useMvpVoting(
-        selectedMatch?.type === 'matchesByTeams' ? selectedMatch.groupId : null,
-        firebaseUser?.uid ?? null,
-        castMvpVoteByTeams,
-    );
-
-    const {
-        currentUserGroupMemberId: challengeMvpMemberId,
-        canVoteInMatch: canVoteChallenge,
-        castVote: castChallengeVote,
-        isVoting: isVotingChallenge,
-        voteError: challengeVoteError,
-        clearVoteError: clearChallengeVoteError,
-    } = useChallengeMatchMvpVoting(
-        selectedMatch?.type === 'matchesByChallenge' ? selectedMatch.groupId : null,
-        firebaseUser?.uid ?? null,
-    );
-
-    const activeMvpMemberId = selectedMatch?.type === 'matchesByChallenge'
-        ? challengeMvpMemberId
-        : selectedMatch?.type === 'matchesByTeams'
-            ? teamsMvpMemberId
-            : classicMvpMemberId;
-
-    const canVoteCurrentMatch = useMemo(() => {
-        if (selectedClassicMatch) return canVoteClassic(selectedClassicMatch);
-        if (selectedTeamsMatch) return canVoteTeams(selectedTeamsMatch);
-        if (selectedChallengeMatch) return canVoteChallenge(selectedChallengeMatch);
-        return false;
-    }, [selectedClassicMatch, selectedTeamsMatch, selectedChallengeMatch, canVoteClassic, canVoteTeams, canVoteChallenge]);
-
-    const hasAlreadyVoted = useMemo(() => {
-        if (!activeMvpMemberId) return false;
-        if (selectedClassicMatch) return Boolean(selectedClassicMatch.mvpVotes[activeMvpMemberId]);
-        if (selectedTeamsMatch) return Boolean(selectedTeamsMatch.mvpVotes[activeMvpMemberId]);
-        if (selectedChallengeMatch) return Boolean(selectedChallengeMatch.mvpVotes[activeMvpMemberId]);
-        return false;
-    }, [activeMvpMemberId, selectedClassicMatch, selectedTeamsMatch, selectedChallengeMatch]);
-
-    const deleteClassicMatch = useCallback(async (matchId: string) => {
-        if (deletingMatchId) return;
-        setDeletingMatchId(matchId);
-        try {
-            const currentUser = auth().currentUser;
-            if (!currentUser) throw new Error('No autenticado');
-            const idToken = await currentUser.getIdToken();
-            const response = await fetch(
-                'https://us-central1-mejengas-a7794.cloudfunctions.net/deleteMatch',
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-                    body: JSON.stringify({ data: { matchId } }),
-                },
-            );
-            if (!response.ok) throw new Error('No se pudo eliminar el partido');
-            detailsSheetRef.current?.close();
-            Alert.alert('Partido eliminado', 'El partido se eliminó correctamente.');
-        } catch (err) {
-            console.error('MyMatchesScreen: error deleting classic match', err);
-            Alert.alert('Error', 'No se pudo eliminar el partido. Intenta de nuevo.');
-        } finally {
-            setDeletingMatchId(null);
-        }
-    }, [deletingMatchId]);
-
-    const deleteChallengeMatch = useCallback(async (matchId: string) => {
-        if (deletingMatchId) return;
-        setDeletingMatchId(matchId);
-        try {
-            const currentUser = auth().currentUser;
-            if (!currentUser) throw new Error('No autenticado');
-            const idToken = await currentUser.getIdToken();
-            const response = await fetch(
-                'https://us-central1-mejengas-a7794.cloudfunctions.net/deleteChallengeMatch',
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-                    body: JSON.stringify({ data: { matchId } }),
-                },
-            );
-            if (!response.ok) throw new Error('No se pudo eliminar el partido');
-            detailsSheetRef.current?.close();
-            Alert.alert('Partido eliminado', 'El partido se eliminó correctamente.');
-        } catch (err) {
-            console.error('MyMatchesScreen: error deleting challenge match', err);
-            Alert.alert('Error', 'No se pudo eliminar el partido. Intenta de nuevo.');
-        } finally {
-            setDeletingMatchId(null);
-        }
-    }, [deletingMatchId]);
-
-    const handleDeleteMatchPress = useCallback((matchId: string, type: UnifiedMatchItem['type']) => {
-        Alert.alert(
-            'Eliminar partido',
-            '¿Deseas eliminar este partido? Esta acción no se puede deshacer.',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Eliminar',
-                    style: 'destructive',
-                    onPress: () => {
-                        if (type === 'matchesByChallenge') {
-                            void deleteChallengeMatch(matchId);
-                        } else {
-                            void deleteClassicMatch(matchId);
-                        }
-                    },
-                },
-            ],
-        );
-    }, [deleteClassicMatch, deleteChallengeMatch]);
-
     const renderBackdrop = useCallback(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (props: any) => (
@@ -545,14 +322,6 @@ export default function MyMatchesScreen() {
             }),
         [groups],
     );
-
-    const handleShareMatch = useCallback(() => {
-        if (selectedClassicMatch) {
-            void shareMatchOnWhatsApp(selectedClassicMatch, selectedGroupMembers);
-        } else if (selectedChallengeMatch && selectedGroup) {
-            void shareChallengeMatchOnWhatsApp(selectedChallengeMatch, selectedGroup.name, selectedGroupMembers);
-        }
-    }, [selectedClassicMatch, selectedChallengeMatch, selectedGroup, selectedGroupMembers]);
 
     const handleTypeSelect = useCallback((route: 'AddMatch' | 'AddMatchTeams' | 'AddChallengeMatch') => {
         const compatible = compatibleGroupsForRoute(route);
@@ -776,225 +545,28 @@ export default function MyMatchesScreen() {
                     snapPoints={['90%']}
                     enablePanDownToClose
                     onChange={index => {
-                        if (index === -1) {
-                            setSelectedMatch(null);
-                            setSelectedVotingMatchId(null);
-                        }
+                        if (index === -1) setSelectedMatch(null);
                     }}
                     topInset={insets.top}
                     android_keyboardInputMode="adjustResize"
                     backdropComponent={renderBackdrop}
                 >
-                    <BottomSheetScrollView contentContainerStyle={styles(theme).detailsContent}>
-                        <Text variant="titleMedium">Detalle del partido</Text>
-                        {selectedMatch ? (
-                            <Text variant="labelSmall" style={styles(theme).groupTypeLabel}>
-                                {(groupsById.get(selectedMatch.groupId)?.name ?? 'Grupo')} · {TYPE_LABEL[selectedMatch.type]}
-                            </Text>
-                        ) : null}
-
-                        {/* Acciones rápidas */}
-                        {selectedMatch ? (
-                            <View style={styles(theme).expandedActions}>
-                                {/* Compartir — clásico y reto (teams no tiene share) */}
-                                {selectedMatch.type !== 'matchesByTeams' ? (
-                                    <TouchableOpacity
-                                        onPress={handleShareMatch}
-                                        style={styles(theme).expandedActionItem}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Icon name="whatsapp" size={22} color="#25D366" />
-                                        <Text variant="labelSmall" style={styles(theme).expandedActionLabel}>Compartir</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-
-                                {/* Editar */}
-                                {canEditSelectedMatch && selectedMatch.type !== 'matchesByTeams' ? (
-                                    <TouchableOpacity
-                                        style={styles(theme).expandedActionItem}
-                                        activeOpacity={0.7}
-                                        onPress={() => {
-                                            detailsSheetRef.current?.close();
-                                            const route = selectedMatch.type === 'matchesByChallenge'
-                                                ? 'EditChallengeMatch'
-                                                : 'EditMatch';
-                                            setTimeout(() => navigation.navigate(route, { matchId: selectedMatch.id }), 200);
-                                        }}
-                                    >
-                                        <Icon name="pencil" size={22} color={theme.colors.primary} />
-                                        <Text variant="labelSmall" style={styles(theme).expandedActionLabel}>Editar</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-
-                                {/* Eliminar */}
-                                {isOwnerForSelectedGroup && selectedMatch.type !== 'matchesByTeams' ? (
-                                    <TouchableOpacity
-                                        style={styles(theme).expandedActionItem}
-                                        activeOpacity={0.7}
-                                        disabled={deletingMatchId === selectedMatch.id}
-                                        onPress={() => handleDeleteMatchPress(selectedMatch.id, selectedMatch.type)}
-                                    >
-                                        <Icon name="delete-outline" size={22} color={theme.colors.error} />
-                                        <Text variant="labelSmall" style={styles(theme).expandedActionLabelDanger}>
-                                            {deletingMatchId === selectedMatch.id ? 'Eliminando...' : 'Eliminar'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ) : null}
-
-                                {/* Votar MVP */}
-                                {canVoteCurrentMatch ? (
-                                    <TouchableOpacity
-                                        onPress={() => setSelectedVotingMatchId(selectedMatch.id)}
-                                        style={styles(theme).expandedActionItem}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Icon name="star-circle-outline" size={22} color={theme.colors.secondary} />
-                                        <Text variant="labelSmall" style={styles(theme).expandedActionLabel}>
-                                            {hasAlreadyVoted ? 'Cambiar voto' : 'Votar MVP'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ) : null}
-                            </View>
-                        ) : null}
-
-                        {selectedClassicMatch ? (
-                            <>
-                                <MatchLineup
-                                    team1Players={selectedClassicMatch.players1}
-                                    team2Players={selectedClassicMatch.players2}
-                                    allPlayers={selectedGroupMembers}
-                                    mvpGroupMemberId={selectedClassicMatch.mvpGroupMemberId}
-                                    team1Color={selectedClassicMatch.team1Color ?? selectedGroup?.defaultTeam1Color}
-                                    team2Color={selectedClassicMatch.team2Color ?? selectedGroup?.defaultTeam2Color}
-                                    matchDate={selectedClassicMatch.date}
-                                    onSlotPress={() => { }}
-                                />
-                                <View style={styles(theme).detailSpacer} />
-                                <PlayersList
-                                    team1Players={selectedClassicMatch.players1}
-                                    team2Players={selectedClassicMatch.players2}
-                                    allPlayers={selectedGroupMembers}
-                                    mvpGroupMemberId={selectedClassicMatch.mvpGroupMemberId}
-                                />
-                            </>
-                        ) : null}
-
-                        {selectedTeamsMatch ? (
-                            <>
-                                <MatchLineup
-                                    team1Players={selectedTeamsMatch.players1}
-                                    team2Players={selectedTeamsMatch.players2}
-                                    allPlayers={selectedGroupMembers}
-                                    mvpGroupMemberId={selectedTeamsMatch.mvpGroupMemberId}
-                                    team1Name={selectedTeams.find(team => team.id === selectedTeamsMatch.team1Id)?.name}
-                                    team2Name={selectedTeams.find(team => team.id === selectedTeamsMatch.team2Id)?.name}
-                                    team1Color={selectedTeams.find(team => team.id === selectedTeamsMatch.team1Id)?.color}
-                                    team2Color={selectedTeams.find(team => team.id === selectedTeamsMatch.team2Id)?.color}
-                                    matchDate={selectedTeamsMatch.date}
-                                    onSlotPress={() => { }}
-                                />
-                                <View style={styles(theme).detailSpacer} />
-                                <MatchByTeamsPlayersList
-                                    players1={selectedTeamsMatch.players1}
-                                    players2={selectedTeamsMatch.players2}
-                                    team1={selectedTeams.find(team => team.id === selectedTeamsMatch.team1Id)}
-                                    team2={selectedTeams.find(team => team.id === selectedTeamsMatch.team2Id)}
-                                    groupMembers={selectedGroupMembers}
-                                    mvpGroupMemberId={selectedTeamsMatch.mvpGroupMemberId}
-                                />
-                            </>
-                        ) : null}
-
-                        {selectedChallengeMatch ? (
-                            <>
-                                <ChallengeMatchLineup
-                                    players={selectedChallengeMatch.players}
-                                    allPlayers={selectedGroupMembers}
-                                    mvpGroupMemberId={selectedChallengeMatch.mvpGroupMemberId}
-                                    teamColor={selectedChallengeMatch.teamColor ?? selectedGroup?.defaultTeam1Color ?? theme.colors.primary}
-                                    secondaryTeamColor={selectedChallengeMatch.opponentColor ?? selectedGroup?.defaultTeam2Color ?? theme.colors.secondary}
-                                    teamName={selectedGroup?.name ?? 'Mi equipo'}
-                                    secondaryTeamName={selectedChallengeMatch.opponentName.trim() || 'Rival'}
-                                    matchDate={selectedChallengeMatch.date}
-                                    onSlotPress={() => { }}
-                                />
-
-                                <View style={styles(theme).detailSpacer} />
-                                <View style={styles(theme).sectionHeader}>
-                                    <Icon name="account-group" size={20} color={theme.colors.primary} />
-                                    <Text variant="titleSmall" style={styles(theme).sectionTitleText}>Jugadores</Text>
-                                </View>
-
-                                {selectedChallengePlayers.starters.map((player, index) => (
-                                    <ChallengePlayerRow
-                                        key={player.groupMemberId ?? `starter_${index}`}
-                                        player={player}
-                                        groupMembers={selectedGroupMembers}
-                                        mvpGroupMemberId={selectedChallengeMatch.mvpGroupMemberId}
-                                        accentColor={theme.colors.primary}
-                                    />
-                                ))}
-
-                                {selectedChallengePlayers.subs.length > 0 ? (
-                                    <>
-                                        <Divider style={styles(theme).subDivider} />
-                                        <Text variant="labelSmall" style={styles(theme).subLabel}>Suplentes</Text>
-                                        {selectedChallengePlayers.subs.map((player, index) => (
-                                            <ChallengePlayerRow
-                                                key={player.groupMemberId ?? `sub_${index}`}
-                                                player={player}
-                                                groupMembers={selectedGroupMembers}
-                                                mvpGroupMemberId={selectedChallengeMatch.mvpGroupMemberId}
-                                                accentColor={theme.colors.primary}
-                                            />
-                                        ))}
-                                    </>
-                                ) : null}
-                            </>
-                        ) : null}
-                    </BottomSheetScrollView>
+                    <MatchDetailSheet
+                        bottomSheetRef={detailsSheetRef}
+                        selectedMatch={selectedMatch}
+                        classicByGroup={classicByGroup}
+                        teamsMatchesByGroup={teamsMatchesByGroup}
+                        challengeByGroup={challengeByGroup}
+                        membersByGroup={membersByGroup}
+                        memberIdsByGroup={memberIdsByGroup}
+                        teamsByGroup={teamsByGroup}
+                        groupsById={groupsById}
+                        firebaseUser={firebaseUser}
+                        onDismiss={() => setSelectedMatch(null)}
+                        onNavigate={(route, matchId) => navigation.navigate(route, { matchId })}
+                    />
                 </BottomSheet>
             </Portal>
-
-            {/* Modal votación MVP — clásicos y por equipos */}
-            <MvpVotingModal
-                visible={
-                    selectedVotingMatchId !== null &&
-                    (selectedMatch?.type === 'matches' || selectedMatch?.type === 'matchesByTeams')
-                }
-                match={selectedClassicMatch ?? selectedTeamsMatch}
-                allPlayers={selectedGroupMembers}
-                currentUserGroupMemberId={activeMvpMemberId}
-                isVoting={isVotingClassic || isVotingTeams}
-                voteError={classicVoteError ?? teamsVoteError}
-                onVote={async votedId => {
-                    if (selectedMatch?.type === 'matchesByTeams') {
-                        await castTeamsVote(selectedMatch.id, votedId);
-                    } else if (selectedMatch) {
-                        await castClassicVote(selectedMatch.id, votedId);
-                    }
-                }}
-                onDismiss={() => setSelectedVotingMatchId(null)}
-                onClearError={() => {
-                    clearClassicVoteError();
-                    clearTeamsVoteError();
-                }}
-            />
-
-            {/* Modal votación MVP — reto */}
-            <ChallengeMvpVotingModal
-                visible={selectedVotingMatchId !== null && selectedMatch?.type === 'matchesByChallenge'}
-                match={selectedChallengeMatch}
-                allPlayers={selectedGroupMembers}
-                currentUserGroupMemberId={activeMvpMemberId}
-                isVoting={isVotingChallenge}
-                voteError={challengeVoteError}
-                onVote={async votedId => {
-                    if (selectedMatch) await castChallengeVote(selectedMatch.id, votedId);
-                }}
-                onDismiss={() => setSelectedVotingMatchId(null)}
-                onClearError={clearChallengeVoteError}
-            />
         </View>
     );
 }
@@ -1060,11 +632,6 @@ const styles = (theme: MD3Theme) =>
             fontWeight: '700',
             textTransform: 'capitalize',
         },
-        groupTypeLabel: {
-            color: theme.colors.primary,
-            fontWeight: '700',
-            marginBottom: 4,
-        },
         filterSheetContainer: {
             flex: 1,
             paddingHorizontal: 16,
@@ -1096,53 +663,8 @@ const styles = (theme: MD3Theme) =>
             paddingTop: 10,
             paddingBottom: 30,
         },
-        expandedActions: {
-            flexDirection: 'row',
-            justifyContent: 'space-around',
-            alignItems: 'center',
-            paddingVertical: 8,
-            paddingHorizontal: 4,
-            borderTopWidth: 1,
-            borderTopColor: '#E0E0E0',
-            borderBottomWidth: 1,
-            borderBottomColor: '#E0E0E0',
-        },
-        expandedActionItem: {
-            alignItems: 'center',
-            gap: 4,
-        },
-        expandedActionLabel: {
-            color: theme.colors.onSurfaceVariant,
-        },
-        expandedActionLabelDanger: {
-            color: theme.colors.error,
-        },
         applyButton: {
             marginTop: 12,
-        },
-        detailsContent: {
-            padding: 16,
-            gap: 10,
-            paddingBottom: 32,
-        },
-        detailSpacer: {
-            height: 12,
-        },
-        sectionHeader: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            marginTop: 8,
-        },
-        sectionTitleText: {
-            fontWeight: 'bold',
-        },
-        subDivider: {
-            marginVertical: 6,
-        },
-        subLabel: {
-            color: '#888',
-            marginBottom: 4,
         },
 
     });
