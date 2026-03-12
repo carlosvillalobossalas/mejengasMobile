@@ -26,6 +26,7 @@ const { reviewPublicMatchApplication } = require('./handlers/reviewPublicMatchAp
 const { getOpenPublicMatchListings } = require('./handlers/getOpenPublicMatchListings');
 const { getMyPublicMatchApplications } = require('./handlers/getMyPublicMatchApplications');
 const { getPendingPublicMatchApplications } = require('./handlers/getPendingPublicMatchApplications');
+const { notifyOnGroupMemberAdded } = require('./handlers/notifyOnGroupMemberAdded');
 
 exports.notifyGroupOnNewMatch = notifyGroupOnNewMatch;
 exports.notifyUserOnInvite = notifyUserOnInvite;
@@ -56,3 +57,4 @@ exports.reviewPublicMatchApplication = reviewPublicMatchApplication;
 exports.getOpenPublicMatchListings = getOpenPublicMatchListings;
 exports.getMyPublicMatchApplications = getMyPublicMatchApplications;
 exports.getPendingPublicMatchApplications = getPendingPublicMatchApplications;
+exports.notifyOnGroupMemberAdded = notifyOnGroupMemberAdded;

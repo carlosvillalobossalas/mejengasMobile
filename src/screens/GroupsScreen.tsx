@@ -15,6 +15,7 @@ import {
   Avatar,
   Button,
   Card,
+  Chip,
   FAB,
   HelperText,
   IconButton,
@@ -22,6 +23,7 @@ import {
   Modal,
   Portal,
   SegmentedButtons,
+  Switch,
   Text,
   TextInput,
   useTheme,
@@ -38,6 +40,11 @@ import type { AppDrawerParamList } from '../navigation/types';
 import { getUserById } from '../repositories/users/usersRepository';
 import { subscribeToGroupsForUser, createGroup, leaveGroup, updateGroupPhotoUrl, type Group } from '../repositories/groups/groupsRepository';
 import { uploadGroupPhoto } from '../services/storage/groupPhotoService';
+import {
+  getGroupMembersV2ByGroupId,
+  copyGroupMembersToGroup,
+  type GroupMemberV2,
+} from '../repositories/groupMembersV2/groupMembersV2Repository';
 
 type GroupType = 'futbol_7' | 'futbol_5' | 'futbol_11';
 type GroupMode = 'libre' | 'equipos' | 'retos';
@@ -91,10 +98,24 @@ export default function GroupsScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [openMenuGroupId, setOpenMenuGroupId] = useState<string | null>(null);
 
+  // Copy members state
+  const [copyMembers, setCopyMembers] = useState(false);
+  const [sourceGroupId, setSourceGroupId] = useState<string | null>(null);
+  const [sourceMembers, setSourceMembers] = useState<GroupMemberV2[]>([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
+  const [isLoadingSourceMembers, setIsLoadingSourceMembers] = useState(false);
+
   const userId = useAppSelector(state => state.auth.firebaseUser?.uid ?? null);
+  const firebaseUser = useAppSelector(state => state.auth.firebaseUser);
   const firestoreUser = useAppSelector(state => state.auth.firestoreUser);
   const selectedGroupId = useAppSelector(state => state.groups.selectedGroupId);
   const groups = useAppSelector(state => state.groups.groups);
+
+  // Groups where the current user is the owner — used as copy-from candidates
+  const ownedGroups = React.useMemo(
+    () => groups.filter(g => g.ownerId === userId),
+    [groups, userId],
+  );
 
   useEffect(() => {
     if (!userId) return;
@@ -144,6 +165,10 @@ export default function GroupsScreen() {
     setNewGroupType('futbol_7');
     setNewGroupMode('libre');
     setLocalPhotoUri(null);
+    setCopyMembers(false);
+    setSourceGroupId(null);
+    setSourceMembers([]);
+    setSelectedMemberIds(new Set());
   };
 
   const pickPhoto = useCallback(async () => {
@@ -161,6 +186,42 @@ export default function GroupsScreen() {
         setLocalPhotoUri(normalized);
       }
     }
+  }, []);
+
+  const handleSourceGroupChange = useCallback(async (groupId: string) => {
+    setSourceGroupId(groupId);
+    setIsLoadingSourceMembers(true);
+    try {
+      const members = await getGroupMembersV2ByGroupId(groupId);
+      setSourceMembers(members);
+      // Pre-select all members by default
+      setSelectedMemberIds(new Set(members.map(m => m.id)));
+    } catch {
+      setSourceMembers([]);
+      setSelectedMemberIds(new Set());
+    } finally {
+      setIsLoadingSourceMembers(false);
+    }
+  }, []);
+
+  const toggleMember = useCallback((memberId: string) => {
+    setSelectedMemberIds(prev => {
+      const next = new Set(prev);
+      if (next.has(memberId)) {
+        next.delete(memberId);
+      } else {
+        next.add(memberId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedMemberIds(new Set(sourceMembers.map(m => m.id)));
+  }, [sourceMembers]);
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedMemberIds(new Set());
   }, []);
 
   const handleCreateGroup = async () => {
@@ -185,8 +246,8 @@ export default function GroupsScreen() {
         newGroupType,
         hasFixedTeams,
         isChallengeMode,
-        firestoreUser?.displayName ?? '',
-        firestoreUser?.photoURL ?? null,
+        firestoreUser?.displayName ?? firebaseUser?.displayName ?? '',
+        (firestoreUser?.photoURL as string | null) ?? firebaseUser?.photoURL ?? null,
       );
 
       // Upload avatar if one was selected — non-blocking, group already created
@@ -196,6 +257,19 @@ export default function GroupsScreen() {
           await updateGroupPhotoUrl(groupId, url);
         } catch {
           console.warn('Group photo upload failed');
+        }
+      }
+
+      // Copy selected members from source group (if the toggle was enabled)
+      // Skip the current user — they're already added as owner when the group was created
+      if (copyMembers && selectedMemberIds.size > 0) {
+        const membersToCopy = sourceMembers.filter(
+          m => selectedMemberIds.has(m.id) && m.userId !== userId,
+        );
+        try {
+          await copyGroupMembersToGroup(membersToCopy, groupId, newGroupName.trim());
+        } catch {
+          console.warn('Member copy failed — group was still created');
         }
       }
 
@@ -418,7 +492,7 @@ export default function GroupsScreen() {
         icon="plus"
         label="Crear Grupo"
         color='white'
-        style={{...styles.fab, backgroundColor: theme.colors.primary, }}
+        style={{ ...styles.fab, backgroundColor: theme.colors.primary, }}
         onPress={() => setShowCreateModal(true)}
       />
 
@@ -519,6 +593,112 @@ export default function GroupsScreen() {
                     },
                   }}
                 />
+
+                {/* ── Copy members section ─────────────────────────────── */}
+                <View style={styles.copyMembersToggleRow}>
+                  <View style={styles.copyMembersToggleLabel}>
+                    <Icon name="account-multiple-plus" size={20} color={theme.colors.primary} />
+                    <Text variant="labelMedium">Copiar miembros desde otro grupo</Text>
+                  </View>
+                  <Switch
+                    value={copyMembers}
+                    onValueChange={setCopyMembers}
+                    color={theme.colors.primary}
+                    disabled={ownedGroups.length === 0 || isCreating}
+                  />
+                </View>
+
+                {ownedGroups.length === 0 && (
+                  <Text variant="bodySmall" style={styles.copyMembersHelper}>
+                    No tenés grupos propios desde donde copiar.
+                  </Text>
+                )}
+
+                {copyMembers && ownedGroups.length > 0 && (
+                  <View style={styles.copyMembersSection}>
+                    <Text variant="labelMedium" style={styles.copyMembersSectionTitle}>
+                      Seleccioná el grupo origen
+                    </Text>
+                    <View style={styles.chipRow}>
+                      {ownedGroups.map(g => (
+                        <Chip
+                          key={g.id}
+                          selected={sourceGroupId === g.id}
+                          onPress={() => handleSourceGroupChange(g.id)}
+                          selectedColor={'white'}
+                          disabled={isCreating}
+                          style={{
+                            backgroundColor: theme.colors.primary,
+
+                          }}
+                          textStyle={{ color: 'white' }}
+                        >
+                          {g.name}
+                        </Chip>
+                      ))}
+                    </View>
+
+                    {isLoadingSourceMembers && (
+                      <View style={styles.membersLoadingRow}>
+                        <ActivityIndicator size="small" />
+                        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                          Cargando miembros...
+                        </Text>
+                      </View>
+                    )}
+
+                    {!isLoadingSourceMembers && sourceMembers.length > 0 && (
+                      <>
+                        <View style={styles.memberSelectActions}>
+                          <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                            {selectedMemberIds.size} de {sourceMembers.length} seleccionados
+                          </Text>
+                          <View style={styles.memberSelectButtons}>
+                            <Button compact mode="text" onPress={handleSelectAll} disabled={isCreating}>
+                              Todos
+                            </Button>
+                            <Button compact mode="text" onPress={handleDeselectAll} disabled={isCreating}>
+                              Ninguno
+                            </Button>
+                          </View>
+                        </View>
+                        {sourceMembers.map(member => {
+                          const isSelected = selectedMemberIds.has(member.id);
+                          return (
+                            <TouchableOpacity
+                              key={member.id}
+                              style={styles.memberRow}
+                              onPress={() => toggleMember(member.id)}
+                              activeOpacity={0.7}
+                              disabled={isCreating}
+                            >
+                              {member.photoUrl ? (
+                                <Avatar.Image size={32} source={{ uri: member.photoUrl }} />
+                              ) : (
+                                <Avatar.Text
+                                  size={32}
+                                  label={member.displayName.charAt(0).toUpperCase()}
+                                  style={{ backgroundColor: theme.colors.primaryContainer }}
+                                  color={theme.colors.primary}
+                                />
+                              )}
+                              <Text variant="bodyMedium" style={styles.memberName} numberOfLines={1}>
+                                {member.displayName}
+                              </Text>
+                              <Icon
+                                name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                                size={22}
+                                color={isSelected ? theme.colors.primary : theme.colors.outline}
+                              />
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </>
+                    )}
+                  </View>
+                )}
+                {/* ─────────────────────────────────────────────────────── */}
+
                 <View style={styles.modalButtons}>
                   <Button
                     mode="outlined"
@@ -686,5 +866,64 @@ const styles = StyleSheet.create({
     color: '#9E9E9E',
     fontSize: 10,
     textAlign: 'center',
+  },
+  // Copy members
+  copyMembersToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  copyMembersToggleLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  copyMembersHelper: {
+    color: '#888',
+    marginBottom: 4,
+  },
+  copyMembersSection: {
+    marginTop: 8,
+    gap: 10,
+    marginBottom: 8,
+  },
+  copyMembersSectionTitle: {
+    color: '#444',
+    fontWeight: '600',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  membersLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  memberSelectActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  memberSelectButtons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 7,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E7EB',
+  },
+  memberName: {
+    flex: 1,
+    color: '#1A1A1A',
   },
 });

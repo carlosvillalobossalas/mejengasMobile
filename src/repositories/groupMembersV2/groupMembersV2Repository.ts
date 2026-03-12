@@ -8,8 +8,6 @@ export type GroupMemberV2 = {
   photoUrl: string | null;
   isGuest: boolean;
   role: string;
-  legacyPlayerId: string;
-  legacyPlayerIds: string[];
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -34,10 +32,6 @@ const mapDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): GroupMemberV2 => 
     photoUrl: d.photoUrl ? String(d.photoUrl) : null,
     isGuest: Boolean(d.isGuest ?? true),
     role: String(d.role ?? 'member'),
-    legacyPlayerId: String(d.legacyPlayerId ?? ''),
-    legacyPlayerIds: Array.isArray(d.legacyPlayerIds)
-      ? (d.legacyPlayerIds as string[]).map(String)
-      : [],
     createdAt: toIsoString(d.createdAt),
     updatedAt: toIsoString(d.updatedAt),
   };
@@ -267,6 +261,45 @@ export async function updateGroupMemberRole(
       role,
       updatedAt: firestore.FieldValue.serverTimestamp(),
     });
+}
+
+/**
+ * Batch-copy a list of members into a new group.
+ * Sets role to 'member' for everyone, clears legacy IDs, and adds an
+ * `addedViaGroupCopy` flag so a Cloud Function can send the right notification.
+ */
+export async function copyGroupMembersToGroup(
+  members: GroupMemberV2[],
+  targetGroupId: string,
+  targetGroupName: string,
+): Promise<void> {
+  if (members.length === 0) return;
+
+  // Firestore batch limit is 500 writes; split if needed
+  const chunks: GroupMemberV2[][] = [];
+  for (let i = 0; i < members.length; i += 499) {
+    chunks.push(members.slice(i, i + 499));
+  }
+
+  for (const chunk of chunks) {
+    const batch = firestore().batch();
+    chunk.forEach(member => {
+      const ref = firestore().collection(COLLECTION).doc();
+      batch.set(ref, {
+        groupId: targetGroupId,
+        userId: member.userId ?? null,
+        displayName: member.displayName,
+        photoUrl: member.photoUrl ?? null,
+        isGuest: member.userId === null,
+        role: 'member',
+        addedViaGroupCopy: true,
+        targetGroupName,
+        createdAt: firestore.FieldValue.serverTimestamp(),
+        updatedAt: firestore.FieldValue.serverTimestamp(),
+      });
+    });
+    await batch.commit();
+  }
 }
 
 /**
