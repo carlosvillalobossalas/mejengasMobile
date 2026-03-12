@@ -33,6 +33,7 @@ import {
     type GroupMemberV2,
     type GroupMemberRole,
 } from '../repositories/groupMembersV2/groupMembersV2Repository';
+import { getUserById } from '../repositories/users/usersRepository';
 import {
     createInvite,
     subscribeToPendingInvitesByGroupId,
@@ -50,6 +51,7 @@ export default function ManageMembersScreen() {
 
     const [rawMembers, setRawMembers] = useState<GroupMemberV2[]>([]);
     const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
+    const [userEmailsById, setUserEmailsById] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [actioningId, setActioningId] = useState<string | null>(null);
     const [roleMenuOpenId, setRoleMenuOpenId] = useState<string | null>(null);
@@ -61,6 +63,30 @@ export default function ManageMembersScreen() {
             pendingInvite: pendingInvites.find(inv => inv.groupMemberId === m.id) ?? null,
         }));
     }, [rawMembers, pendingInvites]);
+
+    // Fetch emails for all linked members whenever the member list changes
+    useEffect(() => {
+        const linkedMembers = rawMembers.filter(m => m.userId);
+        if (linkedMembers.length === 0) return;
+
+        const fetchEmails = async () => {
+            const results = await Promise.all(
+                linkedMembers.map(async m => {
+                    const user = await getUserById(m.userId!);
+                    return { userId: m.userId!, email: user?.email ?? null };
+                }),
+            );
+            setUserEmailsById(prev => {
+                const next = { ...prev };
+                results.forEach(({ userId, email }) => {
+                    if (email) next[userId] = email;
+                });
+                return next;
+            });
+        };
+
+        void fetchEmails();
+    }, [rawMembers]);
 
     // Subscribe to group members in real-time
     useEffect(() => {
@@ -278,12 +304,14 @@ export default function ManageMembersScreen() {
                                     <View style={styles(theme).chipRow}>
                                         {isLinked ? (
                                             <Chip
-                                                icon="link"
+                                                // icon="link"
                                                 compact
                                                 style={styles(theme).linkedChip}
                                                 textStyle={styles(theme).linkedChipText}
                                             >
-                                                Vinculado
+                                                {member.userId && userEmailsById[member.userId]
+                                                    ? userEmailsById[member.userId]
+                                                    : 'Vinculado'}
                                             </Chip>
                                         ) : (
                                             <Chip
@@ -578,7 +606,7 @@ const styles = (theme: MD3Theme) =>
         memberName: { fontWeight: '600' },
         chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
         linkedChip: { backgroundColor: theme.colors.inversePrimary, alignSelf: 'flex-start' },
-        linkedChipText: { fontSize: 11 },
+        linkedChipText: { fontSize: 10 },
         unlinkedChip: {
             backgroundColor: theme.colors.errorContainer,
             alignSelf: 'flex-start',
