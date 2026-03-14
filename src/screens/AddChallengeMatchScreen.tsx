@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -163,6 +163,7 @@ type SlotRowProps = {
   onSetPosition: (position: Position) => void;
   onRemoveSub: () => void;
   onChangeStat: (field: 'goals' | 'assists' | 'ownGoals', value: string) => void;
+  onStatFocus?: () => void;
   theme: MD3Theme;
 };
 
@@ -180,6 +181,7 @@ function SlotRow({
   onSetPosition,
   onRemoveSub,
   onChangeStat,
+  onStatFocus,
   theme: t,
 }: SlotRowProps) {
   return (
@@ -280,6 +282,7 @@ function SlotRow({
                 value={slot.goals}
                 onChangeText={value => onChangeStat('goals', normalizeStatInput(value))}
                 onFocus={() => {
+                  onStatFocus?.();
                   if (slot.goals === '0') onChangeStat('goals', '');
                 }}
                 onBlur={() => {
@@ -298,6 +301,7 @@ function SlotRow({
                 value={slot.assists}
                 onChangeText={value => onChangeStat('assists', normalizeStatInput(value))}
                 onFocus={() => {
+                  onStatFocus?.();
                   if (slot.assists === '0') onChangeStat('assists', '');
                 }}
                 onBlur={() => {
@@ -316,6 +320,7 @@ function SlotRow({
                 value={slot.ownGoals}
                 onChangeText={value => onChangeStat('ownGoals', normalizeStatInput(value))}
                 onFocus={() => {
+                  onStatFocus?.();
                   if (slot.ownGoals === '0') onChangeStat('ownGoals', '');
                 }}
                 onBlur={() => {
@@ -377,6 +382,7 @@ export default function AddChallengeMatchScreen({ route }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (!selectedGroup || isEditMode) return;
@@ -849,6 +855,7 @@ export default function AddChallengeMatchScreen({ route }: Props) {
 
   return (
     <ScrollView
+      ref={scrollViewRef}
       style={styles(theme).container}
       contentContainerStyle={styles(theme).content}
       keyboardShouldPersistTaps="handled"
@@ -1120,6 +1127,7 @@ export default function AddChallengeMatchScreen({ route }: Props) {
                 onSetPosition={position => handleSetPosition(index, position)}
                 onRemoveSub={() => removeSub(index)}
                 onChangeStat={(field, value) => handleChangeStat(index, field, value)}
+                onStatFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
                 theme={theme}
               />
             );

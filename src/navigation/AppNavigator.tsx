@@ -243,7 +243,7 @@ export default function AppNavigator() {
               icon="chevron-left"
               iconColor={theme.colors.secondary}
               size={26}
-              onPress={() => navigation.navigate('Admin')}
+              onPress={() => navigation.goBack()}
             />
           ),
         })}
@@ -259,7 +259,7 @@ export default function AppNavigator() {
               icon="chevron-left"
               iconColor={theme.colors.secondary}
               size={26}
-              onPress={() => navigation.navigate('Admin')}
+              onPress={() => navigation.goBack()}
             />
           ),
         })}
@@ -356,7 +356,7 @@ export default function AppNavigator() {
               icon="chevron-left"
               iconColor={theme.colors.secondary}
               size={26}
-              onPress={() => navigation.navigate('Admin')}
+              onPress={() => navigation.goBack()}
             />
           ),
         })}
@@ -372,7 +372,7 @@ export default function AppNavigator() {
               icon="chevron-left"
               iconColor={theme.colors.secondary}
               size={26}
-              onPress={() => navigation.navigate('Admin')}
+              onPress={() => navigation.goBack()}
             />
           ),
         })}

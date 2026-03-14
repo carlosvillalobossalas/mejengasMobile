@@ -85,6 +85,7 @@ export default function AddMatchTeamsScreen() {
     isError: false,
   });
   const wasSavingRef = useRef(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     // Detect the isSaving true→false transition to show feedback
@@ -241,7 +242,7 @@ export default function AddMatchTeamsScreen() {
 
   return (
     <View style={styles.root}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollViewRef} style={styles.container} contentContainerStyle={styles.content}>
 
       {/* Team selectors */}
       <Text variant="labelLarge" style={styles.sectionLabel}>Equipos</Text>
@@ -285,6 +286,7 @@ export default function AddMatchTeamsScreen() {
               onSwapRequest={() => setSwapState({ team: 1, index: idx })}
               positionLocked={!player.isSub && player.position === 'POR' && sortedTeam1.findIndex(e => !e.player.isSub) === sortedTeam1.findIndex(e => e.idx === idx)}
               allowGoalkeeper={player.isSub}
+              onStatFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
             />
           ))}
           {/* Show only when the roster has bench players not yet in the lineup */}
@@ -315,6 +317,7 @@ export default function AddMatchTeamsScreen() {
               onSwapRequest={() => setSwapState({ team: 2, index: idx })}
               positionLocked={!player.isSub && player.position === 'POR' && sortedTeam2.findIndex(e => !e.player.isSub) === sortedTeam2.findIndex(e => e.idx === idx)}
               allowGoalkeeper={player.isSub}
+              onStatFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
             />
           ))}
           {/* Show only when the roster has bench players not yet in the lineup */}

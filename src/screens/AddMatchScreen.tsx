@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -82,6 +82,7 @@ type SlotRowProps = {
   onDismissMenu: () => void;
   onSetPosition: (pos: ScheduledPosition | null) => void;
   onChangeStat?: (field: 'goals' | 'assists' | 'ownGoals', value: string) => void;
+  onStatFocus?: () => void;
   showStats?: boolean;
   isSub?: boolean;
   isFirstStarter?: boolean;
@@ -99,6 +100,7 @@ function SlotRow({
   onDismissMenu,
   onSetPosition,
   onChangeStat,
+  onStatFocus,
   showStats = false,
   isSub = false,
   isFirstStarter = false,
@@ -225,6 +227,7 @@ function SlotRow({
                 value={slot.goals}
                 onChangeText={value => onChangeStat?.('goals', value.replace(/[^0-9]/g, ''))}
                 onFocus={() => {
+                  onStatFocus?.();
                   if (slot.goals === '0') onChangeStat?.('goals', '');
                 }}
                 onBlur={() => {
@@ -243,6 +246,7 @@ function SlotRow({
                 value={slot.assists}
                 onChangeText={value => onChangeStat?.('assists', value.replace(/[^0-9]/g, ''))}
                 onFocus={() => {
+                  onStatFocus?.();
                   if (slot.assists === '0') onChangeStat?.('assists', '');
                 }}
                 onBlur={() => {
@@ -261,6 +265,7 @@ function SlotRow({
                 value={slot.ownGoals}
                 onChangeText={value => onChangeStat?.('ownGoals', value.replace(/[^0-9]/g, ''))}
                 onFocus={() => {
+                  onStatFocus?.();
                   if (slot.ownGoals === '0') onChangeStat?.('ownGoals', '');
                 }}
                 onBlur={() => {
@@ -359,6 +364,7 @@ export default function AddMatchScreen({ route }: Props) {
   const [selectedVenue, setSelectedVenue] = useState<MatchVenue | null>(null);
   const [venuePickerVisible, setVenuePickerVisible] = useState(false);
   const [colorSheet, setColorSheet] = useState<'team1' | 'team2' | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (!selectedGroup || isEditMode) return;
@@ -719,7 +725,7 @@ export default function AddMatchScreen({ route }: Props) {
       }
 
       setSnackbarVisible(true);
-      setTimeout(() => navigation.navigate('Admin'), 1500);
+      setTimeout(() => navigation.navigate('MyMatches'), 1500);
     } catch (error) {
       console.error('AddMatch(add): error saving', error);
       setSnackbarMessage('Error al guardar el partido');
@@ -781,6 +787,7 @@ export default function AddMatchScreen({ route }: Props) {
 
   return (
     <ScrollView
+      ref={scrollViewRef}
       style={styles(theme).container}
       contentContainerStyle={styles(theme).content}
       keyboardShouldPersistTaps="handled"
@@ -1060,6 +1067,7 @@ export default function AddMatchScreen({ route }: Props) {
                 onDismissMenu={() => setOpenMenuFor(null)}
                 onSetPosition={position => setPosition(activeTeamNum, index, position)}
                 onChangeStat={(field, value) => handleStatChange(activeTeamNum, index, field, value)}
+                onStatFocus={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
                 showStats={statusMode === 'finished'}
                 isSub={slot.isSub}
                 isFirstStarter={!slot.isSub && index === firstStarterIndex}

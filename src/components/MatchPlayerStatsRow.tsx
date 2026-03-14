@@ -18,6 +18,8 @@ type Props = {
   positionLocked?: boolean;
   /** When false, POR is removed from the selectable positions (non-sub starters). Defaults to true. */
   allowGoalkeeper?: boolean;
+  /** Called when any stat input is focused — use to scroll the row into view. */
+  onStatFocus?: () => void;
 };
 
 const POSITIONS: MatchPosition[] = ['POR', 'DEF', 'MED', 'DEL'];
@@ -32,7 +34,7 @@ const STAT_FIELDS: {
   { key: 'ownGoals', label: 'Autogoles' },
 ];
 
-export default function MatchPlayerStatsRow({ player, onUpdate, onSwapRequest, positionLocked, allowGoalkeeper = true }: Props) {
+export default function MatchPlayerStatsRow({ player, onUpdate, onSwapRequest, positionLocked, allowGoalkeeper = true, onStatFocus }: Props) {
   const theme = useTheme();
   const availablePositions = allowGoalkeeper ? POSITIONS : POSITIONS_NO_GK;
 
@@ -101,6 +103,7 @@ export default function MatchPlayerStatsRow({ player, onUpdate, onSwapRequest, p
               keyboardType="numeric"
               value={String(player[key])}
               onChangeText={v => onUpdate({ [key]: parseInt(v, 10) || 0 })}
+              onFocus={() => onStatFocus?.()}
               style={styles.statInput}
               contentStyle={styles.statInputContent}
             />
