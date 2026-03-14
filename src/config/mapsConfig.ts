@@ -8,4 +8,4 @@
  *
  * Replace the placeholder below with your actual key.
  */
-export const GOOGLE_MAPS_API_KEY = 'AIzaSyB_8SdSWVdJd2JPYIqwFaEqwvfZO24vYM8';
+export const GOOGLE_MAPS_API_KEY = '';
