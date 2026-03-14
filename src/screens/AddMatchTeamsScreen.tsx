@@ -19,13 +19,16 @@ import {
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import DatePicker from 'react-native-date-picker';
 import { useFocusEffect } from '@react-navigation/native';
+import auth from '@react-native-firebase/auth';
 
 import { useAddMatchTeams } from '../hooks/useAddMatchTeams';
 import type { MatchPosition } from '../hooks/useAddMatchTeams';
 import MatchTeamPickerModal from '../components/MatchTeamPickerModal';
 import MatchPlayerStatsRow from '../components/MatchPlayerStatsRow';
 import MatchPlayerSwapModal from '../components/MatchPlayerSwapModal';
+import { VenuePickerModal } from '../components/venue/VenuePickerModal';
 import type { MatchPublicationInput } from '../types/matchPublication';
+import type { MatchVenue } from '../types/venue';
 
 export default function AddMatchTeamsScreen() {
   const theme = useTheme();
@@ -42,6 +45,8 @@ export default function AddMatchTeamsScreen() {
   const [preferredPositions, setPreferredPositions] = useState<MatchPosition[]>([]);
   const [publicationCity, setPublicationCity] = useState('');
   const [publicationNotes, setPublicationNotes] = useState('');
+  const [selectedVenue, setSelectedVenue] = useState<MatchVenue | null>(null);
+  const [venuePickerVisible, setVenuePickerVisible] = useState(false);
 
   const {
     isLoading,
@@ -366,6 +371,29 @@ export default function AddMatchTeamsScreen() {
           </Text>
           <Icon name="pencil" size={16} color={theme.colors.onSurfaceVariant} />
         </TouchableOpacity>
+
+        <Divider style={styles.divider} />
+
+        <TouchableOpacity style={styles.dateRow} onPress={() => setVenuePickerVisible(true)}>
+          <Icon name="map-marker" size={18} color={selectedVenue ? theme.colors.primary : theme.colors.onSurfaceVariant} />
+          <Text
+            variant="bodyMedium"
+            style={[styles.dateText, !selectedVenue && { color: theme.colors.onSurfaceVariant }]}
+            numberOfLines={1}
+          >
+            {selectedVenue ? selectedVenue.name : 'Agregar lugar (opcional)'}
+          </Text>
+          {selectedVenue ? (
+            <TouchableOpacity
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={() => setSelectedVenue(null)}
+            >
+              <Icon name="close" size={16} color={theme.colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          ) : (
+            <Icon name="plus" size={16} color={theme.colors.onSurfaceVariant} />
+          )}
+        </TouchableOpacity>
       </Surface>
 
       <Text variant="labelLarge" style={styles.sectionLabel}>Publicación</Text>
@@ -477,7 +505,7 @@ export default function AddMatchTeamsScreen() {
         mode="contained"
         icon="content-save"
         onPress={() => {
-          void handleSave(buildPublicationInput());
+          void handleSave(buildPublicationInput(), selectedVenue);
         }}
         disabled={!selectedTeam1 || !selectedTeam2 || isSaving}
         loading={isSaving}
@@ -522,6 +550,17 @@ export default function AddMatchTeamsScreen() {
         onClose={closeModal}
       />
       </ScrollView>
+
+      <VenuePickerModal
+        visible={venuePickerVisible}
+        onDismiss={() => setVenuePickerVisible(false)}
+        onConfirm={venue => {
+          setSelectedVenue(venue);
+          setVenuePickerVisible(false);
+        }}
+        authUserId={auth().currentUser?.uid ?? null}
+        initialVenue={selectedVenue}
+      />
 
       <Snackbar
         visible={snackbar.visible}

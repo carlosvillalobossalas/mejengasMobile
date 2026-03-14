@@ -41,7 +41,9 @@ import {
   saveChallengeMatch,
   saveScheduledChallengeMatch,
 } from '../services/matches/challengeMatchSaveService';
+import { VenuePickerModal } from '../components/venue/VenuePickerModal';
 import type { MatchPublicationInput } from '../types/matchPublication';
+import type { MatchVenue } from '../types/venue';
 import type { AppDrawerParamList } from '../navigation/types';
 
 type Position = 'POR' | 'DEF' | 'MED' | 'DEL';
@@ -363,6 +365,8 @@ export default function AddChallengeMatchScreen({ route }: Props) {
   const [neededPlayers, setNeededPlayers] = useState('1');
   const [allowAnyPosition, setAllowAnyPosition] = useState(true);
   const [preferredPositions, setPreferredPositions] = useState<Position[]>([]);
+  const [selectedVenue, setSelectedVenue] = useState<MatchVenue | null>(null);
+  const [venuePickerVisible, setVenuePickerVisible] = useState(false);
   const [publicationCity, setPublicationCity] = useState('');
   const [publicationNotes, setPublicationNotes] = useState('');
 
@@ -754,6 +758,7 @@ export default function AddChallengeMatchScreen({ route }: Props) {
           opponentColor,
           opponentName: opponentName.trim(),
           publication: buildPublicationInput(),
+          venue: selectedVenue,
         });
         setSnackbarMessage('Partido programado guardado');
       } else {
@@ -776,6 +781,7 @@ export default function AddChallengeMatchScreen({ route }: Props) {
           opponentName: opponentName.trim(),
           goalsOpponent: parseGoals(goalsOpponent),
           publication: buildPublicationInput(),
+          venue: selectedVenue,
         });
         setSnackbarMessage('Partido finalizado guardado');
       }
@@ -888,6 +894,37 @@ export default function AddChallengeMatchScreen({ route }: Props) {
             </Text>
           </View>
           <Icon name="pencil-outline" size={20} color={theme.colors.primary} />
+        </Card.Content>
+      </Card>
+
+      <Card style={styles(theme).card} onPress={() => setVenuePickerVisible(true)}>
+        <Card.Content style={styles(theme).dateCardContent}>
+          <View style={[styles(theme).dateIconBox, { backgroundColor: selectedVenue ? theme.colors.primary : theme.colors.surfaceVariant }]}>
+            <Icon name="map-marker" size={26} color={selectedVenue ? '#FFF' : theme.colors.onSurfaceVariant} />
+          </View>
+          <View style={styles(theme).dateInfo}>
+            <Text variant="labelSmall" style={styles(theme).dateLabel}>
+              Lugar del partido
+            </Text>
+            <Text variant="bodyLarge" style={styles(theme).dateValue}>
+              {selectedVenue ? selectedVenue.name : 'Agregar lugar (opcional)'}
+            </Text>
+            {selectedVenue?.address ? (
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
+                {selectedVenue.address}
+              </Text>
+            ) : null}
+          </View>
+          {selectedVenue ? (
+            <TouchableOpacity
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={() => setSelectedVenue(null)}
+            >
+              <Icon name="close" size={20} color={theme.colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          ) : (
+            <Icon name="pencil-outline" size={20} color={theme.colors.primary} />
+          )}
         </Card.Content>
       </Card>
 
@@ -1169,6 +1206,17 @@ export default function AddChallengeMatchScreen({ route }: Props) {
           setShowDatePicker(false);
         }}
         onCancel={() => setShowDatePicker(false)}
+      />
+
+      <VenuePickerModal
+        visible={venuePickerVisible}
+        onDismiss={() => setVenuePickerVisible(false)}
+        onConfirm={venue => {
+          setSelectedVenue(venue);
+          setVenuePickerVisible(false);
+        }}
+        authUserId={auth().currentUser?.uid ?? null}
+        initialVenue={selectedVenue}
       />
 
       <ScheduledPlayerPicker

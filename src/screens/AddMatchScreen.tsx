@@ -27,6 +27,9 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import auth from '@react-native-firebase/auth';
 
 import ScheduledPlayerPicker from '../components/ScheduledPlayerPicker';
+import ColorPickerSheet from '../components/ColorPickerSheet';
+import { VenuePickerModal } from '../components/venue/VenuePickerModal';
+import type { MatchVenue } from '../types/venue';
 import {
   useAddScheduledMatch,
   type ScheduledPosition,
@@ -55,21 +58,6 @@ const DEFAULT_FORMATION: Record<number, ScheduledPosition[]> = {
   7: ['POR', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'DEL'],
   11: ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'DEL', 'DEL', 'DEL'],
 };
-
-const TEAM_COLOR_OPTIONS = [
-  '#000000',
-  '#FFFFFF',
-  '#1E3A8A',
-  '#2563EB',
-  '#0F766E',
-  '#059669',
-  '#166534',
-  '#F59E0B',
-  '#EA580C',
-  '#B91C1C',
-  '#7C3AED',
-  '#4B5563',
-];
 
 type MatchStatusMode = 'scheduled' | 'finished';
 type SlotMenuState = { team: 1 | 2; index: number } | null;
@@ -368,6 +356,9 @@ export default function AddMatchScreen({ route }: Props) {
   const [preferredPositions, setPreferredPositions] = useState<ScheduledPosition[]>([]);
   const [publicationCity, setPublicationCity] = useState('');
   const [publicationNotes, setPublicationNotes] = useState('');
+  const [selectedVenue, setSelectedVenue] = useState<MatchVenue | null>(null);
+  const [venuePickerVisible, setVenuePickerVisible] = useState(false);
+  const [colorSheet, setColorSheet] = useState<'team1' | 'team2' | null>(null);
 
   useEffect(() => {
     if (!selectedGroup || isEditMode) return;
@@ -687,6 +678,7 @@ export default function AddMatchScreen({ route }: Props) {
           })),
           team1Color,
           team2Color,
+          venue: selectedVenue,
           publication: buildPublicationInput(),
         });
 
@@ -719,6 +711,7 @@ export default function AddMatchScreen({ route }: Props) {
             ownGoals: slot.ownGoals,
             isSub: slot.isSub,
           })),
+          venue: selectedVenue,
           publication: buildPublicationInput(),
         });
 
@@ -839,6 +832,37 @@ export default function AddMatchScreen({ route }: Props) {
         </Card.Content>
       </Card>
 
+      <Card style={styles(theme).card} onPress={() => setVenuePickerVisible(true)}>
+        <Card.Content style={styles(theme).dateCardContent}>
+          <View style={[styles(theme).dateIconBox, { backgroundColor: selectedVenue ? theme.colors.primary : theme.colors.surfaceVariant }]}>
+            <Icon name="map-marker" size={26} color={selectedVenue ? '#FFF' : theme.colors.onSurfaceVariant} />
+          </View>
+          <View style={styles(theme).dateInfo}>
+            <Text variant="labelSmall" style={styles(theme).dateLabel}>
+              Lugar del partido
+            </Text>
+            <Text variant="titleSmall" style={styles(theme).dateValue}>
+              {selectedVenue ? selectedVenue.name : 'Agregar lugar (opcional)'}
+            </Text>
+            {selectedVenue?.address ? (
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
+                {selectedVenue.address}
+              </Text>
+            ) : null}
+          </View>
+          {selectedVenue ? (
+            <TouchableOpacity
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={() => setSelectedVenue(null)}
+            >
+              <Icon name="close" size={20} color={theme.colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          ) : (
+            <Icon name="pencil-outline" size={20} color={theme.colors.primary} />
+          )}
+        </Card.Content>
+      </Card>
+
       <Card style={styles(theme).card}>
         <Card.Content style={styles(theme).publicationContent}>
           <View style={styles(theme).publicationRow}>
@@ -942,41 +966,52 @@ export default function AddMatchScreen({ route }: Props) {
             Colores de camiseta para este partido
           </Text>
 
-          <Text variant="labelLarge" style={styles(theme).colorLabel}>Equipo 1</Text>
-          <View style={styles(theme).colorGrid}>
-            {TEAM_COLOR_OPTIONS.map(color => (
-              <TouchableOpacity
-                key={`team1-color-${color}`}
-                activeOpacity={0.75}
-                onPress={() => setTeam1Color(color)}
+          <View style={styles(theme).colorButtonsRow}>
+            <TouchableOpacity
+              style={styles(theme).colorButton}
+              onPress={() => setColorSheet('team1')}
+            >
+              <View
                 style={[
-                  styles(theme).colorOption,
-                  { backgroundColor: color },
-                  team1Color === color && styles(theme).selectedColorOption,
-                  color === '#FFFFFF' && styles(theme).whiteColorBorder,
+                  styles(theme).colorButtonDot,
+                  { backgroundColor: team1Color },
+                  team1Color === '#FFFFFF' && styles(theme).colorButtonDotBorder,
                 ]}
               />
-            ))}
-          </View>
+              <Text variant="bodyMedium" style={{ flex: 1 }}>Equipo 1</Text>
+              <Icon name="chevron-right" size={18} color={theme.colors.onSurfaceVariant} />
+            </TouchableOpacity>
 
-          <Text variant="labelLarge" style={styles(theme).colorLabel}>Equipo 2</Text>
-          <View style={styles(theme).colorGrid}>
-            {TEAM_COLOR_OPTIONS.map(color => (
-              <TouchableOpacity
-                key={`team2-color-${color}`}
-                activeOpacity={0.75}
-                onPress={() => setTeam2Color(color)}
+            <Divider />
+
+            <TouchableOpacity
+              style={styles(theme).colorButton}
+              onPress={() => setColorSheet('team2')}
+            >
+              <View
                 style={[
-                  styles(theme).colorOption,
-                  { backgroundColor: color },
-                  team2Color === color && styles(theme).selectedColorOption,
-                  color === '#FFFFFF' && styles(theme).whiteColorBorder,
+                  styles(theme).colorButtonDot,
+                  { backgroundColor: team2Color },
+                  team2Color === '#FFFFFF' && styles(theme).colorButtonDotBorder,
                 ]}
               />
-            ))}
+              <Text variant="bodyMedium" style={{ flex: 1 }}>Equipo 2</Text>
+              <Icon name="chevron-right" size={18} color={theme.colors.onSurfaceVariant} />
+            </TouchableOpacity>
           </View>
         </Card.Content>
       </Card>
+
+      <ColorPickerSheet
+        visible={colorSheet !== null}
+        title={colorSheet === 'team1' ? 'Color Equipo 1' : 'Color Equipo 2'}
+        selectedColor={colorSheet === 'team1' ? team1Color : team2Color}
+        onSelect={color => {
+          if (colorSheet === 'team1') setTeam1Color(color);
+          else setTeam2Color(color);
+        }}
+        onDismiss={() => setColorSheet(null)}
+      />
 
       <SegmentedButtons
         value={activeTeam}
@@ -1105,6 +1140,17 @@ export default function AddMatchScreen({ route }: Props) {
         onCancel={() => setShowDatePicker(false)}
       />
 
+      <VenuePickerModal
+        visible={venuePickerVisible}
+        onDismiss={() => setVenuePickerVisible(false)}
+        onConfirm={venue => {
+          setSelectedVenue(venue);
+          setVenuePickerVisible(false);
+        }}
+        authUserId={auth().currentUser?.uid ?? null}
+        initialVenue={selectedVenue}
+      />
+
       <ScheduledPlayerPicker
         visible={pickerTeam !== null}
         members={allMembers}
@@ -1182,7 +1228,26 @@ const styles = (theme: MD3Theme) =>
       gap: 2,
     },
     colorsCardContent: {
-      gap: 8,
+      gap: 4,
+    },
+    colorButtonsRow: {
+      gap: 0,
+    },
+    colorButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 4,
+    },
+    colorButtonDot: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+    },
+    colorButtonDotBorder: {
+      borderWidth: 1,
+      borderColor: '#CFCFCF',
     },
     publicationContent: {
       gap: 10,
@@ -1218,29 +1283,7 @@ const styles = (theme: MD3Theme) =>
     positionChipTextSelected: {
       color: theme.colors.onSecondaryContainer,
     },
-    colorLabel: {
-      marginTop: 4,
-      fontWeight: '600',
-    },
-    colorGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-      marginBottom: 4,
-    },
-    colorOption: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-    },
-    selectedColorOption: {
-      borderWidth: 3,
-      borderColor: '#111111',
-    },
-    whiteColorBorder: {
-      borderWidth: 1,
-      borderColor: '#CFCFCF',
-    },
+
     dateLabel: {
       color: theme.colors.onSurfaceVariant,
       textTransform: 'uppercase',

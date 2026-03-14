@@ -1,6 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 import type { MatchPublicationInput } from '../../types/matchPublication';
+import type { MatchVenue } from '../../types/venue';
 
 export type TeamPlayer = {
   position: 'POR' | 'DEF' | 'MED' | 'DEL';
@@ -22,6 +23,7 @@ export type MatchToSave = {
   team1Color?: string;
   team2Color?: string;
   publication?: MatchPublicationInput;
+  venue?: MatchVenue | null;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
 };
@@ -197,6 +199,7 @@ export async function saveMatch(match: MatchToSave): Promise<void> {
     goalsTeam2: team2Goals,
     team1Color: match.team1Color ?? null,
     team2Color: match.team2Color ?? null,
+    venue: match.venue ?? null,
     publication: {
       isPublished: Boolean(match.publication?.isPublished ?? false),
       neededPlayers: Number(match.publication?.neededPlayers ?? 0),
@@ -309,6 +312,7 @@ export type ScheduledMatchToSave = {
   team1Color?: string;
   team2Color?: string;
   publication?: MatchPublicationInput;
+  venue?: MatchVenue | null;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
 };
@@ -346,6 +350,7 @@ export async function saveScheduledMatch(
     goalsTeam2: 0,
     team1Color: match.team1Color ?? null,
     team2Color: match.team2Color ?? null,
+    venue: match.venue ?? null,
     publication: {
       isPublished: Boolean(match.publication?.isPublished ?? false),
       neededPlayers: Number(match.publication?.neededPlayers ?? 0),

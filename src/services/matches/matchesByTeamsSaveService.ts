@@ -1,6 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 import type { MatchPublicationInput } from '../../types/matchPublication';
+import type { MatchVenue } from '../../types/venue';
 
 const MATCHES_BY_TEAMS_COLLECTION = 'matchesByTeams';
 const GROUPS_COLLECTION = 'groups';
@@ -88,6 +89,7 @@ export type MatchByTeamsToSave = {
   players1: MatchTeamPlayerToSave[];
   players2: MatchTeamPlayerToSave[];
   publication?: MatchPublicationInput;
+  venue?: MatchVenue | null;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
 };
@@ -327,6 +329,7 @@ export async function saveMatchByTeams(match: MatchByTeamsToSave): Promise<void>
     },
     mvpVotes: {},
     statsSnapshot,
+    venue: match.venue ?? null,
   });
 
   addPublicListingToBatch(
@@ -397,6 +400,7 @@ export type ScheduledMatchByTeamsToSave = {
   players1: Array<{ groupMemberId: string; position: 'POR' | 'DEF' | 'MED' | 'DEL' | null }>;
   players2: Array<{ groupMemberId: string; position: 'POR' | 'DEF' | 'MED' | 'DEL' | null }>;
   publication?: MatchPublicationInput;
+  venue?: MatchVenue | null;
   createdByUserId?: string | null;
   createdByGroupMemberId?: string | null;
 };
@@ -464,6 +468,7 @@ export async function saveScheduledMatchByTeams(
     mvpVoting: null,
     mvpVotes: {},
     statsSnapshot: null,
+    venue: match.venue ?? null,
   });
 
   addPublicListingToBatch(
