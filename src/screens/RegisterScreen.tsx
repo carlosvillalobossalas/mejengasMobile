@@ -4,11 +4,11 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  View,
 } from 'react-native';
 import {
   Button,
   HelperText,
-  Surface,
   Text,
   TextInput,
   useTheme,
@@ -57,17 +57,18 @@ export default function RegisterScreen({ navigation }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Surface style={styles.card} elevation={1}>
-          <Text variant="headlineMedium" style={styles.title}>
-            Crear cuenta
+        {/* Brand area */}
+        <View style={styles.brandArea}>
+          <Text variant="displaySmall" style={[styles.title, { color: theme.colors.primary }]}>
+            Mejengas
           </Text>
-          <Text
-            variant="bodyMedium"
-            style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
-          >
+          <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
             Creá tu cuenta con correo y contraseña.
           </Text>
+        </View>
 
+        {/* Card */}
+        <View style={styles.card}>
           <TextInput
             label="Correo"
             value={email}
@@ -78,7 +79,7 @@ export default function RegisterScreen({ navigation }: Props) {
             textContentType="emailAddress"
             mode="outlined"
             style={styles.input}
-            left={<TextInput.Icon icon="email" />}
+            left={<TextInput.Icon icon="email-outline" />}
           />
 
           <TextInput
@@ -96,10 +97,10 @@ export default function RegisterScreen({ navigation }: Props) {
             textContentType="newPassword"
             mode="outlined"
             style={styles.input}
-            left={<TextInput.Icon icon="lock" />}
+            left={<TextInput.Icon icon="lock-outline" />}
             right={
               <TextInput.Icon
-                icon={showPassword ? 'eye-off' : 'eye'}
+                icon={showPassword ? 'eye-off-outline' : 'eye-outline'}
                 onPress={() => setShowPassword(prev => !prev)}
               />
             }
@@ -115,7 +116,7 @@ export default function RegisterScreen({ navigation }: Props) {
             textContentType="newPassword"
             mode="outlined"
             style={styles.input}
-            left={<TextInput.Icon icon="lock-check" />}
+            left={<TextInput.Icon icon="lock-check-outline" />}
           />
 
           <HelperText
@@ -140,6 +141,7 @@ export default function RegisterScreen({ navigation }: Props) {
             disabled={!isValid || isBusy}
             loading={isBusy}
             style={styles.primaryButton}
+            contentStyle={styles.buttonContent}
           >
             Crear cuenta
           </Button>
@@ -152,7 +154,7 @@ export default function RegisterScreen({ navigation }: Props) {
           >
             Volver
           </Button>
-        </Surface>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -161,30 +163,49 @@ export default function RegisterScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F2F4F7',
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 20,
+    padding: 24,
     justifyContent: 'center',
-  },
-  card: {
-    borderRadius: 16,
-    padding: 18,
     gap: 8,
   },
+  brandArea: {
+    alignItems: 'center',
+    marginBottom: 24,
+    gap: 6,
+  },
   title: {
-    marginBottom: 4,
-    textAlign: 'center',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   subtitle: {
-    marginBottom: 16,
     textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
   input: {
-    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    marginTop: 4,
   },
   primaryButton: {
-    marginTop: 8,
+    marginTop: 4,
+    borderRadius: 10,
+  },
+  buttonContent: {
+    paddingVertical: 4,
   },
   secondaryAction: {
     marginTop: 4,
