@@ -4,6 +4,7 @@ import {
     StyleSheet,
     TextInput,
     ScrollView,
+    FlatList,
     TouchableOpacity,
     TouchableWithoutFeedback,
     ActivityIndicator,
@@ -27,7 +28,10 @@ import {
 } from '../../services/places/placesService';
 import {
     addFavoriteVenue,
+    deleteFavoriteVenue,
+    subscribeToFavoriteVenues,
 } from '../../repositories/venues/favoriteVenuesRepository';
+import type { FavoriteVenue } from '../../types/venue';
 import { GOOGLE_MAPS_API_KEY } from '../../config/mapsConfig';
 
 const DEFAULT_LAT = 9.9281;
@@ -76,6 +80,18 @@ export function VenuePickerModal({
     const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
     const [saveAsFavorite, setSaveAsFavorite] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [favoriteVenues, setFavoriteVenues] = useState<FavoriteVenue[]>([]);
+    const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+
+    // ─── Subscribe to favorite venues ────────────────────────────────────────
+    useEffect(() => {
+        if (!visible || !authUserId) return;
+        const unsubscribe = subscribeToFavoriteVenues(
+            authUserId,
+            venues => setFavoriteVenues(venues),
+        );
+        return unsubscribe;
+    }, [visible, authUserId]);
 
     // ─── Reset on open ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -165,6 +181,22 @@ export function VenuePickerModal({
         mapRef.current?.animateToRegion(newRegion, 600);
     }, [initialVenue]);
 
+    // ─── Select a favorite venue ───────────────────────────────────────────────
+    const handleSelectFavorite = (fav: FavoriteVenue) => {
+        setShowFavoritesModal(false);
+        const newRegion: Region = {
+            latitude: fav.latitude,
+            longitude: fav.longitude,
+            latitudeDelta: 0.003,
+            longitudeDelta: 0.003,
+        };
+        centerRef.current = { lat: fav.latitude, lng: fav.longitude };
+        setRegion(newRegion);
+        setVenueName(fav.name);
+        setVenueAddress(fav.address);
+        mapRef.current?.animateToRegion(newRegion, 500);
+    };
+
     // ─── Map panned → reverse geocode center ─────────────────────────────────
     const handleRegionChangeComplete = useCallback(async (r: Region) => {
         centerRef.current = { lat: r.latitude, lng: r.longitude };
@@ -190,8 +222,16 @@ export function VenuePickerModal({
             notes: null,
         };
         if (saveAsFavorite && authUserId) {
-            setIsSaving(true);
-            try { await addFavoriteVenue(authUserId, venue); } finally { setIsSaving(false); }
+            // Prevent saving a duplicate (same coordinates within ~10m)
+            const isDuplicate = favoriteVenues.some(
+                v =>
+                    Math.abs(v.latitude - venue.latitude) < 0.0001 &&
+                    Math.abs(v.longitude - venue.longitude) < 0.0001,
+            );
+            if (!isDuplicate) {
+                setIsSaving(true);
+                try { await addFavoriteVenue(authUserId, venue); } finally { setIsSaving(false); }
+            }
         }
         onConfirm(venue);
     };
@@ -307,12 +347,90 @@ export function VenuePickerModal({
                             )}
                         </View>
 
+                        {/* ── Favorites modal ── */}
+                        <Modal
+                            visible={showFavoritesModal}
+                            transparent
+                            animationType="slide"
+                            onRequestClose={() => setShowFavoritesModal(false)}
+                            statusBarTranslucent
+                        >
+                            <View style={styles.favModalOverlay}>
+                                <TouchableWithoutFeedback onPress={() => setShowFavoritesModal(false)}>
+                                    <View style={styles.backdrop} />
+                                </TouchableWithoutFeedback>
+                                <View style={[styles.favModalSheet, { backgroundColor: '#FFFFFF' }]}>
+                                    <View style={styles.handle} />
+                                    <View style={styles.header}>
+                                        <Text variant="titleMedium" style={styles.headerTitle}>
+                                            Mis lugares favoritos
+                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={() => setShowFavoritesModal(false)}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                        >
+                                            <Icon name="close" size={22} color={theme.colors.onSurface} />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <Divider />
+                                    <FlatList
+                                        data={favoriteVenues}
+                                        keyExtractor={item => item.id}
+                                        contentContainerStyle={styles.favModalList}
+                                        renderItem={({ item, index }) => (
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.favModalItem,
+                                                    index < favoriteVenues.length - 1 && styles.favModalItemBorder,
+                                                ]}
+                                                onPress={() => handleSelectFavorite(item)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Icon name="map-marker" size={20} color={theme.colors.primary} style={{ marginTop: 1 }} />
+                                                <View style={styles.favModalItemInfo}>
+                                                    <Text variant="bodyMedium" style={{ fontWeight: '600' }} numberOfLines={1}>
+                                                        {item.name}
+                                                    </Text>
+                                                    <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} numberOfLines={1}>
+                                                        {item.address}
+                                                    </Text>
+                                                </View>
+                                                <TouchableOpacity
+                                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                                    onPress={() => {
+                                                        if (authUserId) void deleteFavoriteVenue(authUserId, item.id);
+                                                    }}
+                                                >
+                                                    <Icon name="trash-can-outline" size={18} color={theme.colors.error} />
+                                                </TouchableOpacity>
+                                            </TouchableOpacity>
+                                        )}
+                                    />
+                                    <View style={{ height: Platform.OS === 'ios' ? 24 : 16 }} />
+                                </View>
+                            </View>
+                        </Modal>
+
                         {/* ── Bottom fields ── */}
                         <ScrollView
                             keyboardShouldPersistTaps="handled"
                             contentContainerStyle={styles.fieldsContent}
                             style={styles.fieldsScroll}
                         >
+                            {/* Favorites button */}
+                            {favoriteVenues.length > 0 && (
+                                <TouchableOpacity
+                                    style={[styles.favoritesButton, { borderColor: theme.colors.primary }]}
+                                    onPress={() => setShowFavoritesModal(true)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Icon name="star-outline" size={16} color={theme.colors.primary} />
+                                    <Text variant="labelMedium" style={[styles.favoritesButtonText, { color: theme.colors.primary }]}>
+                                        Mis lugares favoritos
+                                    </Text>
+                                    <Icon name="chevron-right" size={16} color={theme.colors.primary} />
+                                </TouchableOpacity>
+                            )}
                             {/* Address read-only display */}
                             <View style={[styles.addressRow, { borderColor: theme.colors.outlineVariant }]}>
                                 <Icon name="map-marker-outline" size={16} color={theme.colors.primary} style={{ marginTop: 1 }} />
@@ -509,12 +627,59 @@ const styles = StyleSheet.create({
     },
     // ─── Bottom fields ────────────────────────────────────────────────────────
     fieldsScroll: {
-        maxHeight: SCREEN_HEIGHT * 0.22,
+        maxHeight: SCREEN_HEIGHT * 0.30,
     },
     fieldsContent: {
         paddingHorizontal: 16,
         paddingTop: 12,
         paddingBottom: 4,
+    },
+    favoritesButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 12,
+    },
+    favoritesButtonText: {
+        flex: 1,
+        fontWeight: '600',
+    },
+    // ─── Favorites modal ──────────────────────────────────────────────────────
+    favModalOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+    },
+    favModalSheet: {
+        maxHeight: SCREEN_HEIGHT * 0.55,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingTop: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 16,
+    },
+    favModalList: {
+        paddingHorizontal: 16,
+        paddingTop: 8,
+    },
+    favModalItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 14,
+    },
+    favModalItemBorder: {
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: '#E5E7EB',
+    },
+    favModalItemInfo: {
+        flex: 1,
     },
     addressRow: {
         flexDirection: 'row',
