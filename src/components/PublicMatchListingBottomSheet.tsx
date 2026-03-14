@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActionSheetIOS, Linking, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
   ActivityIndicator,
   Button,
@@ -23,6 +23,7 @@ import type { MatchPosition } from '../types/matchPublication';
 import type { MatchVenue } from '../types/venue';
 import type { PublicMatchListing } from '../repositories/publicListings/publicMatchListingsRepository';
 import VenueMapThumbnail from './venue/VenueMapThumbnail';
+import { openVenueNavigation } from '../helpers/openVenueNavigation';
 
 const LISTING_TYPE_LABEL: Record<PublicMatchListing['sourceMatchType'], string> = {
   matches: 'Partido interno',
@@ -98,28 +99,7 @@ export default function PublicMatchListingBottomSheet({
 
   const handleOpenNavigation = () => {
     if (!displayVenue) return;
-    const { latitude, longitude, name } = displayVenue;
-    const encodedName = encodeURIComponent(name);
-    const googleUrl = `https://maps.google.com/?daddr=${latitude},${longitude}&dname=${encodedName}`;
-    const wazeUrl = `waze://?ll=${latitude},${longitude}&navigate=yes`;
-    const appleMapsUrl = `maps://app?daddr=${latitude},${longitude}`;
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Google Maps', 'Waze', 'Apple Maps', 'Cancelar'],
-          cancelButtonIndex: 3,
-          title: 'Abrir con',
-        },
-        buttonIndex => {
-          if (buttonIndex === 0) void Linking.openURL(googleUrl);
-          if (buttonIndex === 1) void Linking.openURL(wazeUrl);
-          if (buttonIndex === 2) void Linking.openURL(appleMapsUrl);
-        },
-      );
-    } else {
-      void Linking.openURL(googleUrl);
-    }
+    openVenueNavigation(displayVenue);
   };
 
   useEffect(() => {

@@ -326,6 +326,7 @@ export default function MatchDetailSheet({
                             team1Color={selectedClassicMatch.team1Color ?? selectedGroup?.defaultTeam1Color}
                             team2Color={selectedClassicMatch.team2Color ?? selectedGroup?.defaultTeam2Color}
                             matchDate={selectedClassicMatch.date}
+                            venue={selectedClassicMatch.venue ?? null}
                             onSlotPress={() => {}}
                         />
                         <View style={s.spacer} />
@@ -351,6 +352,7 @@ export default function MatchDetailSheet({
                             team1Color={selectedTeams.find(t => t.id === selectedTeamsMatch.team1Id)?.color}
                             team2Color={selectedTeams.find(t => t.id === selectedTeamsMatch.team2Id)?.color}
                             matchDate={selectedTeamsMatch.date}
+                            venue={selectedTeamsMatch.venue ?? null}
                             onSlotPress={() => {}}
                         />
                         <View style={s.spacer} />
@@ -377,6 +379,7 @@ export default function MatchDetailSheet({
                             teamName={selectedGroup?.name ?? 'Mi equipo'}
                             secondaryTeamName={selectedChallengeMatch.opponentName.trim() || 'Rival'}
                             matchDate={selectedChallengeMatch.date}
+                            venue={selectedChallengeMatch.venue ?? null}
                             onSlotPress={() => {}}
                         />
                         <View style={s.spacer} />

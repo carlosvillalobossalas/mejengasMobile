@@ -4,6 +4,9 @@ import { Avatar, Text, Surface, useTheme, MD3Theme } from 'react-native-paper';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
+import type { MatchVenue } from '../types/venue';
+import VenueMapThumbnail from './venue/VenueMapThumbnail';
+import { openVenueNavigation } from '../helpers/openVenueNavigation';
 
 // LineupPlayer is a superset of MatchPlayer that also accepts the isSub flag
 // present in team-based matches. Both types are structurally compatible.
@@ -31,6 +34,8 @@ type MatchLineupProps = {
     team2Color?: string;
     /** Optional match ISO date used in Details tab */
     matchDate?: string;
+    /** Optional venue shown as a map in the Details tab */
+    venue?: MatchVenue | null;
     onSlotPress?: (params: {
         team: 1 | 2;
         slotIndex: number;
@@ -101,6 +106,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
     team1Color,
     team2Color,
     matchDate,
+    venue,
     onSlotPress,
 }) => {
     const theme = useTheme();
@@ -408,6 +414,27 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
                             {matchDate ? formatDetailTime(matchDate) : '--:--'}
                         </Text>
                     </View>
+                    {venue ? (
+                        <View style={styles(theme).detailMapContainer}>
+                            <VenueMapThumbnail
+                                venue={venue}
+                                height={140}
+                                borderRadius={8}
+                                onPress={() => openVenueNavigation(venue)}
+                            />
+                            <View style={styles(theme).detailVenueRow}>
+                                <Icon name="map-marker" size={14} color={theme.colors.primary} />
+                                <Text variant="bodySmall" style={styles(theme).detailVenueName} numberOfLines={1}>
+                                    {venue.name}
+                                </Text>
+                            </View>
+                            {venue.address ? (
+                                <Text variant="bodySmall" style={styles(theme).detailVenueAddress} numberOfLines={2}>
+                                    {venue.address}
+                                </Text>
+                            ) : null}
+                        </View>
+                    ) : null}
                     <View style={styles(theme).kitRow}>
                         <Text variant="labelMedium" style={styles(theme).kitTitle}>
                             Color recomendado
@@ -529,6 +556,24 @@ const styles = (theme: MD3Theme) => StyleSheet.create({
         paddingVertical: 14,
         backgroundColor: theme.colors.surface,
         gap: 10,
+    },
+    detailMapContainer: {
+        gap: 4,
+    },
+    detailVenueRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 4,
+    },
+    detailVenueName: {
+        fontWeight: '700',
+        color: theme.colors.onSurface,
+        flex: 1,
+    },
+    detailVenueAddress: {
+        color: theme.colors.onSurfaceVariant,
+        marginLeft: 18,
     },
     detailRow: {
         flexDirection: 'row',

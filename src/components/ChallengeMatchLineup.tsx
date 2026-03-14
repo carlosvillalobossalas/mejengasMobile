@@ -5,6 +5,9 @@ import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material
 
 import type { GroupMemberV2 } from '../repositories/groupMembersV2/groupMembersV2Repository';
 import type { ChallengeMatchPlayer } from '../repositories/matches/matchesByChallengeRepository';
+import type { MatchVenue } from '../types/venue';
+import VenueMapThumbnail from './venue/VenueMapThumbnail';
+import { openVenueNavigation } from '../helpers/openVenueNavigation';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,6 +20,8 @@ type ChallengeMatchLineupProps = {
   teamName?: string;
   secondaryTeamName?: string;
   matchDate?: string;
+  /** Optional venue shown as a map in the Details tab */
+  venue?: MatchVenue | null;
   onSlotPress?: (params: { slotIndex: number; groupMemberId: string | null }) => void;
 };
 
@@ -64,6 +69,7 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
   teamName,
   secondaryTeamName,
   matchDate,
+  venue,
   onSlotPress,
 }) => {
   const theme = useTheme();
@@ -277,6 +283,27 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
               {matchDate ? formatDetailTime(matchDate) : '--:--'}
             </Text>
           </View>
+          {venue ? (
+            <View style={styles(theme).detailMapContainer}>
+              <VenueMapThumbnail
+                venue={venue}
+                height={140}
+                borderRadius={8}
+                onPress={() => openVenueNavigation(venue)}
+              />
+              <View style={styles(theme).detailVenueRow}>
+                <Icon name="map-marker" size={14} color={theme.colors.primary} />
+                <Text variant="bodySmall" style={styles(theme).detailVenueName} numberOfLines={1}>
+                  {venue.name}
+                </Text>
+              </View>
+              {venue.address ? (
+                <Text variant="bodySmall" style={styles(theme).detailVenueAddress} numberOfLines={2}>
+                  {venue.address}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           <View style={styles(theme).kitRow}>
             <Text variant="labelMedium" style={styles(theme).kitTitle}>
               Color recomendado
@@ -384,6 +411,24 @@ const styles = (theme: MD3Theme) =>
       paddingVertical: 14,
       backgroundColor: theme.colors.surface,
       gap: 10,
+    },
+    detailMapContainer: {
+      gap: 4,
+    },
+    detailVenueRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 4,
+    },
+    detailVenueName: {
+      fontWeight: '700',
+      color: theme.colors.onSurface,
+      flex: 1,
+    },
+    detailVenueAddress: {
+      color: theme.colors.onSurfaceVariant,
+      marginLeft: 18,
     },
     detailRow: {
       flexDirection: 'row',
