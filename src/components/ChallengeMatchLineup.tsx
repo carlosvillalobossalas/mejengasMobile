@@ -107,7 +107,7 @@ const ChallengeMatchLineup: React.FC<ChallengeMatchLineupProps> = ({
     const coords = getPositionCoordinates(player.position, indexInPosition, playersInPosition.length);
 
     // Unique key: use groupMemberId if present, otherwise fallback to position+index
-    const key = player.groupMemberId ?? `empty_${player.position}_${playerIndex}`;
+    const key = player.groupMemberId || `empty_${player.position}_${playerIndex}`;
 
     // Empty slot: show "?" placeholder with muted styling
     if (!player.groupMemberId) {

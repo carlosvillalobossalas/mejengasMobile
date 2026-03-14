@@ -151,7 +151,7 @@ const MatchLineup: React.FC<MatchLineupProps> = ({
 
         const coords = getPositionCoordinates(player.position, indexInPosition, playersInPosition.length);
         const hasStats = (player.goals > 0 || player.assists > 0 || player.ownGoals > 0);
-        const key = player.groupMemberId ?? `empty_${player.position}_${playerIndex}`;
+        const key = player.groupMemberId || `empty_${player.position}_${playerIndex}`;
 
         if (!player.groupMemberId) {
             return (
