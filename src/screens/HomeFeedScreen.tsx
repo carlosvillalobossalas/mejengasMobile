@@ -431,6 +431,8 @@ export default function HomeFeedScreen() {
             const groupName = getListingGroupName(listing);
             const group = groupsById.get(listing.groupId);
             const spotsLeft = Math.max(0, listing.neededPlayers - listing.acceptedPlayers);
+            // Use venue stored directly on the listing doc
+            const venue = listing.venue ?? null;
             return (
                 <TouchableOpacity
                     style={styles.feedRow}
@@ -468,15 +470,15 @@ export default function HomeFeedScreen() {
                                 {listing.notes}
                             </Text>
                         ) : null}
-                        {listing.venue ? (
+                        {venue ? (
                             <VenueMapThumbnail
-                                venue={listing.venue}
+                                venue={venue}
                                 height={120}
                                 borderRadius={8}
                             />
                         ) : null}
                         <View style={styles.listingBottomRow}>
-                            {listing.venue ? (
+                            {venue ? (
                                 <View style={styles.listingVenueLabel}>
                                     <Icon name="map-marker" size={14} color={theme.colors.secondary} />
                                     <Text
@@ -484,7 +486,7 @@ export default function HomeFeedScreen() {
                                         style={[styles.listingVenueName, { color: theme.colors.secondary }]}
                                         numberOfLines={1}
                                     >
-                                        {listing.venue.name}
+                                        {venue.name}
                                     </Text>
                                 </View>
                             ) : (

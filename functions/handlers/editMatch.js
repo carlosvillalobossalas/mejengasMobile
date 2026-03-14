@@ -39,6 +39,24 @@ const normalizePublication = publication => {
   };
 };
 
+/**
+ * Validates and normalises a venue object received from the client.
+ * Returns null if the object is missing required coordinate fields.
+ */
+const normalizeVenue = raw => {
+  if (!raw || typeof raw !== 'object') return null;
+  const lat = Number(raw.latitude);
+  const lng = Number(raw.longitude);
+  if (!isFinite(lat) || !isFinite(lng)) return null;
+  return {
+    name: typeof raw.name === 'string' ? raw.name.trim() : '',
+    address: typeof raw.address === 'string' ? raw.address.trim() : '',
+    latitude: lat,
+    longitude: lng,
+    notes: typeof raw.notes === 'string' && raw.notes.trim() ? raw.notes.trim() : null,
+  };
+};
+
 const normalizePlayers = players =>
   (players ?? []).map(player => {
     const rawGroupMemberId = typeof player?.groupMemberId === 'string'
@@ -263,6 +281,9 @@ exports.editMatch = onCall(async request => {
     ? normalizePublication(publication)
     : undefined;
 
+  // Extract venue from the raw publication object (normalizePublication does not preserve it)
+  const normalizedVenue = normalizeVenue(publication?.venue ?? null);
+
   // Read current status before transaction for post-transaction cleanup
   const currentStatus = String(matchData.status ?? 'finished');
 
@@ -309,6 +330,7 @@ exports.editMatch = onCall(async request => {
       team1Color: normalizeHexColor(team1Color),
       team2Color: normalizeHexColor(team2Color),
       ...(normalizedPublication !== undefined ? { publication: normalizedPublication } : {}),
+      venue: normalizedVenue,
       date: admin.firestore.Timestamp.fromDate(parsedDate),
       editedAt: FieldValue.serverTimestamp(),
       editedBy: uid,
@@ -350,6 +372,7 @@ exports.editMatch = onCall(async request => {
             sourceMatchType: 'matches',
             matchDate: admin.firestore.Timestamp.fromDate(parsedDate),
             city: normalizedPublication.city ?? '',
+            venue: normalizedVenue,
             neededPlayers: normalizedPublication.neededPlayers,
             acceptedPlayers: Number(existingListing?.acceptedPlayers ?? 0),
             preferredPositions: normalizedPublication.allowAnyPosition
