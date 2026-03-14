@@ -52,6 +52,7 @@ const addPublicListingToBatch = (
       sourceMatchType: 'matchesByTeams',
       matchDate: firestore.Timestamp.fromDate(matchDate),
       city: publication?.city ?? '',
+      venue: publication?.venue ?? null,
       neededPlayers: Number(publication?.neededPlayers ?? 0),
       acceptedPlayers: 0,
       preferredPositions: publication?.allowAnyPosition ? [] : (publication?.preferredPositions ?? []),

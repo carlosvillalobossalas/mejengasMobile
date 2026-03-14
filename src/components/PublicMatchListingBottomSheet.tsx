@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActionSheetIOS, Linking, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
   ActivityIndicator,
   Button,
@@ -8,6 +8,7 @@ import {
   TextInput,
   useTheme,
 } from 'react-native-paper';
+import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 
 import { getGroupMembersV2ByGroupId } from '../repositories/groupMembersV2/groupMembersV2Repository';
@@ -19,7 +20,9 @@ import {
   type PublicMatchApplication,
 } from '../repositories/publicListings/publicMatchApplicationsRepository';
 import type { MatchPosition } from '../types/matchPublication';
+import type { MatchVenue } from '../types/venue';
 import type { PublicMatchListing } from '../repositories/publicListings/publicMatchListingsRepository';
+import VenueMapThumbnail from './venue/VenueMapThumbnail';
 
 const LISTING_TYPE_LABEL: Record<PublicMatchListing['sourceMatchType'], string> = {
   matches: 'Partido interno',
@@ -87,11 +90,43 @@ export default function PublicMatchListingBottomSheet({
   const [optimisticStatusByListingId, setOptimisticStatusByListingId] = useState<
     Record<string, PublicMatchApplication['status']>
   >({});
+  // Venue loaded from the match document (fallback for listings without venue field)
+  const [venueFromLoad, setVenueFromLoad] = useState<MatchVenue | null>(null);
+
+  // Derived: listing.venue is the primary source; match-loaded venue is the fallback
+  const displayVenue: MatchVenue | null = selectedListing?.venue ?? venueFromLoad;
+
+  const handleOpenNavigation = () => {
+    if (!displayVenue) return;
+    const { latitude, longitude, name } = displayVenue;
+    const encodedName = encodeURIComponent(name);
+    const googleUrl = `https://maps.google.com/?daddr=${latitude},${longitude}&dname=${encodedName}`;
+    const wazeUrl = `waze://?ll=${latitude},${longitude}&navigate=yes`;
+    const appleMapsUrl = `maps://app?daddr=${latitude},${longitude}`;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Google Maps', 'Waze', 'Apple Maps', 'Cancelar'],
+          cancelButtonIndex: 3,
+          title: 'Abrir con',
+        },
+        buttonIndex => {
+          if (buttonIndex === 0) void Linking.openURL(googleUrl);
+          if (buttonIndex === 1) void Linking.openURL(wazeUrl);
+          if (buttonIndex === 2) void Linking.openURL(appleMapsUrl);
+        },
+      );
+    } else {
+      void Linking.openURL(googleUrl);
+    }
+  };
 
   useEffect(() => {
     setIsApplyFormVisible(false);
     setApplyNote('');
     setApplyPositions([]);
+    setVenueFromLoad(null);
   }, [selectedListing?.id]);
 
   useEffect(() => {
@@ -135,6 +170,7 @@ export default function PublicMatchListingBottomSheet({
           if (!match) throw new Error('No se encontró el partido publicado.');
 
           if (!isMounted) return;
+          setVenueFromLoad(match.venue ?? null);
           setListingDetail({
             team1Title: 'Equipo 1',
             team1Lineup: buildLineup(match.players1, namesByMemberId),
@@ -149,6 +185,7 @@ export default function PublicMatchListingBottomSheet({
           if (!match) throw new Error('No se encontró el partido publicado.');
 
           if (!isMounted) return;
+          setVenueFromLoad(match.venue ?? null);
           setListingDetail({
             team1Title: 'Equipo 1',
             team1Lineup: buildLineup(match.players1, namesByMemberId),
@@ -162,6 +199,7 @@ export default function PublicMatchListingBottomSheet({
         if (!challengeMatch) throw new Error('No se encontró el partido publicado.');
 
         if (!isMounted) return;
+        setVenueFromLoad(challengeMatch.venue ?? null);
         setListingDetail({
           team1Title: 'Equipo del grupo',
           team1Lineup: buildLineup(challengeMatch.players, namesByMemberId),
@@ -238,14 +276,42 @@ export default function PublicMatchListingBottomSheet({
               {LISTING_TYPE_LABEL[selectedListing.sourceMatchType]}
             </Text>
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              {formatMatchDate(selectedListing.matchDate)} · {selectedListing.city || 'Zona por confirmar'}
-            </Text>
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              Grupo: {getListingGroupName(selectedListing)}
+              {formatMatchDate(selectedListing.matchDate)} · {getListingGroupName(selectedListing)}
             </Text>
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
               Cupos disponibles: {Math.max(0, selectedListing.neededPlayers - selectedListing.acceptedPlayers)}
             </Text>
+
+            {/* Venue map — tappable to open navigation */}
+            {displayVenue ? (
+              <>
+                <VenueMapThumbnail
+                  venue={displayVenue}
+                  height={160}
+                  borderRadius={10}
+                  onPress={handleOpenNavigation}
+                />
+                <TouchableOpacity style={styles.venueRow} activeOpacity={0.7} onPress={handleOpenNavigation}>
+                  <Icon name="map-marker" size={18} color={theme.colors.secondary} />
+                  <View style={styles.venueInfo}>
+                    <Text variant="bodyMedium" style={[styles.venueName, { color: theme.colors.secondary }]}>
+                      {displayVenue.name}
+                    </Text>
+                    {displayVenue.address ? (
+                      <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                        {displayVenue.address}
+                      </Text>
+                    ) : null}
+                    {displayVenue.notes ? (
+                      <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, fontStyle: 'italic' }}>
+                        {displayVenue.notes}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Icon name="navigation-variant-outline" size={18} color={theme.colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              </>
+            ) : null}
 
             {isLoadingListingDetail ? (
               <View style={styles.listingLoadingWrap}>
@@ -430,6 +496,20 @@ const styles = StyleSheet.create({
   },
   applyCta: {
     borderRadius: 10,
+  },
+  venueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  venueInfo: {
+    flex: 1,
+    gap: 1,
+  },
+  venueName: {
+    fontWeight: '700',
   },
   applyFormWrap: {
     gap: 8,

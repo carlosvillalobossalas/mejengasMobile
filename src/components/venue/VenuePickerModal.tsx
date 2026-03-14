@@ -8,7 +8,6 @@ import {
     TouchableWithoutFeedback,
     ActivityIndicator,
     Switch,
-    KeyboardAvoidingView,
     Platform,
     Modal,
     Dimensions,
@@ -16,7 +15,7 @@ import {
 import { Text, Button, Divider, useTheme } from 'react-native-paper';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-import MapView, { type Region } from 'react-native-maps';
+import MapView, { type Region, type UserLocationChangeEvent } from 'react-native-maps';
 import { MaterialDesignIcons as Icon } from '@react-native-vector-icons/material-design-icons';
 
 import type { MatchVenue } from '../../types/venue';
@@ -61,6 +60,8 @@ export function VenuePickerModal({
     });
     // Track center separately to avoid stale closure issues in onRegionChangeComplete
     const centerRef = useRef({ lat: DEFAULT_LAT, lng: DEFAULT_LNG });
+    // Whether we've already centered the map on the device location for this session
+    const centeredOnDeviceRef = useRef(false);
 
     // ─── Search ───────────────────────────────────────────────────────────────
     const [query, setQuery] = useState('');
@@ -100,6 +101,8 @@ export function VenuePickerModal({
         setPredictions([]);
         setShowPredictions(false);
         setSaveAsFavorite(false);
+        // Allow re-centering on device location each time the modal opens
+        if (!initialVenue) centeredOnDeviceRef.current = false;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visible]);
 
@@ -143,6 +146,24 @@ export function VenuePickerModal({
         setVenueAddress(details.formattedAddress);
         mapRef.current?.animateToRegion(newRegion, 500);
     };
+
+    // ─── Center on device location (first user location event) ───────────────
+    const handleUserLocationChange = useCallback((event: UserLocationChangeEvent) => {
+        // Only auto-pan once per open, and only when no initialVenue was set
+        if (centeredOnDeviceRef.current || initialVenue) return;
+        const coord = event.nativeEvent.coordinate;
+        if (!coord) return;
+        centeredOnDeviceRef.current = true;
+        const newRegion: Region = {
+            latitude: coord.latitude,
+            longitude: coord.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+        };
+        centerRef.current = { lat: coord.latitude, lng: coord.longitude };
+        setRegion(newRegion);
+        mapRef.current?.animateToRegion(newRegion, 600);
+    }, [initialVenue]);
 
     // ─── Map panned → reverse geocode center ─────────────────────────────────
     const handleRegionChangeComplete = useCallback(async (r: Region) => {
@@ -189,10 +210,7 @@ export function VenuePickerModal({
                     <View style={styles.backdrop} />
                 </TouchableWithoutFeedback>
 
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    style={styles.kavContainer}
-                >
+                <View style={styles.kavContainer}>
                     <View style={[styles.sheet, { backgroundColor: '#FFFFFF' }]}>
                         {/* Handle */}
                         <View style={styles.handle} />
@@ -218,6 +236,9 @@ export function VenuePickerModal({
                                 ref={mapRef}
                                 style={StyleSheet.absoluteFill}
                                 initialRegion={region}
+                                showsUserLocation
+                                showsMyLocationButton={false}
+                                onUserLocationChange={handleUserLocationChange}
                                 onRegionChangeComplete={r => void handleRegionChangeComplete(r)}
                             />
 
@@ -352,7 +373,7 @@ export function VenuePickerModal({
 
                         <View style={{ height: Platform.OS === 'ios' ? 24 : 16 }} />
                     </View>
-                </KeyboardAvoidingView>
+                </View>
             </View>
         </Modal>
     );

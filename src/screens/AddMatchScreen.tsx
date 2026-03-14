@@ -359,7 +359,6 @@ export default function AddMatchScreen({ route }: Props) {
   const [neededPlayers, setNeededPlayers] = useState('1');
   const [allowAnyPosition, setAllowAnyPosition] = useState(true);
   const [preferredPositions, setPreferredPositions] = useState<ScheduledPosition[]>([]);
-  const [publicationCity, setPublicationCity] = useState('');
   const [publicationNotes, setPublicationNotes] = useState('');
   const [selectedVenue, setSelectedVenue] = useState<MatchVenue | null>(null);
   const [venuePickerVisible, setVenuePickerVisible] = useState(false);
@@ -456,8 +455,8 @@ export default function AddMatchScreen({ route }: Props) {
         setNeededPlayers(String(Math.max(1, match.publication?.neededPlayers ?? 1)));
         setAllowAnyPosition(Boolean(match.publication?.allowAnyPosition ?? true));
         setPreferredPositions(match.publication?.preferredPositions ?? []);
-        setPublicationCity(match.publication?.city ?? '');
         setPublicationNotes(match.publication?.notes ?? '');
+        if (match.venue) setSelectedVenue(match.venue);
       } catch (error) {
         console.error('AddMatch(edit): error loading match', error);
         setSnackbarMessage('Error al cargar el partido');
@@ -583,9 +582,10 @@ export default function AddMatchScreen({ route }: Props) {
       neededPlayers: Number.isNaN(parsedNeededPlayers) ? 1 : Math.max(1, parsedNeededPlayers),
       allowAnyPosition,
       preferredPositions: allowAnyPosition ? [] : preferredPositions,
-      city: publicationCity.trim() ? publicationCity.trim() : null,
+      city: null,
       notes: publicationNotes.trim() ? publicationNotes.trim() : null,
       publishedByUserId: createdByUserId,
+      venue: selectedVenue,
     };
   };
 
@@ -945,14 +945,6 @@ export default function AddMatchScreen({ route }: Props) {
                   })}
                 </View>
               )}
-
-              <TextInput
-                mode="outlined"
-                label="Ciudad o zona"
-                value={publicationCity}
-                onChangeText={setPublicationCity}
-                dense
-              />
 
               <TextInput
                 mode="outlined"

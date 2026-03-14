@@ -51,6 +51,7 @@ import {
 } from '../repositories/publicListings/publicMatchListingsRepository';
 import PublicMatchListingBottomSheet from '../components/PublicMatchListingBottomSheet';
 import MatchDetailSheet from '../components/myMatches/MatchDetailSheet';
+import VenueMapThumbnail from '../components/venue/VenueMapThumbnail';
 import { type UnifiedMatchItem, type SelectedMatch } from '../components/myMatches/types';
 
 const MATCH_TYPE_LABELS: Record<string, string> = {
@@ -461,18 +462,44 @@ export default function HomeFeedScreen() {
                         </View>
                         <Text variant="bodyMedium" style={styles.feedRowTitle} numberOfLines={1}>
                             {formatDate(listing.matchDate)}
-                            {listing.city ? ` · ${listing.city}` : ''}
-                        </Text>
-                        <Text variant="bodySmall" style={styles.feedRowSubtitle}>
-                            {spotsLeft === 0
-                                ? 'Sin cupos disponibles'
-                                : `${spotsLeft} cupo${spotsLeft !== 1 ? 's' : ''} disponible${spotsLeft !== 1 ? 's' : ''}`}
                         </Text>
                         {listing.notes ? (
                             <Text variant="bodySmall" style={styles.feedRowNotes} numberOfLines={2}>
                                 {listing.notes}
                             </Text>
                         ) : null}
+                        {listing.venue ? (
+                            <VenueMapThumbnail
+                                venue={listing.venue}
+                                height={120}
+                                borderRadius={8}
+                            />
+                        ) : null}
+                        <View style={styles.listingBottomRow}>
+                            {listing.venue ? (
+                                <View style={styles.listingVenueLabel}>
+                                    <Icon name="map-marker" size={14} color={theme.colors.secondary} />
+                                    <Text
+                                        variant="bodySmall"
+                                        style={[styles.listingVenueName, { color: theme.colors.secondary }]}
+                                        numberOfLines={1}
+                                    >
+                                        {listing.venue.name}
+                                    </Text>
+                                </View>
+                            ) : (
+                                <Text variant="bodySmall" style={styles.feedRowSubtitle}>
+                                    {listing.city || 'Zona por confirmar'}
+                                </Text>
+                            )}
+                            <View style={[styles.spotsPill, { backgroundColor: theme.colors.secondaryContainer }]}>
+                                <Text variant="labelSmall" style={[styles.spotsPillText, { color: theme.colors.secondary }]}>
+                                    {spotsLeft === 0
+                                        ? 'Sin cupos'
+                                        : `${spotsLeft} cupo${spotsLeft !== 1 ? 's' : ''} disponible${spotsLeft !== 1 ? 's' : ''}`}
+                                </Text>
+                            </View>
+                        </View>
                     </View>
                 </TouchableOpacity>
             );
@@ -838,6 +865,31 @@ const styles = StyleSheet.create({
     participantLabel: { fontSize: 10, fontWeight: '700' },
     statusPill: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
     statusPillText: { fontSize: 10, fontWeight: '700' },
+    // Listing feed card extras
+    listingBottomRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+        marginTop: 2,
+    },
+    listingVenueLabel: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        flex: 1,
+        overflow: 'hidden',
+    },
+    listingVenueName: {
+        flex: 1,
+        fontWeight: '600',
+    },
+    spotsPill: {
+        borderRadius: 20,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+    },
+    spotsPillText: { fontSize: 10, fontWeight: '700' },
     // Group switcher sheet
     groupSheetContent: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
     groupSheetTitle: { textAlign: 'center', marginBottom: 12, fontWeight: 'bold' },

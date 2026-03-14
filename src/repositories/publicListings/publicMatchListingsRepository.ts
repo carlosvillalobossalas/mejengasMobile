@@ -1,6 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 import type { MatchPosition } from '../../types/matchPublication';
+import type { MatchVenue } from '../../types/venue';
 
 const COLLECTION = 'publicMatchListings';
 
@@ -24,6 +25,7 @@ export type PublicMatchListing = {
   publishedByUserId: string | null;
   publishedAt: string | null;
   closedAt: string | null;
+  venue: MatchVenue | null;
 };
 
 const toIsoString = (value: unknown): string => {
@@ -56,6 +58,17 @@ const mapDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): PublicMatchListin
     publishedByUserId: d.publishedByUserId ? String(d.publishedByUserId) : null,
     publishedAt: toIsoString(d.publishedAt),
     closedAt: toIsoString(d.closedAt),
+    venue: (() => {
+      const v = d.venue as Record<string, unknown> | undefined;
+      if (!v || typeof v !== 'object') return null;
+      return {
+        name: String(v.name ?? ''),
+        address: String(v.address ?? ''),
+        latitude: Number(v.latitude ?? 0),
+        longitude: Number(v.longitude ?? 0),
+        notes: v.notes ? String(v.notes) : null,
+      } satisfies MatchVenue;
+    })(),
   };
 };
 

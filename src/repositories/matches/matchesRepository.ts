@@ -1,6 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 import type { MatchPublication, MatchPosition } from '../../types/matchPublication';
+import type { MatchVenue } from '../../types/venue';
 
 export type MvpVotingStatus = 'open' | 'calculated';
 
@@ -39,6 +40,7 @@ export type Match = {
   /** Map of { [voterGroupMemberId]: votedGroupMemberId } */
   mvpVotes: Record<string, string>;
   status?: 'finished' | 'scheduled' | 'cancelled';
+  venue?: MatchVenue | null;
   publication: MatchPublication;
 };
 
@@ -144,6 +146,17 @@ const mapMatchDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): Match => {
     mvpVoting,
     mvpVotes,
     status: (data.status as Match['status']) ?? 'finished',
+    venue: (() => {
+      const v = data.venue as Record<string, unknown> | undefined;
+      if (!v || typeof v !== 'object') return null;
+      return {
+        name: String(v.name ?? ''),
+        address: String(v.address ?? ''),
+        latitude: Number(v.latitude ?? 0),
+        longitude: Number(v.longitude ?? 0),
+        notes: v.notes ? String(v.notes) : null,
+      } satisfies MatchVenue;
+    })(),
     publication,
   };
 };

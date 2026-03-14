@@ -16,6 +16,8 @@ export type MatchPublication = {
   closeReason: MatchPublicationCloseReason;
 };
 
+import type { MatchVenue } from './venue';
+
 export type MatchPublicationInput = {
   isPublished: boolean;
   neededPlayers: number;
@@ -24,6 +26,7 @@ export type MatchPublicationInput = {
   city?: string | null;
   notes?: string | null;
   publishedByUserId?: string | null;
+  venue?: MatchVenue | null;
 };
 
 export const createDefaultMatchPublication = (): MatchPublication => ({

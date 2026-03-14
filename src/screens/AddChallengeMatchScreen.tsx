@@ -616,9 +616,10 @@ export default function AddChallengeMatchScreen({ route }: Props) {
       neededPlayers: Number.isNaN(parsedNeededPlayers) ? 1 : Math.max(1, parsedNeededPlayers),
       allowAnyPosition,
       preferredPositions: allowAnyPosition ? [] : preferredPositions,
-      city: publicationCity.trim() ? publicationCity.trim() : null,
+      city: null,
       notes: publicationNotes.trim() ? publicationNotes.trim() : null,
       publishedByUserId: createdByUserId,
+      venue: selectedVenue,
     };
   };
 

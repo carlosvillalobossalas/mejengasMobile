@@ -1,6 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 import type { MatchPublication, MatchPosition } from '../../types/matchPublication';
+import type { MatchVenue } from '../../types/venue';
 
 const COLLECTION = 'matchesByChallenge';
 
@@ -48,6 +49,7 @@ export type ChallengeMatch = {
   mvpVotes: Record<string, string>;
   mvpVoting: ChallengeMatchMvpVoting | null;
   publication: MatchPublication;
+  venue?: MatchVenue | null;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -141,6 +143,17 @@ const mapDoc = (doc: FirebaseFirestoreTypes.DocumentSnapshot): ChallengeMatch =>
     mvpVotes: (d.mvpVotes as Record<string, string>) ?? {},
     mvpVoting,
     publication,
+    venue: (() => {
+      const v = d.venue as Record<string, unknown> | undefined;
+      if (!v || typeof v !== 'object') return null;
+      return {
+        name: String(v.name ?? ''),
+        address: String(v.address ?? ''),
+        latitude: Number(v.latitude ?? 0),
+        longitude: Number(v.longitude ?? 0),
+        notes: v.notes ? String(v.notes) : null,
+      } satisfies MatchVenue;
+    })(),
   };
 };
 
